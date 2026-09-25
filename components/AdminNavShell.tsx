@@ -14,6 +14,7 @@ import {
   CheckCheck,
   LogOut,
   UserCheck,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
@@ -26,6 +27,7 @@ const mainNav = [
 
 const academicNav = [
   { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
+  { href: "/admin/keuangan", label: "Honor & Keuangan PTK", icon: Banknote },
   { href: "/admin/guru", label: "Data Guru", icon: Users },
   { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
   { href: "/admin/jurnal", label: "Supervisi Jurnal", icon: BookOpen },
