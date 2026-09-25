@@ -183,7 +183,7 @@ export default function JurnalMengajarPage() {
 
       {/* Filter & Search Bar */}
       <Card className="border border-slate-200/80 bg-white shadow-xs">
-        <CardContent className="p-4">
+        <CardContent className="p-5 pt-5 sm:p-6 sm:pt-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -249,7 +249,7 @@ export default function JurnalMengajarPage() {
                 key={item.id}
                 className="border border-slate-200/80 bg-white shadow-xs hover:border-primary/40 transition-colors"
               >
-                <CardContent className="p-5">
+                <CardContent className="p-5 pt-5 sm:p-6 sm:pt-6">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3 flex-1">
                       {/* Top Badges */}

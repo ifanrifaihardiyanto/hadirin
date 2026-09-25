@@ -228,7 +228,7 @@ export default function IzinSiswaPage() {
 
       {/* Filter and Search Bar */}
       <Card className="border border-slate-200/80 bg-white shadow-xs">
-        <CardContent className="p-4 space-y-3">
+        <CardContent className="p-5 pt-5 sm:p-6 sm:pt-6 space-y-3.5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             {/* Search Input */}
             <div className="relative flex-1">
@@ -351,7 +351,7 @@ export default function IzinSiswaPage() {
         </Card>
       ) : viewMode === "cards" ? (
         /* 2-KOLOM GRID DI DESKTOP: Tetap proporsional seperti mobile dan tidak melar 1400px! */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
           {filtered.map((item) => {
             const jenisCfg = JENIS_BADGE[item.jenis];
             const statusCfg = STATUS_BADGE[item.status];
@@ -362,7 +362,7 @@ export default function IzinSiswaPage() {
                 key={item.id}
                 className="border border-slate-200/80 bg-white shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between"
               >
-                <CardContent className="p-5 space-y-3.5">
+                <CardContent className="p-5 pt-5 sm:p-6 sm:pt-6 space-y-4">
                   {/* Top Bar: Profile & Status */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
