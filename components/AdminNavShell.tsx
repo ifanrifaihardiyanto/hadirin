@@ -17,14 +17,29 @@ import {
   Banknote,
   Receipt,
   Shield,
-  FileText,
+  Layers,
+  Building2,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
-// 1. MENU TATA USAHA & KEUANGAN (Administrasi, Kepegawaian PTK, Payroll, Izin, Arsip)
+// 1. MENU SUPER ADMIN (SaaS Platform Owner)
+const saasMainNav = [
+  { href: "/admin/saas", label: "Multi-Tenant SaaS", icon: Layers },
+  { href: "/admin", label: "Dashboard Sekolah", icon: LayoutDashboard },
+];
+
+const saasAdminNav = [
+  { href: "/admin/saas", label: "Mitra & Lisensi Sekolah", icon: Building2 },
+  { href: "/harga", label: "Paket & Billing SaaS", icon: CreditCard },
+  { href: "/admin/keuangan", label: "Audit Keuangan PTK", icon: Banknote },
+  { href: "/admin/laporan", label: "Laporan Konsolidasi", icon: BarChart3 },
+];
+
+// 2. MENU TATA USAHA & KEUANGAN (Administrasi, Kepegawaian PTK, Payroll, Izin, Arsip)
 const tuMainNav = [
   { href: "/admin", label: "Dashboard TU", icon: LayoutDashboard },
 ];
@@ -38,15 +53,7 @@ const tuAdminNav = [
   { href: "/admin/laporan", label: "Laporan & SPJ BOS", icon: BarChart3 },
 ];
 
-const mobileTuNav = [
-  { href: "/admin", label: "Beranda", icon: LayoutDashboard },
-  { href: "/admin/keuangan", label: "Keuangan", icon: Banknote },
-  { href: "/admin/presensi-guru", label: "Presensi PTK", icon: UserCheck },
-  { href: "/admin/guru", label: "Data Guru", icon: Users },
-  { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
-];
-
-// 2. MENU KEPALA SEKOLAH / PIMPINAN (Supervisi KBM, Disiplin BK, Kebijakan, Monitoring Keuangan)
+// 3. MENU KEPALA SEKOLAH / PIMPINAN (Supervisi KBM, Disiplin BK, Kebijakan, Monitoring Keuangan)
 const kepsekMainNav = [
   { href: "/admin", label: "Dashboard Eksekutif", icon: LayoutDashboard },
 ];
@@ -62,16 +69,24 @@ const kepsekAdminNav = [
   { href: "/admin/izin", label: "Verifikasi Izin", icon: FileCheck },
 ];
 
-const kepsekSettingNav = [
-  { href: "/admin/pengaturan", label: "Pengaturan Sekolah", icon: Settings },
+// 4. MENU ADMIN SEKOLAH / INSTITUSI (Full Manajemen Sekolah)
+const adminSekolahMainNav = [
+  { href: "/admin", label: "Dashboard Utama", icon: LayoutDashboard },
 ];
 
-const mobileKepsekNav = [
-  { href: "/admin", label: "Beranda", icon: LayoutDashboard },
-  { href: "/admin/jurnal", label: "Supervisi", icon: BookOpen },
-  { href: "/admin/presensi-guru", label: "Presensi PTK", icon: UserCheck },
-  { href: "/admin/bk", label: "Layanan BK", icon: HeartHandshake },
-  { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
+const adminSekolahNav = [
+  { href: "/admin/guru", label: "Data Guru & Siswa", icon: Users },
+  { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
+  { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
+  { href: "/admin/keuangan", label: "Honor & Keuangan PTK", icon: Banknote },
+  { href: "/admin/jurnal", label: "Supervisi Jurnal", icon: BookOpen },
+  { href: "/admin/izin", label: "Verifikasi Izin", icon: FileCheck },
+  { href: "/admin/bk", label: "Layanan BK & Kasus", icon: HeartHandshake },
+  { href: "/admin/laporan", label: "Laporan Presensi", icon: BarChart3 },
+];
+
+const generalSettingNav = [
+  { href: "/admin/pengaturan", label: "Pengaturan Sekolah", icon: Settings },
 ];
 
 export default function AdminNavShell() {
@@ -79,15 +94,39 @@ export default function AdminNavShell() {
   const router = useRouter();
   const { currentUser, logout } = useStore();
 
-  const isTU = currentUser?.role === "tu";
-  const currentMainNav = isTU ? tuMainNav : kepsekMainNav;
-  const currentAcademicNav = isTU ? tuAdminNav : kepsekAdminNav;
-  const currentMobileNav = isTU ? mobileTuNav : mobileKepsekNav;
+  const role = currentUser?.role;
+  const isSuperAdmin = role === "super_admin";
+  const isTU = role === "tu";
+  const isKepsek = role === "kepsek";
+
+  const currentMainNav = isSuperAdmin
+    ? saasMainNav
+    : isTU
+    ? tuMainNav
+    : isKepsek
+    ? kepsekMainNav
+    : adminSekolahMainNav;
+
+  const currentAcademicNav = isSuperAdmin
+    ? saasAdminNav
+    : isTU
+    ? tuAdminNav
+    : isKepsek
+    ? kepsekAdminNav
+    : adminSekolahNav;
 
   function handleLogout() {
     logout();
     router.push("/login");
   }
+
+  const roleLabel = isSuperAdmin
+    ? "SUPER ADMIN"
+    : isTU
+    ? "TATA USAHA"
+    : isKepsek
+    ? "KEPALA SEKOLAH"
+    : "ADMIN SEKOLAH";
 
   return (
     <>
@@ -103,10 +142,16 @@ export default function AdminNavShell() {
               Hadirin
             </span>
             <span className={cn(
-              "ml-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold",
-              isTU ? "bg-amber-100 text-amber-900 border border-amber-200" : "bg-navy-100 text-navy-800"
+              "ml-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wide uppercase",
+              isSuperAdmin
+                ? "bg-purple-100 text-purple-900 border border-purple-200"
+                : isTU
+                ? "bg-amber-100 text-amber-900 border border-amber-200"
+                : isKepsek
+                ? "bg-navy-100 text-navy-900"
+                : "bg-blue-100 text-blue-900"
             )}>
-              {isTU ? "TATA USAHA" : "KEPALA SEKOLAH"}
+              {roleLabel}
             </span>
           </div>
         </div>
@@ -116,7 +161,7 @@ export default function AdminNavShell() {
           {/* Section 1: Ringkasan */}
           <div>
             <p className="mb-2.5 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Ringkasan
+              {isSuperAdmin ? "Platform SaaS" : "Ringkasan"}
             </p>
             <div className="flex flex-col gap-1">
               {currentMainNav.map(({ href, label, icon: Icon }) => {
@@ -147,7 +192,13 @@ export default function AdminNavShell() {
           {/* Section 2: Operational/Supervisory based on Role */}
           <div>
             <p className="mb-2.5 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              {isTU ? "Administrasi & Keuangan" : "Supervisi & Akademik"}
+              {isSuperAdmin
+                ? "Multi-Tenant Control"
+                : isTU
+                ? "Administrasi & Keuangan"
+                : isKepsek
+                ? "Supervisi & Akademik"
+                : "Manajemen Institusi"}
             </p>
             <div className="flex flex-col gap-1">
               {currentAcademicNav.map(({ href, label, icon: Icon }) => {
@@ -175,14 +226,14 @@ export default function AdminNavShell() {
             </div>
           </div>
 
-          {/* Section 3: Configuration (Only for Kepala Sekolah) */}
+          {/* Section 3: Configuration (Only for Admin Sekolah & Kepala Sekolah) */}
           {!isTU && (
             <div>
               <p className="mb-2.5 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Konfigurasi Kebijakan
+                Konfigurasi
               </p>
               <div className="flex flex-col gap-1">
-                {kepsekSettingNav.map(({ href, label, icon: Icon }) => {
+                {generalSettingNav.map(({ href, label, icon: Icon }) => {
                   const active = pathname === href;
                   return (
                     <Link
@@ -215,17 +266,21 @@ export default function AdminNavShell() {
             <Avatar className="h-9 w-9 border border-navy-200">
               <AvatarFallback className={cn(
                 "font-bold text-xs",
-                isTU ? "bg-amber-100 text-amber-900" : "bg-navy-100 text-navy-900"
+                isSuperAdmin
+                  ? "bg-purple-100 text-purple-900"
+                  : isTU
+                  ? "bg-amber-100 text-amber-900"
+                  : "bg-navy-100 text-navy-900"
               )}>
-                {isTU ? "SW" : "HW"}
+                {currentUser?.nama?.slice(0, 2).toUpperCase() || "HW"}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="truncate text-xs font-bold text-navy-950">
-                {currentUser?.nama || (isTU ? "Dra. Hj. Sri Wahyuni, M.Ak" : "Drs. Hendra Wijaya, M.Pd")}
+                {currentUser?.nama || "Drs. Hendra Wijaya"}
               </p>
               <p className="truncate text-[11px] text-muted-foreground">
-                {currentUser?.jabatan || (isTU ? "Kaur Tata Usaha & Keuangan" : "Kepala Sekolah")}
+                {currentUser?.jabatan || "Kepala Sekolah"}
               </p>
             </div>
           </div>
@@ -242,10 +297,10 @@ export default function AdminNavShell() {
         </div>
       </aside>
 
-      {/* Mobile Bottom Tab Bar with Role-Tailored Navigation */}
+      {/* Mobile Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white/95 backdrop-blur-md md:hidden">
         <div className="flex items-stretch justify-around">
-          {currentMobileNav.map(({ href, label, icon: Icon }) => {
+          {currentAcademicNav.slice(0, 5).map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link
@@ -265,7 +320,7 @@ export default function AdminNavShell() {
                       : "text-muted-foreground"
                   }
                 >
-                  {label}
+                  {label.split(" ")[0]}
                 </span>
               </Link>
             );

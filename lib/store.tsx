@@ -19,7 +19,15 @@ export interface Guru {
   sekolah?: string;
 }
 
-export type UserRole = "guru" | "tu" | "kepsek" | "admin";
+export type UserRole =
+  | "super_admin"
+  | "admin_sekolah"
+  | "kepsek"
+  | "tu"
+  | "guru"
+  | "siswa"
+  | "orang_tua"
+  | "admin";
 
 export type StatusPresensiGuru = "TEPAT_WAKTU" | "TERLAMBAT" | "IZIN_DINAS" | "SAKIT" | "CUTI";
 
@@ -55,12 +63,21 @@ export const USER_GURU_DEFAULT: CurrentUser = {
   sekolah: "SMA Negeri 3 Contoh",
 };
 
-export const USER_TU_DEFAULT: CurrentUser = {
-  id: "tu-1",
-  nama: "Dra. Hj. Sri Wahyuni, M.Ak",
-  email: "tu@sman3contoh.sch.id",
-  role: "tu",
-  jabatan: "Kaur Tata Usaha & Keuangan",
+export const USER_SUPER_ADMIN_DEFAULT: CurrentUser = {
+  id: "sa-1",
+  nama: "Rifqi Pratama, S.Kom",
+  email: "owner@hadirin.id",
+  role: "super_admin",
+  jabatan: "SaaS Platform Owner",
+  sekolah: "Hadirin Cloud Platform (Multi-Tenant)",
+};
+
+export const USER_ADMIN_SEKOLAH_DEFAULT: CurrentUser = {
+  id: "as-1",
+  nama: "Ahmad Fauzi, S.Pd",
+  email: "admin@sman3contoh.sch.id",
+  role: "admin_sekolah",
+  jabatan: "Admin Institusi Sekolah",
   sekolah: "SMA Negeri 3 Contoh",
 };
 
@@ -73,7 +90,34 @@ export const USER_KEPSEK_DEFAULT: CurrentUser = {
   sekolah: "SMA Negeri 3 Contoh",
 };
 
-export const USER_ADMIN_DEFAULT: CurrentUser = USER_KEPSEK_DEFAULT;
+export const USER_TU_DEFAULT: CurrentUser = {
+  id: "tu-1",
+  nama: "Dra. Hj. Sri Wahyuni, M.Ak",
+  email: "tu@sman3contoh.sch.id",
+  role: "tu",
+  jabatan: "Kaur Tata Usaha & Keuangan",
+  sekolah: "SMA Negeri 3 Contoh",
+};
+
+export const USER_SISWA_DEFAULT: CurrentUser = {
+  id: "s1",
+  nama: "Ahmad Fadillah",
+  email: "ahmad.fadillah@sman3contoh.sch.id",
+  role: "siswa",
+  jabatan: "Siswa Kelas X IPA 1 (NIS 24001)",
+  sekolah: "SMA Negeri 3 Contoh",
+};
+
+export const USER_ORTU_DEFAULT: CurrentUser = {
+  id: "ortu-1",
+  nama: "Bpk. Rahmat Fadillah",
+  email: "ortu.ahmad@gmail.com",
+  role: "orang_tua",
+  jabatan: "Wali Murid - Ahmad Fadillah",
+  sekolah: "SMA Negeri 3 Contoh",
+};
+
+export const USER_ADMIN_DEFAULT: CurrentUser = USER_ADMIN_SEKOLAH_DEFAULT;
 
 export type Ketercapaian = "TERCAPAI" | "PENGUATAN" | "REMEDIAL";
 
@@ -699,21 +743,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
-        if (role === "tu") {
-          user = {
-            ...USER_TU_DEFAULT,
-            email: email || USER_TU_DEFAULT.email,
-          };
-        } else if (role === "kepsek" || role === "admin") {
-          user = {
-            ...USER_KEPSEK_DEFAULT,
-            email: email || USER_KEPSEK_DEFAULT.email,
-          };
-        } else {
-          user = {
-            ...USER_GURU_DEFAULT,
-            email: email || USER_GURU_DEFAULT.email,
-          };
+        switch (role) {
+          case "super_admin":
+            user = { ...USER_SUPER_ADMIN_DEFAULT, email: email || USER_SUPER_ADMIN_DEFAULT.email };
+            break;
+          case "admin_sekolah":
+          case "admin":
+            user = { ...USER_ADMIN_SEKOLAH_DEFAULT, email: email || USER_ADMIN_SEKOLAH_DEFAULT.email };
+            break;
+          case "kepsek":
+            user = { ...USER_KEPSEK_DEFAULT, email: email || USER_KEPSEK_DEFAULT.email };
+            break;
+          case "tu":
+            user = { ...USER_TU_DEFAULT, email: email || USER_TU_DEFAULT.email };
+            break;
+          case "siswa":
+            user = { ...USER_SISWA_DEFAULT, email: email || USER_SISWA_DEFAULT.email };
+            break;
+          case "orang_tua":
+            user = { ...USER_ORTU_DEFAULT, email: email || USER_ORTU_DEFAULT.email };
+            break;
+          case "guru":
+          default:
+            user = { ...USER_GURU_DEFAULT, email: email || USER_GURU_DEFAULT.email };
+            break;
         }
         setCurrentUser(user);
         if (typeof window !== "undefined") {
