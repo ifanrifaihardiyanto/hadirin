@@ -241,6 +241,8 @@ export default function LoginPage() {
               ? "Memverifikasi Akses..."
               : activeRole === "guru"
               ? "Masuk ke Portal Guru"
+              : activeRole === "tu"
+              ? "Masuk ke Portal Tata Usaha & Keuangan"
               : "Masuk ke Portal Kepala Sekolah"}
           </Button>
         </form>
@@ -250,39 +252,56 @@ export default function LoginPage() {
           <p className="mb-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">
             Pilih Cepat Akun Demo
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               type="button"
               onClick={() => handleRoleChange("guru")}
               className={cn(
-                "flex flex-col items-start rounded-lg border p-2.5 text-left transition-all cursor-pointer",
+                "flex flex-col items-start rounded-lg border p-2 text-left transition-all cursor-pointer",
                 activeRole === "guru"
                   ? "border-navy-900 bg-navy-50/70 shadow-2xs ring-1 ring-navy-900/20"
                   : "border-slate-200 bg-white hover:bg-slate-50"
               )}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="text-xs font-bold text-navy-950">Sari Wulandari</span>
+              <div className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span className="text-[11px] font-bold text-navy-950 truncate">Sari W.</span>
               </div>
-              <span className="text-[10px] text-muted-foreground">Guru Pengajar</span>
+              <span className="text-[9px] text-muted-foreground">Guru</span>
             </button>
 
             <button
               type="button"
-              onClick={() => handleRoleChange("admin")}
+              onClick={() => handleRoleChange("tu")}
               className={cn(
-                "flex flex-col items-start rounded-lg border p-2.5 text-left transition-all cursor-pointer",
-                activeRole === "admin"
+                "flex flex-col items-start rounded-lg border p-2 text-left transition-all cursor-pointer",
+                activeRole === "tu"
                   ? "border-navy-900 bg-navy-50/70 shadow-2xs ring-1 ring-navy-900/20"
                   : "border-slate-200 bg-white hover:bg-slate-50"
               )}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                <span className="text-xs font-bold text-navy-950">Drs. Hendra Wijaya</span>
+              <div className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                <span className="text-[11px] font-bold text-navy-950 truncate">Sri Wahyuni</span>
               </div>
-              <span className="text-[10px] text-muted-foreground">Kepala Sekolah</span>
+              <span className="text-[9px] text-muted-foreground">Tata Usaha</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleRoleChange("kepsek")}
+              className={cn(
+                "flex flex-col items-start rounded-lg border p-2 text-left transition-all cursor-pointer",
+                activeRole === "kepsek" || activeRole === "admin"
+                  ? "border-navy-900 bg-navy-50/70 shadow-2xs ring-1 ring-navy-900/20"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              )}
+            >
+              <div className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                <span className="text-[11px] font-bold text-navy-950 truncate">Hendra W.</span>
+              </div>
+              <span className="text-[9px] text-muted-foreground">Kepsek</span>
             </button>
           </div>
         </div>

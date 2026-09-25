@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
 export default function AdminBerandaPage() {
-  const { daftarGuru, jadwal, absensiTersimpanHariIni } = useStore();
+  const { daftarGuru, jadwal, absensiTersimpanHariIni, currentUser } = useStore();
+  const isTU = currentUser?.role === "tu";
 
   const statusGuruHariIni = daftarGuru
     .map((g) => {
@@ -45,11 +46,16 @@ export default function AdminBerandaPage() {
       {/* Page Title & Status */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
-            Dashboard Utama Sekolah
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            {profilSekolah.nama} · Ringkasan aktivitas presensi hari {HARI_INI}
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
+              {isTU ? "Dashboard Tata Usaha & Keuangan" : "Dashboard Eksekutif Kepala Sekolah"}
+            </h1>
+            <Badge className={isTU ? "bg-amber-100 text-amber-900 border-amber-300 text-xs font-semibold" : "bg-navy-100 text-navy-900 text-xs font-semibold"}>
+              {isTU ? "Portal Tata Usaha" : "Pimpinan Sekolah"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {profilSekolah.nama} · {isTU ? "Manajemen kepegawaian PTK, honorium KBM, & berkas izin" : "Supervisi KBM, kedisiplinan siswa, & kinerja guru"} hari {HARI_INI}
           </p>
         </div>
         <div className="flex items-center gap-2">
