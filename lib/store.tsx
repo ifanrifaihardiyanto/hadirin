@@ -75,6 +75,26 @@ export interface JurnalEntry {
 export type JenisIzin = "SAKIT" | "IZIN" | "DISPENSASI";
 export type StatusIzin = "MENUNGGU" | "DISETUJUI" | "DITOLAK";
 
+export type StatusKasusBK = "DALAM_PEMBINAAN" | "PANGGILAN_ORTU" | "SELESAI" | "PERINGATAN_KERAS";
+export type KategoriBK = "KEDISIPLINAN" | "ABSENSI_TINGGI" | "PRESTASI" | "KONSELING_PRIBADI";
+
+export interface KasusBK {
+  id: string;
+  nis: string;
+  namaSiswa: string;
+  kelas: string;
+  kategori: KategoriBK;
+  poin: number; // positif (prestasi) atau negatif (pelanggaran)
+  deskripsi: string;
+  tindakan: string;
+  status: StatusKasusBK;
+  tanggalKasus: string;
+  guruBK: string;
+  waliKelas: string;
+  nomorSuratPanggilan?: string;
+  jadwalPanggilanOrtu?: string;
+}
+
 export interface PermohonanIzin {
   id: string;
   nis: string;
@@ -309,6 +329,53 @@ const daftarJurnalAwal: JurnalEntry[] = [
   },
 ];
 
+export const daftarKasusBKAwal: KasusBK[] = [
+  {
+    id: "bk-1",
+    nis: "24009",
+    namaSiswa: "Farhan Maulana",
+    kelas: "X IPA 2",
+    kategori: "ABSENSI_TINGGI",
+    poin: -25,
+    deskripsi: "Akumulasi alpha 5 kali berturut-turut tanpa surat izin resmi dari orang tua.",
+    tindakan: "Panggilan orang tua ke ruang BK untuk klarifikasi komitmen kehadiran.",
+    status: "PANGGILAN_ORTU",
+    tanggalKasus: "23 Juli 2026",
+    guruBK: "Dra. Endang Rahayu, M.Pd (Koord. BK)",
+    waliKelas: "Budi Santoso, S.Pd",
+    nomorSuratPanggilan: "421.3/089/SMA.03/BK/VII/2026",
+    jadwalPanggilanOrtu: "Jumat, 25 Juli 2026 pukul 09.00 WIB",
+  },
+  {
+    id: "bk-2",
+    nis: "24005",
+    namaSiswa: "Dedi Kurniawan",
+    kelas: "X IPA 1",
+    kategori: "KEDISIPLINAN",
+    poin: -15,
+    deskripsi: "Terlambat masuk sekolah lebih dari 3 kali dalam seminggu dan sering meninggalkan jam KBM ke-3.",
+    tindakan: "Bimbingan konseling individual dan penugasan piket literasi perpustakaan.",
+    status: "DALAM_PEMBINAAN",
+    tanggalKasus: "22 Juli 2026",
+    guruBK: "Dra. Endang Rahayu, M.Pd (Koord. BK)",
+    waliKelas: "Sari Wulandari, S.Pd",
+  },
+  {
+    id: "bk-3",
+    nis: "24006",
+    namaSiswa: "Gilang Pratama",
+    kelas: "X IPA 1",
+    kategori: "PRESTASI",
+    poin: +30,
+    deskripsi: "Mewakili sekolah dan meraih medali perak pada Olimpiade Sains Nasional (OSN) Matematika tingkat kota.",
+    tindakan: "Pemberian piagam penghargaan pada upacara bendera dan poin apresiasi karakter.",
+    status: "SELESAI",
+    tanggalKasus: "21 Juli 2026",
+    guruBK: "Dra. Endang Rahayu, M.Pd (Koord. BK)",
+    waliKelas: "Sari Wulandari, S.Pd",
+  },
+];
+
 const daftarIzinAwal: PermohonanIzin[] = [
   {
     id: "iz-1",
@@ -361,6 +428,9 @@ interface StoreValue {
   absensiRecord: Record<string, Siswa[]>;
   jurnalList: JurnalEntry[];
   daftarIzin: PermohonanIzin[];
+  kasusBKList: KasusBK[];
+  tambahKasusBK: (kasus: Omit<KasusBK, "id">) => void;
+  updateStatusKasusBK: (id: string, status: StatusKasusBK, tindakan?: string) => void;
   currentUser: CurrentUser;
   tambahGuru: (guru: Omit<Guru, "id">) => void;
   tambahJadwal: (entry: Omit<JadwalEntry, "id">) => void;
@@ -387,6 +457,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   });
   const [jurnalList, setJurnalList] = useState<JurnalEntry[]>(daftarJurnalAwal);
   const [daftarIzin, setDaftarIzin] = useState<PermohonanIzin[]>(daftarIzinAwal);
+  const [kasusBKList, setKasusBKList] = useState<KasusBK[]>(daftarKasusBKAwal);
 
   const [currentUser, setCurrentUser] = useState<CurrentUser>(USER_GURU_DEFAULT);
 
@@ -410,6 +481,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       absensiRecord,
       jurnalList,
       daftarIzin,
+      kasusBKList,
       currentUser,
       tambahGuru: (guru) =>
         setDaftarGuru((prev) => [
@@ -453,6 +525,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
           ...prev,
         ]);
+      },
+      tambahKasusBK: (kasus: Omit<KasusBK, "id">) => {
+        setKasusBKList((prev) => [
+          { ...kasus, id: `bk-${Date.now()}` },
+          ...prev,
+        ]);
+      },
+      updateStatusKasusBK: (id: string, status: StatusKasusBK, tindakan?: string) => {
+        setKasusBKList((prev) =>
+          prev.map((k) =>
+            k.id === id
+              ? { ...k, status, tindakan: tindakan || k.tindakan }
+              : k
+          )
+        );
       },
       updateStatusIzin: (id: string, status: StatusIzin, approverNama?: string) => {
         setDaftarIzin((prev) =>
@@ -510,6 +597,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       absensiRecord,
       jurnalList,
       daftarIzin,
+      kasusBKList,
       currentUser,
     ]
   );

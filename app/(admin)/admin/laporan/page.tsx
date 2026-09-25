@@ -1,5 +1,6 @@
 "use client";
 
+import * as XLSX from "xlsx";
 import { useMemo, useState } from "react";
 import {
   Download,
@@ -13,6 +14,9 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
+  Printer,
+  FileSpreadsheet,
+  X,
 } from "lucide-react";
 import { rekapBulanIni, kelasSeluruhSekolah } from "@/lib/mock-data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -33,6 +37,7 @@ export default function AdminLaporanPage() {
   const [kelasFilter, setKelasFilter] = useState<string>("Semua kelas");
   const [tingkatFilter, setTingkatFilter] = useState<string>("Semua");
   const [cariSiswa, setCariSiswa] = useState<string>("");
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [bukaSemuaPerhatian, setBukaSemuaPerhatian] = useState(false);
   const [fokusPerhatian, setFokusPerhatian] = useState(false);
 
@@ -112,6 +117,29 @@ export default function AdminLaporanPage() {
     return kelasSeluruhSekolah.filter((k) => k.kelas.startsWith(tingkatFilter + " "));
   }, [tingkatFilter]);
 
+  function unduhExcel() {
+    const rows = dataTampil.map((r, idx) => ({
+      No: idx + 1,
+      "Nama Siswa": r.nama,
+      NIS: r.nis,
+      Kelas: r.kelas,
+      "Hadir (H)": r.hadir,
+      "Sakit (S)": r.sakit,
+      "Izin (I)": r.izin,
+      "Alpha (A)": r.alpha,
+      "Total Sesi": r.totalSesi,
+      "Persentase Kehadiran": Math.round((r.hadir / (r.totalSesi || 1)) * 100) + "%",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Presensi");
+    XLSX.writeFile(
+      workbook,
+      `Rekap-Presensi-Siswa-${kelasFilter.replace(/\\s+/g, "-")}.xlsx`
+    );
+  }
+
   function unduhCSV() {
     const header = "Nama,NIS,Kelas,Hadir,Sakit,Izin,Alpha,Total Sesi\n";
     const rows = dataTampil
@@ -160,11 +188,21 @@ export default function AdminLaporanPage() {
 
           <Button
             size="sm"
-            onClick={unduhCSV}
-            className="gap-1.5 bg-navy-900 text-white hover:bg-navy-800"
+            onClick={unduhExcel}
+            className="gap-1.5 bg-emerald-700 text-white hover:bg-emerald-800 font-medium shadow-xs"
           >
-            <Download size={14} />
-            Unduh Laporan CSV
+            <FileSpreadsheet size={14} />
+            Unduh Excel (.xlsx)
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsPrintModalOpen(true)}
+            className="gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+          >
+            <Printer size={14} />
+            Cetak Rekap Resmi
           </Button>
         </div>
       </div>
@@ -586,6 +624,138 @@ export default function AdminLaporanPage() {
           </Table>
         </div>
       </Card>
+          {/* Modal Format Cetak Rekap Presensi Resmi (Kop Sekolah) */}
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-8 space-y-6 my-8">
+            <div className="flex items-center justify-between border-b pb-4">
+              <div>
+                <h3 className="font-display font-bold text-navy-950 text-xl">
+                  Pratinjau Cetak Rekapitulasi Presensi Siswa
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Dokumen buku induk &amp; arsip DAPODIK semester berjalan
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => window.print()}
+                  className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-medium"
+                >
+                  <Printer className="h-4 w-4" />
+                  Cetak / Simpan PDF
+                </Button>
+                <button
+                  onClick={() => setIsPrintModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* KOP SURAT RESMI */}
+            <div className="border border-slate-300 p-8 rounded-lg bg-white text-slate-900 space-y-6">
+              <div className="text-center border-b-2 border-double border-slate-900 pb-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  PEMERINTAH DAERAH PROVINSI JAWA BARAT
+                </h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  DINAS PENDIDIKAN CABANG DINAS WILAYAH I
+                </h4>
+                <h2 className="text-lg font-black tracking-wide text-slate-950 uppercase mt-1">
+                  SMA NEGERI 3 CONTOH KOTA BOGOR
+                </h2>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Jl. Pendidikan No. 45 Telp. (0251) 8321000 Fax. 8321001 Email: info@sman3contoh.sch.id
+                </p>
+              </div>
+
+              <div className="text-center space-y-1">
+                <h3 className="text-sm font-bold tracking-tight uppercase underline text-slate-950">
+                  BUKU REKAPITULASI PRESENSI SISWA ({kelasFilter.toUpperCase()})
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Periode Semester Ganjil • Tahun Ajaran 2026/2027
+                </p>
+              </div>
+
+              {/* Ringkasan Angka */}
+              <div className="grid grid-cols-4 gap-2 text-center text-xs bg-slate-50 p-3 rounded border border-slate-200">
+                <div>
+                  <span className="text-slate-500 block">Total Siswa:</span>
+                  <span className="font-bold text-slate-900">{dataTampil.length} Orang</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Rata-rata Hadir:</span>
+                  <span className="font-bold text-emerald-700">{persenHadir}%</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Akumulasi Sakit/Izin:</span>
+                  <span className="font-bold text-sky-700">{totalSakit + totalIzin} Siswa</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Akumulasi Alpha:</span>
+                  <span className="font-bold text-rose-700">{totalAlpha} Siswa</span>
+                </div>
+              </div>
+
+              {/* Tabel Siswa */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px] border-collapse border border-slate-400">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-800 text-center font-bold">
+                      <th className="border border-slate-400 p-2 w-8">No</th>
+                      <th className="border border-slate-400 p-2">Nama Siswa</th>
+                      <th className="border border-slate-400 p-2 w-20">NIS</th>
+                      <th className="border border-slate-400 p-2 w-20">Kelas</th>
+                      <th className="border border-slate-400 p-2 w-14">H</th>
+                      <th className="border border-slate-400 p-2 w-14">S</th>
+                      <th className="border border-slate-400 p-2 w-14">I</th>
+                      <th className="border border-slate-400 p-2 w-14">A</th>
+                      <th className="border border-slate-400 p-2 w-20">% Hadir</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dataTampil.map((r, idx) => (
+                      <tr key={r.nis} className="text-slate-900">
+                        <td className="border border-slate-400 p-1.5 text-center">{idx + 1}</td>
+                        <td className="border border-slate-400 p-1.5 font-medium">{r.nama}</td>
+                        <td className="border border-slate-400 p-1.5 text-center">{r.nis}</td>
+                        <td className="border border-slate-400 p-1.5 text-center font-semibold">{r.kelas}</td>
+                        <td className="border border-slate-400 p-1.5 text-center font-bold text-emerald-700">{r.hadir}</td>
+                        <td className="border border-slate-400 p-1.5 text-center text-amber-700">{r.sakit}</td>
+                        <td className="border border-slate-400 p-1.5 text-center text-sky-700">{r.izin}</td>
+                        <td className="border border-slate-400 p-1.5 text-center font-bold text-rose-700">{r.alpha}</td>
+                        <td className="border border-slate-400 p-1.5 text-center font-semibold">{Math.round((r.hadir / (r.totalSesi || 1)) * 100)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tanda Tangan */}
+              <div className="grid grid-cols-2 pt-8 text-xs text-center">
+                <div>
+                  <p>Mengetahui,</p>
+                  <p className="font-semibold">Kepala Sekolah SMA Negeri 3 Contoh</p>
+                  <div className="h-16" />
+                  <p className="font-bold underline">Drs. Hendra Wijaya, M.Pd</p>
+                  <p className="text-slate-600">NIP. 19680315 199412 1 002</p>
+                </div>
+                <div>
+                  <p>Bogor, 24 Juli 2026</p>
+                  <p className="font-semibold">Staff Kesiswaan &amp; Kurikulum</p>
+                  <div className="h-16" />
+                  <p className="font-bold underline">Dra. Hj. Siti Nurhasanah, M.Pd</p>
+                  <p className="text-slate-600">NIP. 19720412 199802 2 004</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

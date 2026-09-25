@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TriangleAlert, Users, CheckCircle2, BookOpen, FileCheck, ChevronRight } from "lucide-react";
+import { TriangleAlert, Users, CheckCircle2, BookOpen, FileCheck, ChevronRight, HeartHandshake } from "lucide-react";
 import { useStore, HARI_INI } from "@/lib/store";
 import {
   kelasSeluruhSekolah,
@@ -289,6 +289,29 @@ export default function AdminBerandaPage() {
                 </div>
               </Card>
             </Link>
+            <Link href="/admin/bk" className="group block">
+              <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                    <HeartHandshake size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="font-bold text-xs text-navy-950 group-hover:text-primary">
+                        Bimbingan Konseling (BK)
+                      </h4>
+                      <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[9px] py-0 px-1 font-medium">
+                        Layanan
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                      Poin kedisiplinan &amp; surat panggilan ortu
+                    </p>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </Card>
+            </Link>
           </div>
 
           <Card className="border-rose-200 bg-rose-50/50 shadow-xs">
@@ -314,9 +337,17 @@ export default function AdminBerandaPage() {
                       <p className="font-bold text-rose-950">{r.nama}</p>
                       <p className="text-[11px] text-muted-foreground">{r.kelas}</p>
                     </div>
-                    <Badge variant="alpha" className="font-mono text-[11px]">
-                      {r.alpha}x alpha
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="alpha" className="font-mono text-[11px]">
+                        {r.alpha}x alpha
+                      </Badge>
+                      <Link
+                        href="/admin/bk"
+                        className="text-primary hover:underline font-semibold text-[11px]"
+                      >
+                        Bina BK →
+                      </Link>
+                    </div>
                   </li>
                 ))}
                 {perluPerhatian.length === 0 && (

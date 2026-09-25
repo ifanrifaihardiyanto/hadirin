@@ -8,6 +8,7 @@ import {
   CalendarClock,
   BookOpen,
   FileCheck,
+  HeartHandshake,
   BarChart3,
   Settings,
   CheckCheck,
@@ -27,6 +28,7 @@ const academicNav = [
   { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
   { href: "/admin/jurnal", label: "Supervisi Jurnal", icon: BookOpen },
   { href: "/admin/izin", label: "Verifikasi Izin", icon: FileCheck },
+  { href: "/admin/bk", label: "Layanan BK & Kasus", icon: HeartHandshake },
   { href: "/admin/laporan", label: "Laporan Presensi", icon: BarChart3 },
 ];
 
