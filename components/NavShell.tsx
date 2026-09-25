@@ -11,6 +11,7 @@ import {
   User,
   CheckCheck,
   LogOut,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 
 const mainNav = [
   { href: "/", label: "Beranda", icon: Home },
+  { href: "/presensi-guru", label: "Presensi Mandiri", icon: UserCheck },
   { href: "/kelas", label: "Daftar Kelas", icon: CalendarCheck },
   { href: "/jurnal", label: "Jurnal Mengajar", icon: BookOpen },
   { href: "/izin", label: "Izin & Sakit", icon: FileCheck },
@@ -27,6 +29,14 @@ const mainNav = [
 
 const accountNav = [
   { href: "/profil", label: "Profil Akun", icon: User },
+];
+
+const mobileTeacherNav = [
+  { href: "/", label: "Beranda", icon: Home },
+  { href: "/presensi-guru", label: "Presensi", icon: UserCheck },
+  { href: "/kelas", label: "Kelas", icon: CalendarCheck },
+  { href: "/jurnal", label: "Jurnal", icon: BookOpen },
+  { href: "/izin", label: "Izin", icon: FileCheck },
 ];
 
 export default function NavShell() {
@@ -154,7 +164,7 @@ export default function NavShell() {
       {/* Mobile Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white/95 backdrop-blur-md md:hidden">
         <div className="flex items-stretch justify-around">
-          {[...mainNav, ...accountNav].map(({ href, label, icon: Icon }) => {
+          {mobileTeacherNav.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link

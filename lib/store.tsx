@@ -21,6 +21,22 @@ export interface Guru {
 
 export type UserRole = "guru" | "admin";
 
+export type StatusPresensiGuru = "TEPAT_WAKTU" | "TERLAMBAT" | "IZIN_DINAS" | "SAKIT" | "CUTI";
+
+export interface PresensiGuruRecord {
+  id: string;
+  guruId: string;
+  nama: string;
+  nip: string;
+  jabatan: string;
+  tanggal: string;
+  jamMasuk: string;
+  jamPulang?: string;
+  status: StatusPresensiGuru;
+  keterangan?: string;
+  lokasi: string;
+}
+
 export interface CurrentUser {
   id: string;
   nama: string;
@@ -329,6 +345,71 @@ const daftarJurnalAwal: JurnalEntry[] = [
   },
 ];
 
+export const daftarPresensiGuruAwal: PresensiGuruRecord[] = [
+  {
+    id: "pg-1",
+    guruId: "g1",
+    nama: "Sari Wulandari, S.Pd",
+    nip: "19850412 200902 2 003",
+    jabatan: "Guru Matematika / Wali Kelas X IPA 1",
+    tanggal: "Kamis, 24 Juli 2026",
+    jamMasuk: "06.42 WIB",
+    jamPulang: "15.30 WIB",
+    status: "TEPAT_WAKTU",
+    keterangan: "Hadir sebelum apel pagi guru",
+    lokasi: "Gerbang Utama SMA Negeri 3 Contoh",
+  },
+  {
+    id: "pg-2",
+    guruId: "g2",
+    nama: "Budi Santoso, S.Pd",
+    nip: "19820719 200801 1 005",
+    jabatan: "Guru Fisika / Wali Kelas X IPA 2",
+    tanggal: "Kamis, 24 Juli 2026",
+    jamMasuk: "06.50 WIB",
+    status: "TEPAT_WAKTU",
+    keterangan: "Piket KBM Lab Fisika",
+    lokasi: "Gedung B - SMA Negeri 3 Contoh",
+  },
+  {
+    id: "pg-3",
+    guruId: "g3",
+    nama: "Rina Marlina, M.Pd",
+    nip: "19881105 201202 2 004",
+    jabatan: "Guru Bahasa Inggris / Pembina OSIS",
+    tanggal: "Kamis, 24 Juli 2026",
+    jamMasuk: "07.18 WIB",
+    status: "TERLAMBAT",
+    keterangan: "Kendala lalu lintas jalur tol Ciawi-Bogor",
+    lokasi: "Gerbang Utama SMA Negeri 3 Contoh",
+  },
+  {
+    id: "pg-4",
+    guruId: "g4",
+    nama: "Agus Prabowo, S.Pd",
+    nip: "19790321 200501 1 002",
+    jabatan: "Guru Biologi",
+    tanggal: "Kamis, 24 Juli 2026",
+    jamMasuk: "-",
+    status: "IZIN_DINAS",
+    keterangan: "Narasumber Workshop Kurikulum Merdeka di BBGP Jawa Barat (Surat Tugas No. 800/142/Disdik)",
+    lokasi: "BBGP Jawa Barat, Bandung",
+  },
+  {
+    id: "pg-5",
+    guruId: "g5",
+    nama: "Dewi Kusuma, S.Pd",
+    nip: "19910214 201503 2 006",
+    jabatan: "Guru Sejarah",
+    tanggal: "Kamis, 24 Juli 2026",
+    jamMasuk: "06.45 WIB",
+    jamPulang: "15.35 WIB",
+    status: "TEPAT_WAKTU",
+    keterangan: "Hadir mengajar sesi pagi",
+    lokasi: "Kampus SMA Negeri 3 Contoh",
+  },
+];
+
 export const daftarKasusBKAwal: KasusBK[] = [
   {
     id: "bk-1",
@@ -429,6 +510,9 @@ interface StoreValue {
   jurnalList: JurnalEntry[];
   daftarIzin: PermohonanIzin[];
   kasusBKList: KasusBK[];
+  presensiGuruList: PresensiGuruRecord[];
+  checkInGuru: (guruId: string, status?: StatusPresensiGuru, keterangan?: string) => void;
+  checkOutGuru: (guruId: string) => void;
   tambahKasusBK: (kasus: Omit<KasusBK, "id">) => void;
   updateStatusKasusBK: (id: string, status: StatusKasusBK, tindakan?: string) => void;
   currentUser: CurrentUser;
@@ -458,6 +542,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [jurnalList, setJurnalList] = useState<JurnalEntry[]>(daftarJurnalAwal);
   const [daftarIzin, setDaftarIzin] = useState<PermohonanIzin[]>(daftarIzinAwal);
   const [kasusBKList, setKasusBKList] = useState<KasusBK[]>(daftarKasusBKAwal);
+  const [presensiGuruList, setPresensiGuruList] = useState<PresensiGuruRecord[]>(daftarPresensiGuruAwal);
 
   const [currentUser, setCurrentUser] = useState<CurrentUser>(USER_GURU_DEFAULT);
 
@@ -482,6 +567,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       jurnalList,
       daftarIzin,
       kasusBKList,
+      presensiGuruList,
+      checkInGuru: (guruId: string, customStatus?: StatusPresensiGuru, keterangan?: string) => {
+        const jamSekarang = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
+        const guru = daftarGuru.find((g) => g.id === guruId) || {
+          nama: "Sari Wulandari, S.Pd",
+          id: guruId,
+        };
+        const status: StatusPresensiGuru = customStatus || (new Date().getHours() < 7 ? "TEPAT_WAKTU" : "TERLAMBAT");
+
+        setPresensiGuruList((prev) => {
+          const existing = prev.find((p) => p.guruId === guruId);
+          if (existing) {
+            return prev.map((p) =>
+              p.guruId === guruId
+                ? { ...p, jamMasuk: jamSekarang, status, keterangan: keterangan || p.keterangan }
+                : p
+            );
+          }
+          return [
+            {
+              id: `pg-${Date.now()}`,
+              guruId,
+              nama: guru.nama,
+              nip: "19850412 200902 2 003",
+              jabatan: "Guru Pengajar",
+              tanggal: "Kamis, 24 Juli 2026",
+              jamMasuk: jamSekarang,
+              status,
+              keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri pagi" : "Presensi terlambat"),
+              lokasi: "SMA Negeri 3 Contoh",
+            },
+            ...prev,
+          ];
+        });
+      },
+      checkOutGuru: (guruId: string) => {
+        const jamSekarang = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
+        setPresensiGuruList((prev) =>
+          prev.map((p) =>
+            p.guruId === guruId ? { ...p, jamPulang: jamSekarang } : p
+          )
+        );
+      },
       currentUser,
       tambahGuru: (guru) =>
         setDaftarGuru((prev) => [
@@ -598,6 +726,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       jurnalList,
       daftarIzin,
       kasusBKList,
+      presensiGuruList,
       currentUser,
     ]
   );

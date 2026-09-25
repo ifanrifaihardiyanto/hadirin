@@ -13,6 +13,7 @@ import {
   Settings,
   CheckCheck,
   LogOut,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
@@ -24,6 +25,7 @@ const mainNav = [
 ];
 
 const academicNav = [
+  { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
   { href: "/admin/guru", label: "Data Guru", icon: Users },
   { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
   { href: "/admin/jurnal", label: "Supervisi Jurnal", icon: BookOpen },
@@ -34,6 +36,14 @@ const academicNav = [
 
 const settingNav = [
   { href: "/admin/pengaturan", label: "Pengaturan Sekolah", icon: Settings },
+];
+
+const mobileAdminNav = [
+  { href: "/admin", label: "Beranda", icon: LayoutDashboard },
+  { href: "/admin/presensi-guru", label: "Presensi Guru", icon: UserCheck },
+  { href: "/admin/jurnal", label: "Jurnal", icon: BookOpen },
+  { href: "/admin/izin", label: "Izin", icon: FileCheck },
+  { href: "/admin/laporan", label: "Laporan", icon: BarChart3 },
 ];
 
 export default function AdminNavShell() {
@@ -191,7 +201,7 @@ export default function AdminNavShell() {
       {/* Mobile Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white/95 backdrop-blur-md md:hidden">
         <div className="flex items-stretch justify-around">
-          {[...mainNav, ...academicNav, ...settingNav].map(({ href, label, icon: Icon }) => {
+          {mobileAdminNav.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, CheckCircle2, Clock, CalendarCheck, BookOpen, FileCheck } from "lucide-react";
+import { ChevronRight, CheckCircle2, Clock, CalendarCheck, BookOpen, FileCheck, UserCheck } from "lucide-react";
 import { useStore, HARI_INI, CURRENT_GURU_ID } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +79,31 @@ export default function BerandaPage() {
       </Card>
 
       {/* Fitur Utama Quick Actions */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/presensi-guru" className="group block">
+          <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700 group-hover:bg-purple-700 group-hover:text-white transition-colors">
+                <UserCheck size={22} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-sm text-navy-950 group-hover:text-primary">
+                    Presensi Mandiri Guru
+                  </h3>
+                  <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] py-0 px-1.5 font-medium">
+                    PTK
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                  Check-in jam kedatangan &amp; permohonan dinas luar
+                </p>
+              </div>
+              <ChevronRight size={18} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </Card>
+        </Link>
+
         <Link href="/jurnal" className="group block">
           <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
             <div className="flex items-center gap-3.5">

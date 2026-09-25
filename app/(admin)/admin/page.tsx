@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TriangleAlert, Users, CheckCircle2, BookOpen, FileCheck, ChevronRight, HeartHandshake } from "lucide-react";
+import { TriangleAlert, Users, CheckCircle2, BookOpen, FileCheck, ChevronRight, HeartHandshake, UserCheck } from "lucide-react";
 import { useStore, HARI_INI } from "@/lib/store";
 import {
   kelasSeluruhSekolah,
@@ -242,6 +242,30 @@ export default function AdminBerandaPage() {
         <div className="space-y-6">
           {/* Quick Access SaaS Features */}
           <div className="space-y-3">
+            <Link href="/admin/presensi-guru" className="group block">
+              <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <UserCheck size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="font-bold text-xs text-navy-950 group-hover:text-primary">
+                        Monitoring Presensi Guru (PTK)
+                      </h4>
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] py-0 px-1 font-medium">
+                        Live
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                      Pantau jam check-in, dinas luar, &amp; ekspor rekap gaji
+                    </p>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </Card>
+            </Link>
+
             <Link href="/admin/jurnal" className="group block">
               <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
                 <div className="flex items-center gap-3">
