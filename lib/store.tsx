@@ -19,7 +19,7 @@ export interface Guru {
   sekolah?: string;
 }
 
-export type UserRole = "guru" | "admin";
+export type UserRole = "guru" | "tu" | "kepsek" | "admin";
 
 export type StatusPresensiGuru = "TEPAT_WAKTU" | "TERLAMBAT" | "IZIN_DINAS" | "SAKIT" | "CUTI";
 
@@ -55,14 +55,25 @@ export const USER_GURU_DEFAULT: CurrentUser = {
   sekolah: "SMA Negeri 3 Contoh",
 };
 
-export const USER_ADMIN_DEFAULT: CurrentUser = {
+export const USER_TU_DEFAULT: CurrentUser = {
+  id: "tu-1",
+  nama: "Dra. Hj. Sri Wahyuni, M.Ak",
+  email: "tu@sman3contoh.sch.id",
+  role: "tu",
+  jabatan: "Kaur Tata Usaha & Keuangan",
+  sekolah: "SMA Negeri 3 Contoh",
+};
+
+export const USER_KEPSEK_DEFAULT: CurrentUser = {
   id: "admin-1",
   nama: "Drs. Hendra Wijaya, M.Pd",
-  email: "admin@sman3contoh.sch.id",
-  role: "admin",
+  email: "kepsek@sman3contoh.sch.id",
+  role: "kepsek",
   jabatan: "Kepala Sekolah",
   sekolah: "SMA Negeri 3 Contoh",
 };
+
+export const USER_ADMIN_DEFAULT: CurrentUser = USER_KEPSEK_DEFAULT;
 
 export type Ketercapaian = "TERCAPAI" | "PENGUATAN" | "REMEDIAL";
 
@@ -687,16 +698,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       },
       loginAs: (role: UserRole, email?: string) => {
-        const user: CurrentUser =
-          role === "admin"
-            ? {
-                ...USER_ADMIN_DEFAULT,
-                email: email || USER_ADMIN_DEFAULT.email,
-              }
-            : {
-                ...USER_GURU_DEFAULT,
-                email: email || USER_GURU_DEFAULT.email,
-              };
+        let user: CurrentUser;
+        if (role === "tu") {
+          user = {
+            ...USER_TU_DEFAULT,
+            email: email || USER_TU_DEFAULT.email,
+          };
+        } else if (role === "kepsek" || role === "admin") {
+          user = {
+            ...USER_KEPSEK_DEFAULT,
+            email: email || USER_KEPSEK_DEFAULT.email,
+          };
+        } else {
+          user = {
+            ...USER_GURU_DEFAULT,
+            email: email || USER_GURU_DEFAULT.email,
+          };
+        }
         setCurrentUser(user);
         if (typeof window !== "undefined") {
           try {

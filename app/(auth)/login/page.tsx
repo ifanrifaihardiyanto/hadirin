@@ -9,6 +9,7 @@ import {
   Loader2,
   GraduationCap,
   ShieldCheck,
+  Briefcase,
   CheckCheck,
   Lock,
 } from "lucide-react";
@@ -44,8 +45,11 @@ export default function LoginPage() {
     if (role === "guru") {
       setEmail("sari.wulandari@sman3contoh.sch.id");
       setPassword("hadirin123");
+    } else if (role === "tu") {
+      setEmail("tu@sman3contoh.sch.id");
+      setPassword("hadirin123");
     } else {
-      setEmail("admin@sman3contoh.sch.id");
+      setEmail("kepsek@sman3contoh.sch.id");
       setPassword("hadirin123");
     }
   }
@@ -58,10 +62,10 @@ export default function LoginPage() {
     setTimeout(() => {
       setLoading(false);
       loginAs(activeRole, email);
-      if (activeRole === "admin") {
-        router.push("/admin");
-      } else {
+      if (activeRole === "guru") {
         router.push("/");
+      } else {
+        router.push("/admin");
       }
     }, 450);
   }
@@ -81,40 +85,57 @@ export default function LoginPage() {
           </CardDescription>
         </div>
 
-        {/* Role Selector Tabs */}
-        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-slate-100 p-1.5 pt-1.5 mt-2">
+        {/* Role Selector Tabs (Standar SaaS Pendidikan) */}
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-slate-100 p-1 mt-2">
           <button
             type="button"
             onClick={() => handleRoleChange("guru")}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-semibold transition-all cursor-pointer",
+              "flex flex-col sm:flex-row items-center justify-center gap-1.5 rounded-lg py-2 px-1 text-[11px] font-semibold transition-all cursor-pointer text-center",
               activeRole === "guru"
-                ? "bg-white text-navy-950 shadow-xs border border-border"
+                ? "bg-white text-navy-950 shadow-xs border border-border font-bold"
                 : "text-slate-600 hover:text-navy-900 hover:bg-white/60"
             )}
           >
             <GraduationCap
-              size={16}
+              size={15}
               className={activeRole === "guru" ? "text-navy-900" : "text-slate-400"}
             />
-            <span>Guru Pengajar</span>
+            <span>Guru</span>
           </button>
 
           <button
             type="button"
-            onClick={() => handleRoleChange("admin")}
+            onClick={() => handleRoleChange("tu")}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-semibold transition-all cursor-pointer",
-              activeRole === "admin"
-                ? "bg-white text-navy-950 shadow-xs border border-border"
+              "flex flex-col sm:flex-row items-center justify-center gap-1.5 rounded-lg py-2 px-1 text-[11px] font-semibold transition-all cursor-pointer text-center",
+              activeRole === "tu"
+                ? "bg-white text-navy-950 shadow-xs border border-border font-bold"
+                : "text-slate-600 hover:text-navy-900 hover:bg-white/60"
+            )}
+          >
+            <Briefcase
+              size={15}
+              className={activeRole === "tu" ? "text-navy-900" : "text-slate-400"}
+            />
+            <span>Tata Usaha</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleRoleChange("kepsek")}
+            className={cn(
+              "flex flex-col sm:flex-row items-center justify-center gap-1.5 rounded-lg py-2 px-1 text-[11px] font-semibold transition-all cursor-pointer text-center",
+              activeRole === "kepsek" || activeRole === "admin"
+                ? "bg-white text-navy-950 shadow-xs border border-border font-bold"
                 : "text-slate-600 hover:text-navy-900 hover:bg-white/60"
             )}
           >
             <ShieldCheck
-              size={16}
-              className={activeRole === "admin" ? "text-navy-900" : "text-slate-400"}
+              size={15}
+              className={activeRole === "kepsek" || activeRole === "admin" ? "text-navy-900" : "text-slate-400"}
             />
-            <span>Kepala Sekolah</span>
+            <span>Kepsek</span>
           </button>
         </div>
       </CardHeader>
@@ -124,13 +145,19 @@ export default function LoginPage() {
         <div className="flex items-center gap-2.5 rounded-lg border border-navy-100 bg-navy-50/70 p-3 text-xs text-navy-900">
           <Lock size={15} className="shrink-0 text-navy-700" />
           <span>
-            {activeRole === "guru" ? (
+            {activeRole === "guru" && (
               <>
-                Login ke <strong>Portal Guru</strong>: Presensi harian, kelas binaan &amp; rekap jadwal Anda.
+                Login <strong>Guru Pengajar</strong>: Presensi kelas, jurnal mengajar kurikulum merdeka, &amp; presensi mandiri.
               </>
-            ) : (
+            )}
+            {activeRole === "tu" && (
               <>
-                Login ke <strong>Portal Kepala Sekolah</strong>: Monitoring sekolah, kelola jadwal &amp; laporan pimpinan.
+                Login <strong>Tata Usaha &amp; Keuangan</strong>: Penggajian honor guru, presensi PTK, data guru, &amp; administrasi SPJ.
+              </>
+            )}
+            {(activeRole === "kepsek" || activeRole === "admin") && (
+              <>
+                Login <strong>Kepala Sekolah</strong>: Supervisi jurnal guru, evaluasi KBM, bimbingan konseling, &amp; laporan dinas.
               </>
             )}
           </span>

@@ -72,7 +72,7 @@ export default function AdminNavShell() {
               Hadirin
             </span>
             <span className="ml-1.5 rounded-sm bg-navy-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-navy-800">
-              ADMIN
+              {currentUser?.role === "tu" ? "TATA USAHA" : "ADMIN / KEPSEK"}
             </span>
           </div>
         </div>
@@ -175,15 +175,15 @@ export default function AdminNavShell() {
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9 border border-navy-200">
               <AvatarFallback className="bg-navy-100 font-bold text-navy-900 text-xs">
-                HW
+                {currentUser?.role === "tu" ? "SW" : "HW"}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="truncate text-xs font-bold text-navy-950">
-                {currentUser?.nama || "Drs. Hendra Wijaya"}
+                {currentUser?.nama || (currentUser?.role === "tu" ? "Dra. Hj. Sri Wahyuni, M.Ak" : "Drs. Hendra Wijaya")}
               </p>
               <p className="truncate text-[11px] text-muted-foreground">
-                Kepala Sekolah
+                {currentUser?.jabatan || (currentUser?.role === "tu" ? "Kaur Tata Usaha & Keuangan" : "Kepala Sekolah")}
               </p>
             </div>
           </div>

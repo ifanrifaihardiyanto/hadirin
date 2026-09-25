@@ -8,14 +8,14 @@ import { HARI_INI, useStore } from "@/lib/store";
 import { profilGuru, profilKepsek } from "@/lib/mock-data";
 
 interface DashboardHeaderProps {
-  role?: "guru" | "admin";
+  role?: "guru" | "admin" | "tu" | "kepsek";
 }
 
 export default function DashboardHeader({ role = "guru" }: DashboardHeaderProps) {
   const { currentUser } = useStore();
-  const isGuru = role === "guru";
-  const nama = (currentUser?.role === role && currentUser.nama) ? currentUser.nama : (isGuru ? profilGuru.nama : profilKepsek.nama);
-  const jabatan = isGuru ? "Guru Pengajar" : "Kepala Sekolah";
+  const isGuru = role === "guru" || currentUser?.role === "guru";
+  const nama = currentUser?.nama || (isGuru ? profilGuru.nama : profilKepsek.nama);
+  const jabatan = currentUser?.jabatan || (isGuru ? "Guru Pengajar" : "Kepala Sekolah");
   const inisial = nama
     .split(" ")
     .map((n) => n[0])
