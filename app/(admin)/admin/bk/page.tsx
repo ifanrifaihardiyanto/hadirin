@@ -14,6 +14,9 @@ import {
   Printer,
   X,
   Plus,
+  UserCheck,
+  UserX,
+  Send,
   BadgeAlert,
 } from "lucide-react";
 import { useStore, type KasusBK, type StatusKasusBK, type KategoriBK } from "@/lib/store";
@@ -70,7 +73,7 @@ const STATUS_CONFIG: Record<
 };
 
 export default function AdminBKPage() {
-  const { kasusBKList, tambahKasusBK, updateStatusKasusBK, daftarKelas } = useStore();
+  const { kasusBKList, tambahKasusBK, updateStatusKasusBK, daftarKelas, daftarGuru } = useStore();
   const [search, setSearch] = useState("");
   const [filterKategori, setFilterKategori] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -260,7 +263,7 @@ export default function AdminBKPage() {
               >
                 <option value="ALL">Semua Kategori</option>
                 <option value="ABSENSI_TINGGI">Absensi / Alpha Tinggi</option>
-                <option value="KEDISIPLINAN">Kedisiplinan &amp; Tata Tertib</option>
+                <option value="KEDISIPLINAN">Kedisiplinan</option>
                 <option value="PRESTASI">Prestasi &amp; Apresiasi</option>
                 <option value="KONSELING_PRIBADI">Konseling Pribadi</option>
               </select>
