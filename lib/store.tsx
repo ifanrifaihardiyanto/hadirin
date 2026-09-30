@@ -130,6 +130,74 @@ export const daftarTagihanSPPAwal: TagihanSPP[] = [
   { id: "spp-12", noKwitansi: "KW-202607-012", siswaId: "s-12", siswaNama: "Mutiara Anjani", nisn: "0067891245", kelas: "XII IPS 1", bulan: "Juli 2026", nominal: 450000, status: "BELUM_BAYAR" },
 ];
 
+
+export interface Tugas {
+  id: string;
+  judul: string;
+  mapel: string;
+  kelas: string;
+  guruNama: string;
+  deadline: string;
+  deskripsi: string;
+  totalSiswa: number;
+  sudahMengumpulkan: number;
+  sudahDinilai: number;
+  status: "AKTIF" | "SELESAI" | "DRAFT";
+}
+
+export const daftarTugasAwal: Tugas[] = [
+  { id: "t-1", judul: "Latihan Persamaan Kuadrat & Aljabar", mapel: "Matematika Wajib", kelas: "X IPA 1", guruNama: "Sari Wulandari, S.Pd", deadline: "2026-08-05 23:59", deskripsi: "Kerjakan 10 soal pada modul hal. 42 lalu kumpulkan dalam format PDF.", totalSiswa: 20, sudahMengumpulkan: 18, sudahDinilai: 15, status: "AKTIF" },
+  { id: "t-2", judul: "Teks Laporan Hasil Observasi Lapangan", mapel: "Bahasa Indonesia", kelas: "X IPA 1", guruNama: "Dewi Lestari, M.Pd", deadline: "2026-08-08 23:59", deskripsi: "Laporan observasi ekosistem taman sekolah minimal 500 kata dengan struktur yang tepat.", totalSiswa: 20, sudahMengumpulkan: 12, sudahDinilai: 8, status: "AKTIF" },
+  { id: "t-3", judul: "Praktikum Hukum Newton & Gerak Lurus", mapel: "Fisika Peminatan", kelas: "X IPA 2", guruNama: "Bambang Santoso, M.Si", deadline: "2026-07-28 23:59", deskripsi: "Laporan praktikum mandiri dengan grafik percepatan.", totalSiswa: 20, sudahMengumpulkan: 20, sudahDinilai: 20, status: "SELESAI" },
+  { id: "t-4", judul: "Essay Opinion: Digital Transformation in Education", mapel: "Bahasa Inggris", kelas: "XI IPA 1", guruNama: "Rian Pratama, S.Pd", deadline: "2026-08-10 23:59", deskripsi: "Write an opinion essay arguing the pros and cons of AI in schools.", totalSiswa: 20, sudahMengumpulkan: 9, sudahDinilai: 4, status: "AKTIF" },
+];
+
+export interface MateriAjar {
+  id: string;
+  judul: string;
+  mapel: string;
+  kelas: string;
+  guruNama: string;
+  tipe: "PDF" | "VIDEO" | "SLIDE" | "DOKUMEN";
+  fileUrl: string;
+  ukuranFile: string;
+  tanggalUpload: string;
+}
+
+export const daftarMateriAwal: MateriAjar[] = [
+  { id: "m-1", judul: "Modul 01 - Pengenalan Fungsi & Persamaan Kuadrat", mapel: "Matematika Wajib", kelas: "X IPA 1", guruNama: "Sari Wulandari, S.Pd", tipe: "PDF", fileUrl: "#", ukuranFile: "2.4 MB", tanggalUpload: "2026-07-15" },
+  { id: "m-2", judul: "Slide PPT - Struktur & Kaidah Teks Observasi", mapel: "Bahasa Indonesia", kelas: "X IPA 1", guruNama: "Dewi Lestari, M.Pd", tipe: "SLIDE", fileUrl: "#", ukuranFile: "4.1 MB", tanggalUpload: "2026-07-17" },
+  { id: "m-3", judul: "Video Animasi - Hukum Gerak Newton I, II, & III", mapel: "Fisika Peminatan", kelas: "X IPA 2", guruNama: "Bambang Santoso, M.Si", tipe: "VIDEO", fileUrl: "#", ukuranFile: "18.5 MB", tanggalUpload: "2026-07-20" },
+  { id: "m-4", judul: "Modul Praktikum - Sel & Jaringan Tumbuhan", mapel: "Biologi Peminatan", kelas: "X IPA 1", guruNama: "Dr. Retno Wahyuni", tipe: "PDF", fileUrl: "#", ukuranFile: "3.2 MB", tanggalUpload: "2026-07-22" },
+  { id: "m-5", judul: "Handout - Analytical Exposition Text", mapel: "Bahasa Inggris", kelas: "XI IPA 1", guruNama: "Rian Pratama, S.Pd", tipe: "DOKUMEN", fileUrl: "#", ukuranFile: "1.1 MB", tanggalUpload: "2026-07-24" },
+];
+
+export interface NilaiSiswa {
+  id: string;
+  siswaId: string;
+  siswaNama: string;
+  nisn: string;
+  kelas: string;
+  mapel: string;
+  nilaiTugas: number;
+  nilaiFormatif: number;
+  nilaiSumatif: number;
+  nilaiAkhir: number;
+  predikat: "A" | "B" | "C" | "D";
+  capaianKompetensi: string;
+}
+
+export const daftarNilaiAwal: NilaiSiswa[] = [
+  { id: "n-1", siswaId: "s-1", siswaNama: "Ahmad Fadillah", nisn: "0067891234", kelas: "X IPA 1", mapel: "Matematika Wajib", nilaiTugas: 88, nilaiFormatif: 85, nilaiSumatif: 90, nilaiAkhir: 88, predikat: "A", capaianKompetensi: "Sangat menguasai konsep fungsi aljabar dan pemecahan masalah persamaan kuadrat." },
+  { id: "n-2", siswaId: "s-2", siswaNama: "Bunga Citra", nisn: "0067891235", kelas: "X IPA 1", mapel: "Matematika Wajib", nilaiTugas: 92, nilaiFormatif: 90, nilaiSumatif: 94, nilaiAkhir: 92, predikat: "A", capaianKompetensi: "Istimewa dalam penalaran matematis dan pemodelan grafik fungsi." },
+  { id: "n-3", siswaId: "s-3", siswaNama: "Dedi Kurniawan", nisn: "0067891236", kelas: "X IPA 1", mapel: "Matematika Wajib", nilaiTugas: 75, nilaiFormatif: 72, nilaiSumatif: 74, nilaiAkhir: 74, predikat: "C", capaianKompetensi: "Cukup memahami konsep aljabar, perlu penguatan dalam latihan perhitungan akar persamaan." },
+  { id: "n-4", siswaId: "s-4", siswaNama: "Eka Putri", nisn: "0067891237", kelas: "X IPA 2", mapel: "Matematika Wajib", nilaiTugas: 85, nilaiFormatif: 84, nilaiSumatif: 86, nilaiAkhir: 85, predikat: "B", capaianKompetensi: "Menguasai konsep fungsi kuadrat dengan baik serta aktif dalam penugasan mandiri." },
+  { id: "n-5", siswaId: "s-5", siswaNama: "Farhan Maulana", nisn: "0067891238", kelas: "X IPA 2", mapel: "Matematika Wajib", nilaiTugas: 78, nilaiFormatif: 76, nilaiSumatif: 80, nilaiAkhir: 78, predikat: "B", capaianKompetensi: "Mampu menyelesaikan persoalan matematika dasar dan persamaan linear." },
+  { id: "n-6", siswaId: "s-6", siswaNama: "Gita Ramadhani", nisn: "0067891239", kelas: "XI IPA 1", mapel: "Bahasa Inggris", nilaiTugas: 95, nilaiFormatif: 92, nilaiSumatif: 94, nilaiAkhir: 94, predikat: "A", capaianKompetensi: "Sangat fasih dalam penulisan essay argumentatif dan penguasaan vocabulary akademik." },
+  { id: "n-7", siswaId: "s-7", siswaNama: "Hafiz Aditya", nisn: "0067891240", kelas: "XI IPA 1", mapel: "Bahasa Inggris", nilaiTugas: 82, nilaiFormatif: 80, nilaiSumatif: 84, nilaiAkhir: 82, predikat: "B", capaianKompetensi: "Mampu menyusun opini dan mengekspresikan ide dalam bahasa Inggris secara terstruktur." },
+  { id: "n-8", siswaId: "s-8", siswaNama: "Indah Permata", nisn: "0067891241", kelas: "XI IPA 2", mapel: "Fisika Peminatan", nilaiTugas: 88, nilaiFormatif: 86, nilaiSumatif: 89, nilaiAkhir: 88, predikat: "A", capaianKompetensi: "Sangat baik dalam analisis gerak rotasi dan penerapan hukum dinamika Newton." },
+];
+
 export interface CurrentUser {
   id: string;
   nama: string;
@@ -677,7 +745,14 @@ interface StoreValue {
   daftarTagihanSPP: TagihanSPP[];
   bayarTagihanSPP: (id: string, metode: "TRANSFER_BANK" | "TUNAI_KASIR" | "QRIS", catatan?: string) => void;
   tambahTagihanSPP: (tagihan: Omit<TagihanSPP, "id" | "noKwitansi">) => void;
-
+  daftarTugas: Tugas[];
+  tambahTugas: (tugas: Omit<Tugas, "id">) => void;
+  hapusTugas: (id: string) => void;
+  daftarMateri: MateriAjar[];
+  tambahMateri: (materi: Omit<MateriAjar, "id">) => void;
+  hapusMateri: (id: string) => void;
+  daftarNilai: NilaiSiswa[];
+  updateNilaiSiswa: (id: string, nilaiTugas: number, nilaiFormatif: number, nilaiSumatif: number) => void;
   loginAs: (role: UserRole, email?: string) => void;
 
   logout: () => void;
@@ -706,6 +781,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
+    const [daftarTugas, setDaftarTugas] = useState<Tugas[]>(daftarTugasAwal);
+  const [daftarMateri, setDaftarMateri] = useState<MateriAjar[]>(daftarMateriAwal);
+  const [daftarNilai, setDaftarNilai] = useState<NilaiSiswa[]>(daftarNilaiAwal);
   const [currentUser, setCurrentUser] = useState<CurrentUser>(USER_GURU_DEFAULT);
 
   useEffect(() => {
@@ -890,6 +968,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const id = "spp-" + Date.now();
         const noKwitansi = "KW-" + new Date().getFullYear() + String(new Date().getMonth() + 1).padStart(2, "0") + "-" + String(Math.floor(100 + Math.random() * 900));
         setDaftarTagihanSPP((prev) => [{ ...entry, id, noKwitansi }, ...prev]);
+      },
+      daftarTugas,
+      tambahTugas: (entry: Omit<Tugas, "id">) => {
+        const baru: Tugas = { ...entry, id: "t-" + Date.now() };
+        setDaftarTugas((prev) => [baru, ...prev]);
+      },
+      hapusTugas: (id: string) => {
+        setDaftarTugas((prev) => prev.filter((t) => t.id !== id));
+      },
+      daftarMateri,
+      tambahMateri: (entry: Omit<MateriAjar, "id">) => {
+        const baru: MateriAjar = { ...entry, id: "m-" + Date.now() };
+        setDaftarMateri((prev) => [baru, ...prev]);
+      },
+      hapusMateri: (id: string) => {
+        setDaftarMateri((prev) => prev.filter((m) => m.id !== id));
+      },
+      daftarNilai,
+      updateNilaiSiswa: (id: string, nilaiTugas: number, nilaiFormatif: number, nilaiSumatif: number) => {
+        const akhir = Math.round(nilaiTugas * 0.3 + nilaiFormatif * 0.3 + nilaiSumatif * 0.4);
+        const predikat: "A" | "B" | "C" | "D" =
+          akhir >= 88 ? "A" : akhir >= 78 ? "B" : akhir >= 68 ? "C" : "D";
+        setDaftarNilai((prev) =>
+          prev.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  nilaiTugas,
+                  nilaiFormatif,
+                  nilaiSumatif,
+                  nilaiAkhir: akhir,
+                  predikat,
+                }
+              : n
+          )
+        );
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
