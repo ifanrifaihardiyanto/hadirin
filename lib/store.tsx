@@ -99,6 +99,37 @@ export const daftarSiswaIndukAwal: SiswaInduk[] = [
   { id: "s-12", nisn: "0067891245", nis: "24012", nama: "Mutiara Anjani", gender: "P", kelas: "XII IPS 1", waliKelas: "Dr. Retno Wahyuni", namaWali: "Anjani Dewi", teleponWali: "0819-3456-7890", status: "AKTIF" },
 ];
 
+
+export interface TagihanSPP {
+  id: string;
+  noKwitansi: string;
+  siswaId: string;
+  siswaNama: string;
+  nisn: string;
+  kelas: string;
+  bulan: string;
+  nominal: number;
+  status: "LUNAS" | "BELUM_BAYAR" | "MENUNGGU_KONFIRMASI";
+  tanggalBayar?: string;
+  metodeBayar?: "TRANSFER_BANK" | "TUNAI_KASIR" | "QRIS";
+  catatan?: string;
+}
+
+export const daftarTagihanSPPAwal: TagihanSPP[] = [
+  { id: "spp-1", noKwitansi: "KW-202607-001", siswaId: "s-1", siswaNama: "Ahmad Fadillah", nisn: "0067891234", kelas: "X IPA 1", bulan: "Juli 2026", nominal: 350000, status: "LUNAS", tanggalBayar: "2026-07-05", metodeBayar: "TRANSFER_BANK", catatan: "Transfer BCA Virtual Account" },
+  { id: "spp-2", noKwitansi: "KW-202607-002", siswaId: "s-2", siswaNama: "Bunga Citra", nisn: "0067891235", kelas: "X IPA 1", bulan: "Juli 2026", nominal: 350000, status: "LUNAS", tanggalBayar: "2026-07-08", metodeBayar: "QRIS", catatan: "Pembayaran QRIS Hadirin" },
+  { id: "spp-3", noKwitansi: "KW-202607-003", siswaId: "s-3", siswaNama: "Dedi Kurniawan", nisn: "0067891236", kelas: "X IPA 1", bulan: "Juli 2026", nominal: 350000, status: "BELUM_BAYAR" },
+  { id: "spp-4", noKwitansi: "KW-202607-004", siswaId: "s-4", siswaNama: "Eka Putri", nisn: "0067891237", kelas: "X IPA 2", bulan: "Juli 2026", nominal: 350000, status: "LUNAS", tanggalBayar: "2026-07-10", metodeBayar: "TUNAI_KASIR", catatan: "Bayar Tunai di TU Sekolah" },
+  { id: "spp-5", noKwitansi: "KW-202607-005", siswaId: "s-5", siswaNama: "Farhan Maulana", nisn: "0067891238", kelas: "X IPA 2", bulan: "Juli 2026", nominal: 350000, status: "BELUM_BAYAR" },
+  { id: "spp-6", noKwitansi: "KW-202607-006", siswaId: "s-6", siswaNama: "Gita Ramadhani", nisn: "0067891239", kelas: "XI IPA 1", bulan: "Juli 2026", nominal: 400000, status: "LUNAS", tanggalBayar: "2026-07-04", metodeBayar: "TRANSFER_BANK", catatan: "Transfer Bank Mandiri" },
+  { id: "spp-7", noKwitansi: "KW-202607-007", siswaId: "s-7", siswaNama: "Hafiz Aditya", nisn: "0067891240", kelas: "XI IPA 1", bulan: "Juli 2026", nominal: 400000, status: "MENUNGGU_KONFIRMASI", tanggalBayar: "2026-07-12", metodeBayar: "TRANSFER_BANK", catatan: "Menunggu verifikasi bukti transfer" },
+  { id: "spp-8", noKwitansi: "KW-202607-008", siswaId: "s-8", siswaNama: "Indah Permata", nisn: "0067891241", kelas: "XI IPA 2", bulan: "Juli 2026", nominal: 400000, status: "LUNAS", tanggalBayar: "2026-07-07", metodeBayar: "QRIS" },
+  { id: "spp-9", noKwitansi: "KW-202607-009", siswaId: "s-9", siswaNama: "Joko Prasetyo", nisn: "0067891242", kelas: "XI IPA 2", bulan: "Juli 2026", nominal: 400000, status: "BELUM_BAYAR" },
+  { id: "spp-10", noKwitansi: "KW-202607-010", siswaId: "s-10", siswaNama: "Kirana Salsabila", nisn: "0067891243", kelas: "XII IPA 1", bulan: "Juli 2026", nominal: 450000, status: "LUNAS", tanggalBayar: "2026-07-02", metodeBayar: "TRANSFER_BANK" },
+  { id: "spp-11", noKwitansi: "KW-202607-011", siswaId: "s-11", siswaNama: "Lutfi Hakim", nisn: "0067891244", kelas: "XII IPA 1", bulan: "Juli 2026", nominal: 450000, status: "LUNAS", tanggalBayar: "2026-07-03", metodeBayar: "TUNAI_KASIR" },
+  { id: "spp-12", noKwitansi: "KW-202607-012", siswaId: "s-12", siswaNama: "Mutiara Anjani", nisn: "0067891245", kelas: "XII IPS 1", bulan: "Juli 2026", nominal: 450000, status: "BELUM_BAYAR" },
+];
+
 export interface CurrentUser {
   id: string;
   nama: string;
@@ -643,6 +674,10 @@ interface StoreValue {
   daftarSiswaInduk: SiswaInduk[];
   tambahSiswaInduk: (siswa: Omit<SiswaInduk, "id">) => void;
   hapusSiswaInduk: (id: string) => void;
+  daftarTagihanSPP: TagihanSPP[];
+  bayarTagihanSPP: (id: string, metode: "TRANSFER_BANK" | "TUNAI_KASIR" | "QRIS", catatan?: string) => void;
+  tambahTagihanSPP: (tagihan: Omit<TagihanSPP, "id" | "noKwitansi">) => void;
+
   loginAs: (role: UserRole, email?: string) => void;
 
   logout: () => void;
@@ -670,6 +705,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarMapel, setDaftarMapel] = useState<MataPelajaran[]>(daftarMapelAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
+    const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
   const [currentUser, setCurrentUser] = useState<CurrentUser>(USER_GURU_DEFAULT);
 
   useEffect(() => {
@@ -833,6 +869,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       hapusSiswaInduk: (id: string) => {
         setDaftarSiswaInduk((prev) => prev.filter((s) => s.id !== id));
+      },
+      daftarTagihanSPP,
+      bayarTagihanSPP: (id: string, metode: "TRANSFER_BANK" | "TUNAI_KASIR" | "QRIS", catatan?: string) => {
+        setDaftarTagihanSPP((prev) =>
+          prev.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  status: "LUNAS" as const,
+                  tanggalBayar: new Date().toISOString().split("T")[0],
+                  metodeBayar: metode,
+                  catatan: catatan || t.catatan,
+                }
+              : t
+          )
+        );
+      },
+      tambahTagihanSPP: (entry: Omit<TagihanSPP, "id" | "noKwitansi">) => {
+        const id = "spp-" + Date.now();
+        const noKwitansi = "KW-" + new Date().getFullYear() + String(new Date().getMonth() + 1).padStart(2, "0") + "-" + String(Math.floor(100 + Math.random() * 900));
+        setDaftarTagihanSPP((prev) => [{ ...entry, id, noKwitansi }, ...prev]);
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;

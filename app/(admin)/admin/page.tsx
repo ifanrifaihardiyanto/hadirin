@@ -1,7 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { TriangleAlert, Users, CheckCircle2, BookOpen, FileCheck, ChevronRight, HeartHandshake, UserCheck, Banknote } from "lucide-react";
+import {
+  Users,
+  CheckCircle2,
+  X,
+  BookOpen,
+  FileCheck,
+  ChevronRight,
+  HeartHandshake,
+  UserCheck,
+  Banknote,
+  Receipt,
+  GraduationCap,
+  School,
+  BookOpenCheck,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  AlertTriangle,
+  ArrowUpRight,
+  CalendarDays,
+  ShieldCheck,
+  Activity,
+} from "lucide-react";
 import { useStore, HARI_INI } from "@/lib/store";
 import {
   kelasSeluruhSekolah,
@@ -12,10 +34,40 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 export default function AdminBerandaPage() {
-  const { daftarGuru, jadwal, absensiTersimpanHariIni, currentUser } = useStore();
+  const {
+    daftarGuru,
+    jadwal,
+    absensiTersimpanHariIni,
+    currentUser,
+    daftarSiswaInduk,
+    daftarMapel,
+    daftarTagihanSPP,
+    presensiGuruList,
+    tahunAjaranAktif,
+    semesterAktif,
+  } = useStore();
+
   const isTU = currentUser?.role === "tu";
+  const isKepsek = currentUser?.role === "kepsek";
+  const roleName = isTU ? "Tata Usaha" : isKepsek ? "Kepala Sekolah" : "Admin Sekolah";
+
+  // Financial Summary Calculation
+  const totalPemasukanSPP = daftarTagihanSPP
+    .filter((t) => t.status === "LUNAS")
+    .reduce((acc, curr) => acc + curr.nominal, 0);
+
+  // Estimasi pengeluaran honor & operasional
+  const totalPengeluaranHonor = 3000000;
+  const saldoKasSekolah = totalPemasukanSPP - totalPengeluaranHonor;
+
+  // Attendance stats today
+  const totalSiswaHadir = 18;
+  const totalSiswaIzin = 2;
+  const totalSiswaAlfa = 0;
+  const totalStaffHadir = presensiGuruList.filter((p) => p.status === "TEPAT_WAKTU" || p.status === "TERLAMBAT").length;
 
   const statusGuruHariIni = daftarGuru
     .map((g) => {
@@ -33,386 +85,298 @@ export default function AdminBerandaPage() {
     (g) => g.kelasSelesai === g.kelasHariIni
   ).length;
 
-  const kehadiranRataRata = Math.round(
-    kelasSeluruhSekolah.reduce((a, k) => a + k.rataKehadiran, 0) /
-      kelasSeluruhSekolah.length
-  );
   const perluPerhatian = [...rekapBulanIni]
     .filter((r) => r.alpha >= 2)
     .sort((a, b) => b.alpha - a.alpha);
 
   return (
     <div className="w-full space-y-6">
-      {/* Page Title & Status */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
-              {isTU ? "Dashboard Tata Usaha & Keuangan" : "Dashboard Eksekutif Kepala Sekolah"}
-            </h1>
-            <Badge className={isTU ? "bg-amber-100 text-amber-900 border-amber-300 text-xs font-semibold" : "bg-navy-100 text-navy-900 text-xs font-semibold"}>
-              {isTU ? "Portal Tata Usaha" : "Pimpinan Sekolah"}
-            </Badge>
+      {/* 1. WELCOME HERO BANNER (Standard SaaS EdTech) */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 p-6 md:p-8 text-white shadow-xl">
+        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -left-16 -bottom-16 h-56 w-56 rounded-full bg-navy-600/20 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs border border-white/15">
+              {roleName}
+            </span>
+            <span className="rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-200 border border-blue-400/20">
+              {tahunAjaranAktif} &bull; {semesterAktif}
+            </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {profilSekolah.nama} · {isTU ? "Manajemen kepegawaian PTK, honorium KBM, & berkas izin" : "Supervisi KBM, kedisiplinan siswa, & kinerja guru"} hari {HARI_INI}
+
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white md:text-3xl">
+            Halo, {currentUser?.nama || "Drs. Hendra Wijaya, M.Pd."} 👋
+          </h1>
+          <p className="max-w-2xl text-xs sm:text-sm text-slate-300">
+            Pantau ringkasan data sekolah: peserta didik, dewan guru, arus kas keuangan SPP, dan status presensi KBM hari ini secara real-time.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="navy" className="px-3 py-1 text-xs">
-            Semester Ganjil 2026/2027
-          </Badge>
-        </div>
       </div>
 
-      {/* 4 Metric Cards across full width */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none bg-navy-900 text-white shadow-sm">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-navy-200">
-              Rata Presensi Hari Ini
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-display text-3xl font-bold tracking-tight">
-                {kehadiranRataRata}%
-              </p>
-              <Badge variant="outline" className="border-white/20 bg-white/10 text-white text-[10px]">
-                Normal
-              </Badge>
-            </div>
-            <p className="mt-2 text-[11px] text-navy-200">
-              Dihitung dari 6 kelas berjalan
-            </p>
-          </CardContent>
-        </Card>
+      {/* 2. TOP 4 METRIC STATS CARDS */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Link href="/admin/siswa" className="group">
+          <Card className="border-border bg-white shadow-2xs group-hover:border-navy-400 transition-all cursor-pointer">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Total Siswa</span>
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-50 text-blue-700 group-hover:scale-105 transition-transform">
+                  <GraduationCap size={20} />
+                </span>
+              </div>
+              <div className="mt-2 text-3xl font-bold font-mono text-navy-950">
+                {daftarSiswaInduk.length}
+              </div>
+              <p className="mt-1 text-[11px] text-emerald-600 font-medium">● 100% Terdaftar Aktif</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="border-border bg-white shadow-xs">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Guru Selesai Presensi
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-mono text-3xl font-bold text-navy-950">
-                {guruSudahSelesai}
-                <span className="text-lg text-slate-400">/{statusGuruHariIni.length}</span>
-              </p>
-              <Badge variant={guruSudahSelesai === statusGuruHariIni.length ? "hadir" : "secondary"} className="text-[10px]">
-                {statusGuruHariIni.length - guruSudahSelesai} Berjalan
-              </Badge>
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Total guru bertugas hari {HARI_INI}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/guru" className="group">
+          <Card className="border-border bg-white shadow-2xs group-hover:border-navy-400 transition-all cursor-pointer">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Total Guru</span>
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-purple-50 text-purple-700 group-hover:scale-105 transition-transform">
+                  <Users size={20} />
+                </span>
+              </div>
+              <div className="mt-2 text-3xl font-bold font-mono text-navy-950">
+                {daftarGuru.length}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Tenaga Pendidik (PTK)</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="border-border bg-white shadow-xs">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Total Siswa Terdaftar
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-mono text-3xl font-bold text-navy-950">
-                {profilSekolah.totalSiswa}
-              </p>
-              <Badge variant="navy" className="text-[10px]">
-                {kelasSeluruhSekolah.length} Kelas
-              </Badge>
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Aktif pada jenjang {profilSekolah.jenjang}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/jadwal" className="group">
+          <Card className="border-border bg-white shadow-2xs group-hover:border-navy-400 transition-all cursor-pointer">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Kelas Aktif</span>
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 group-hover:scale-105 transition-transform">
+                  <School size={20} />
+                </span>
+              </div>
+              <div className="mt-2 text-3xl font-bold font-mono text-navy-950">
+                6
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Rombongan Belajar</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="border-rose-200 bg-rose-50/70 shadow-xs">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-rose-700">
-              Siswa Perlu Perhatian
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-mono text-3xl font-bold text-rose-800">
-                {perluPerhatian.length}
-              </p>
-              <Badge variant="alpha" className="text-[10px]">
-                &gt;1x Alpha
-              </Badge>
-            </div>
-            <p className="mt-2 text-[11px] text-rose-700">
-              Memerlukan tindak lanjut wali kelas &amp; BK
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/mapel" className="group">
+          <Card className="border-border bg-white shadow-2xs group-hover:border-navy-400 transition-all cursor-pointer">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Mata Pelajaran</span>
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-50 text-amber-700 group-hover:scale-105 transition-transform">
+                  <BookOpenCheck size={20} />
+                </span>
+              </div>
+              <div className="mt-2 text-3xl font-bold font-mono text-navy-950">
+                {daftarMapel.length}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Kurikulum Merdeka</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
-      {/* Main Grid: 2 Columns on large screens */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left 2 Cols: Activity & Classes */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* Guru Status */}
-          <Card className="border-border bg-white shadow-xs">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-border py-4">
+      {/* 3. RINGKASAN KEUANGAN & PRESENSI HARI INI (Matches Reference Screenshot) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Ringkasan Keuangan Box */}
+        <Card className="border-border bg-white shadow-md rounded-2xl lg:col-span-7">
+          <CardHeader className="p-5 pb-3">
+            <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base font-bold text-navy-950">
-                  Aktivitas Presensi Guru Hari Ini
+                <CardTitle className="font-display text-base font-bold text-navy-950">
+                  Ringkasan Keuangan
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  Progres pengambilan presensi kelas oleh dewan guru
+                <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                  Status arus kas dan realisasi keuangan sekolah saat ini
                 </CardDescription>
               </div>
-              <Badge variant="navy" className="text-xs">
-                {statusGuruHariIni.length} Guru Bertugas
-              </Badge>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ul className="divide-y divide-border">
-                {statusGuruHariIni.map((g) => {
-                  const selesai = g.kelasSelesai === g.kelasHariIni;
-                  return (
-                    <li
-                      key={g.id}
-                      className="flex items-center justify-between p-4 hover:bg-slate-50/70 transition-colors"
-                    >
-                      <div>
-                        <p className="text-sm font-bold text-navy-950">{g.nama}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {g.mapel.join(" · ")}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs text-slate-500">
-                          {g.kelasSelesai}/{g.kelasHariIni} sesi
-                        </span>
-                        {selesai ? (
-                          <Badge variant="hadir" className="gap-1 py-1">
-                            <CheckCircle2 size={13} />
-                            Selesai
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="py-1">
-                            Sedang Berjalan
-                          </Badge>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </CardContent>
-          </Card>
+              <Link
+                href="/admin/spp"
+                className="text-xs font-semibold text-navy-900 hover:text-navy-700 flex items-center gap-1"
+              >
+                Detail SPP
+                <ArrowUpRight size={13} />
+              </Link>
+            </div>
+          </CardHeader>
 
-          {/* Kehadiran per kelas */}
-          <Card className="border-border bg-white shadow-xs">
-            <CardHeader className="border-b border-border py-4">
-              <CardTitle className="text-base font-bold text-navy-950">
-                Rata-rata Presensi per Kelas
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Distribusi persentase kehadiran kumulatif seluruh kelas
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {kelasSeluruhSekolah.map((k) => (
-                  <div
-                    key={k.kelas}
-                    className="rounded-xl border border-border bg-slate-50/50 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-sm text-navy-950">{k.kelas}</p>
-                      <span className="font-mono text-xs font-bold text-navy-700">
-                        {k.rataKehadiran}%
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Users size={12} />
-                      {k.jumlahSiswa} siswa
-                    </div>
-                    <div className="mt-2">
-                      <Progress
-                        value={k.rataKehadiran}
-                        className="h-1.5"
-                        indicatorClassName={
-                          k.rataKehadiran >= 90 ? "bg-emerald-500" : "bg-amber-500"
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
+          <CardContent className="p-5 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Pemasukan */}
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
+                  <TrendingUp size={14} className="text-emerald-600" />
+                  Pemasukan (SPP)
+                </div>
+                <div className="mt-2 text-lg sm:text-xl font-bold font-mono text-emerald-700">
+                  Rp {totalPemasukanSPP.toLocaleString("id-ID")}
+                </div>
+                <div className="mt-1 text-[10px] text-emerald-600">Realisasi SPP Terbayar</div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Right 1 Col: At-Risk Students & SaaS Management */}
-        <div className="space-y-6">
-          {/* Quick Access SaaS Features */}
-          <div className="space-y-3">
-            <Link href="/admin/presensi-guru" className="group block">
-              <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <UserCheck size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="font-bold text-xs text-navy-950 group-hover:text-primary">
-                        Monitoring Presensi Guru (PTK)
-                      </h4>
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] py-0 px-1 font-medium">
-                        Live
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      Pantau jam check-in, dinas luar, &amp; ekspor rekap gaji
-                    </p>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
+              {/* Pengeluaran */}
+              <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-800">
+                  <TrendingDown size={14} className="text-rose-600" />
+                  Pengeluaran
                 </div>
-              </Card>
-            </Link>
+                <div className="mt-2 text-lg sm:text-xl font-bold font-mono text-rose-700">
+                  Rp {totalPengeluaranHonor.toLocaleString("id-ID")}
+                </div>
+                <div className="mt-1 text-[10px] text-rose-600">Honor &amp; Operasional</div>
+              </div>
 
-            <Link href="/admin/keuangan" className="group block">
-              <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                    <Banknote size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="font-bold text-xs text-navy-950 group-hover:text-primary">
-                        Honor &amp; Keuangan PTK
-                      </h4>
-                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] py-0 px-1 font-medium">
-                        Payroll
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      Kalkulasi honor KBM, transport, &amp; cetak slip gaji
-                    </p>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
+              {/* Saldo Kas */}
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-900">
+                  <DollarSign size={14} className="text-blue-700" />
+                  Saldo Kas
                 </div>
-              </Card>
-            </Link>
+                <div className="mt-2 text-lg sm:text-xl font-bold font-mono text-blue-800">
+                  Rp {saldoKasSekolah.toLocaleString("id-ID")}
+                </div>
+                <div className="mt-1 text-[10px] text-blue-600">Kas Bersih Sekolah</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            <Link href="/admin/jurnal" className="group block">
-              <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy-800 group-hover:bg-navy-900 group-hover:text-white transition-colors">
-                    <BookOpen size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="font-bold text-xs text-navy-950 group-hover:text-primary">
-                        Supervisi Jurnal Mengajar
-                      </h4>
-                      <Badge className="bg-primary/10 text-primary border-primary/20 text-[9px] py-0 px-1 font-medium">
-                        Baru
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      Audit agenda KBM &amp; cetak berkas supervisi
-                    </p>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </Card>
-            </Link>
-
-            <Link href="/admin/izin" className="group block">
-              <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <FileCheck size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="font-bold text-xs text-navy-950 group-hover:text-primary">
-                        Monitoring Izin Siswa
-                      </h4>
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] py-0 px-1 font-medium">
-                        BK
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      Arsip surat sakit dokter &amp; dispensasi dinas
-                    </p>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </Card>
-            </Link>
-            <Link href="/admin/bk" className="group block">
-              <Card className="border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-navy-400 hover:shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                    <HeartHandshake size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="font-bold text-xs text-navy-950 group-hover:text-primary">
-                        Bimbingan Konseling (BK)
-                      </h4>
-                      <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[9px] py-0 px-1 font-medium">
-                        Layanan
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      Poin kedisiplinan &amp; surat panggilan ortu
-                    </p>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400 group-hover:text-navy-950 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </Card>
-            </Link>
-          </div>
-
-          <Card className="border-rose-200 bg-rose-50/50 shadow-xs">
-            <CardHeader className="border-b border-rose-200/80 py-4">
-              <div className="flex items-center gap-2">
-                <TriangleAlert size={18} className="text-rose-700" />
-                <CardTitle className="text-base font-bold text-rose-950">
-                  Siswa Perlu Perhatian
+        {/* Presensi Hari Ini Box */}
+        <Card className="border-border bg-white shadow-md rounded-2xl lg:col-span-5 flex flex-col justify-between">
+          <CardHeader className="p-5 pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-display text-base font-bold text-navy-950">
+                  Presensi Hari Ini
                 </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                  Hari {HARI_INI}, 23 Juli 2026
+                </CardDescription>
               </div>
-              <CardDescription className="text-xs text-rose-800/80">
-                Siswa dengan akumulasi alpha lebih dari 1 kali
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4">
-              <ul className="space-y-2.5">
-                {perluPerhatian.map((r) => (
-                  <li
-                    key={r.nis}
-                    className="flex items-center justify-between rounded-lg border border-rose-200/60 bg-white p-3 shadow-2xs text-xs"
-                  >
-                    <div>
-                      <p className="font-bold text-rose-950">{r.nama}</p>
-                      <p className="text-[11px] text-muted-foreground">{r.kelas}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="alpha" className="font-mono text-[11px]">
-                        {r.alpha}x alpha
-                      </Badge>
-                      <Link
-                        href="/admin/bk"
-                        className="text-primary hover:underline font-semibold text-[11px]"
-                      >
-                        Bina BK →
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-                {perluPerhatian.length === 0 && (
-                  <li className="text-xs text-muted-foreground text-center py-4">
-                    Tidak ada siswa bermasalah absensi.
-                  </li>
-                )}
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800 text-[10px] font-bold">
+                KBM Berjalan
+              </Badge>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-5 pt-2">
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 size={16} />
+                </span>
+                <div>
+                  <div className="text-[11px] text-slate-500">Siswa Hadir</div>
+                  <div className="font-mono font-bold text-base text-navy-950">{totalSiswaHadir}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-100 text-amber-700">
+                  <AlertTriangle size={16} />
+                </span>
+                <div>
+                  <div className="text-[11px] text-slate-500">Sakit / Izin</div>
+                  <div className="font-mono font-bold text-base text-navy-950">{totalSiswaIzin}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-rose-100 text-rose-700">
+                  <X size={16} />
+                </span>
+                <div>
+                  <div className="text-[11px] text-slate-500">Alfa</div>
+                  <div className="font-mono font-bold text-base text-navy-950">{totalSiswaAlfa}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-100 text-blue-700">
+                  <Activity size={16} />
+                </span>
+                <div>
+                  <div className="text-[11px] text-slate-500">Staff &amp; PTK Hadir</div>
+                  <div className="font-mono font-bold text-base text-navy-950">{totalStaffHadir}</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 4. OPERATIONAL MONITORING (Kinerja Guru & Supervisi) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Guru Mengajar Hari Ini */}
+        <Card className="border-border bg-white shadow-sm rounded-2xl">
+          <CardHeader className="p-5 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-display text-base font-bold text-navy-950">
+                Aktivitas Presensi Guru Hari Ini
+              </CardTitle>
+              <Badge variant="navy" className="text-[10px]">
+                {guruSudahSelesai}/{statusGuruHariIni.length} Tuntas
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5 pt-1 space-y-3">
+            {statusGuruHariIni.map((g) => (
+              <div key={g.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-3 hover:bg-slate-50/70 transition-colors">
+                <div>
+                  <div className="font-bold text-xs text-navy-950">{g.nama}</div>
+                  <div className="text-[11px] text-slate-500">{g.mapel.join(", ")}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={g.kelasSelesai === g.kelasHariIni ? "hadir" : "secondary"} className="text-[10px]">
+                    {g.kelasSelesai}/{g.kelasHariIni} Selesai
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Perlu Perhatian / Alfa Siswa */}
+        <Card className="border-border bg-white shadow-sm rounded-2xl">
+          <CardHeader className="p-5 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-display text-base font-bold text-navy-950">
+                Peringatan Disiplin Siswa (Alpha &ge; 2)
+              </CardTitle>
+              <Link href="/admin/bk" className="text-xs font-semibold text-navy-900 hover:underline">
+                Buka BK
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5 pt-1 space-y-3">
+            {perluPerhatian.slice(0, 4).map((p, idx) => (
+              <div key={idx} className="flex items-center justify-between rounded-xl border border-slate-100 p-3 hover:bg-slate-50/70 transition-colors">
+                <div>
+                  <div className="font-bold text-xs text-navy-950">{p.nama}</div>
+                  <div className="text-[11px] text-slate-500">{p.kelas} &bull; NIS: {p.nis}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="alpha" className="text-[10px] font-bold">
+                    {p.alpha}x Alpha
+                  </Badge>
+                  <Link href="/admin/bk" className="p-1 rounded-lg hover:bg-slate-200 text-slate-400">
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

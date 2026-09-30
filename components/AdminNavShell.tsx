@@ -47,6 +47,7 @@ const tuMainNav = [
 ];
 
 const tuAdminNav = [
+  { href: "/admin/spp", label: "Pembayaran SPP Siswa", icon: Receipt },
   { href: "/admin/keuangan", label: "Honor & Keuangan PTK", icon: Banknote },
   { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
   { href: "/admin/siswa", label: "Data Induk Siswa", icon: GraduationCap },
@@ -70,7 +71,8 @@ const kepsekAdminNav = [
   { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
   { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
   { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
-  { href: "/admin/keuangan", label: "Monitoring Keuangan", icon: Banknote },
+  { href: "/admin/spp", label: "Monitoring SPP Siswa", icon: Receipt },
+  { href: "/admin/keuangan", label: "Monitoring Honor & Keuangan", icon: Banknote },
   { href: "/admin/laporan", label: "Laporan Sekolah", icon: BarChart3 },
   { href: "/admin/izin", label: "Verifikasi Izin", icon: FileCheck },
 ];
@@ -86,6 +88,7 @@ const adminSekolahNav = [
   { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
   { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
   { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
+  { href: "/admin/spp", label: "Pembayaran SPP Siswa", icon: Receipt },
   { href: "/admin/keuangan", label: "Honor & Keuangan PTK", icon: Banknote },
   { href: "/admin/jurnal", label: "Supervisi Jurnal", icon: BookOpen },
   { href: "/admin/izin", label: "Verifikasi Izin", icon: FileCheck },
