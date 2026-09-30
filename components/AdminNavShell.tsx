@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  GraduationCap,
+  BookOpenCheck,
   CalendarClock,
   BookOpen,
   FileCheck,
@@ -47,7 +49,9 @@ const tuMainNav = [
 const tuAdminNav = [
   { href: "/admin/keuangan", label: "Honor & Keuangan PTK", icon: Banknote },
   { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
+  { href: "/admin/siswa", label: "Data Induk Siswa", icon: GraduationCap },
   { href: "/admin/guru", label: "Data Induk Guru", icon: Users },
+  { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
   { href: "/admin/jadwal", label: "Jadwal Pelajaran", icon: CalendarClock },
   { href: "/admin/izin", label: "Verifikasi Izin Siswa", icon: FileCheck },
   { href: "/admin/laporan", label: "Laporan & SPJ BOS", icon: BarChart3 },
@@ -62,10 +66,12 @@ const kepsekAdminNav = [
   { href: "/admin/jurnal", label: "Supervisi Jurnal Mengajar", icon: BookOpen },
   { href: "/admin/bk", label: "Layanan BK & Kasus", icon: HeartHandshake },
   { href: "/admin/presensi-guru", label: "Monitoring Presensi PTK", icon: UserCheck },
-  { href: "/admin/keuangan", label: "Monitoring Honor & Keuangan", icon: Banknote },
-  { href: "/admin/laporan", label: "Laporan Presensi Sekolah", icon: BarChart3 },
+  { href: "/admin/siswa", label: "Data Induk Siswa", icon: GraduationCap },
+  { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
+  { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
   { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
-  { href: "/admin/guru", label: "Data Guru", icon: Users },
+  { href: "/admin/keuangan", label: "Monitoring Keuangan", icon: Banknote },
+  { href: "/admin/laporan", label: "Laporan Sekolah", icon: BarChart3 },
   { href: "/admin/izin", label: "Verifikasi Izin", icon: FileCheck },
 ];
 
@@ -75,7 +81,9 @@ const adminSekolahMainNav = [
 ];
 
 const adminSekolahNav = [
-  { href: "/admin/guru", label: "Data Guru & Siswa", icon: Users },
+  { href: "/admin/siswa", label: "Data Induk Siswa", icon: GraduationCap },
+  { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
+  { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
   { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
   { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
   { href: "/admin/keuangan", label: "Honor & Keuangan PTK", icon: Banknote },

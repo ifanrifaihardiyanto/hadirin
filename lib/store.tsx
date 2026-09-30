@@ -45,6 +45,60 @@ export interface PresensiGuruRecord {
   lokasi: string;
 }
 
+
+export interface MataPelajaran {
+  id: string;
+  kode: string;
+  nama: string;
+  kelompok: "A (Wajib)" | "B (Umum)" | "C (Peminatan)" | "Muatan Lokal";
+  tingkat: "Semua Tingkat" | "Kelas X" | "Kelas XI" | "Kelas XII";
+  bebanJam: number;
+  guruPengampu: string;
+  status: "AKTIF" | "NONAKTIF";
+}
+
+export const daftarMapelAwal: MataPelajaran[] = [
+  { id: "mp-1", kode: "MAT-W", nama: "Matematika Wajib", kelompok: "A (Wajib)", tingkat: "Semua Tingkat", bebanJam: 4, guruPengampu: "Sari Wulandari, S.Pd", status: "AKTIF" },
+  { id: "mp-2", kode: "IND-W", nama: "Bahasa Indonesia", kelompok: "A (Wajib)", tingkat: "Semua Tingkat", bebanJam: 4, guruPengampu: "Dewi Lestari, M.Pd", status: "AKTIF" },
+  { id: "mp-3", kode: "ING-W", nama: "Bahasa Inggris", kelompok: "A (Wajib)", tingkat: "Semua Tingkat", bebanJam: 3, guruPengampu: "Rian Pratama, S.Pd", status: "AKTIF" },
+  { id: "mp-4", kode: "PAI-W", nama: "Pendidikan Agama & Budi Pekerti", kelompok: "A (Wajib)", tingkat: "Semua Tingkat", bebanJam: 3, guruPengampu: "Ahmad Fauzi, S.Pd", status: "AKTIF" },
+  { id: "mp-5", kode: "PPKN-W", nama: "Pendidikan Pancasila", kelompok: "A (Wajib)", tingkat: "Semua Tingkat", bebanJam: 2, guruPengampu: "Drs. Hendra Wijaya, M.Pd", status: "AKTIF" },
+  { id: "mp-6", kode: "FIS-P", nama: "Fisika Peminatan", kelompok: "C (Peminatan)", tingkat: "Kelas X", bebanJam: 4, guruPengampu: "Bambang Santoso, M.Si", status: "AKTIF" },
+  { id: "mp-7", kode: "BIO-P", nama: "Biologi Peminatan", kelompok: "C (Peminatan)", tingkat: "Kelas X", bebanJam: 4, guruPengampu: "Dr. Retno Wahyuni", status: "AKTIF" },
+  { id: "mp-8", kode: "KIM-P", nama: "Kimia Peminatan", kelompok: "C (Peminatan)", tingkat: "Kelas XI", bebanJam: 4, guruPengampu: "Agus Salim, M.Pd", status: "AKTIF" },
+  { id: "mp-9", kode: "INF-B", nama: "Informatika & Koding", kelompok: "B (Umum)", tingkat: "Kelas X", bebanJam: 3, guruPengampu: "Rifqi Pratama, S.Kom", status: "AKTIF" },
+  { id: "mp-10", kode: "PJK-B", nama: "Pendidikan Jasmani & Olahraga", kelompok: "B (Umum)", tingkat: "Semua Tingkat", bebanJam: 3, guruPengampu: "Hadi Purnomo, S.Pd", status: "AKTIF" },
+  { id: "mp-11", kode: "BD-ML", nama: "Bahasa Daerah (Sunda/Jawa)", kelompok: "Muatan Lokal", tingkat: "Kelas X", bebanJam: 2, guruPengampu: "Siti Rahmawati, S.Pd", status: "AKTIF" },
+];
+
+export interface SiswaInduk {
+  id: string;
+  nisn: string;
+  nis: string;
+  nama: string;
+  gender: "L" | "P";
+  kelas: string;
+  waliKelas: string;
+  namaWali: string;
+  teleponWali: string;
+  status: "AKTIF" | "MUTASI" | "ALUMNI";
+}
+
+export const daftarSiswaIndukAwal: SiswaInduk[] = [
+  { id: "s-1", nisn: "0067891234", nis: "24001", nama: "Ahmad Fadillah", gender: "L", kelas: "X IPA 1", waliKelas: "Sari Wulandari, S.Pd", namaWali: "Rahmat Fadillah", teleponWali: "0812-1111-2222", status: "AKTIF" },
+  { id: "s-2", nisn: "0067891235", nis: "24002", nama: "Bunga Citra", gender: "P", kelas: "X IPA 1", waliKelas: "Sari Wulandari, S.Pd", namaWali: "Ir. Bambang S.", teleponWali: "0812-2222-3333", status: "AKTIF" },
+  { id: "s-3", nisn: "0067891236", nis: "24003", nama: "Dedi Kurniawan", gender: "L", kelas: "X IPA 1", waliKelas: "Sari Wulandari, S.Pd", namaWali: "Kurnia Sandi", teleponWali: "0812-3333-4444", status: "AKTIF" },
+  { id: "s-4", nisn: "0067891237", nis: "24004", nama: "Eka Putri", gender: "P", kelas: "X IPA 2", waliKelas: "Bambang Santoso, M.Si", namaWali: "Hj. Ratna Sari", teleponWali: "0813-4444-5555", status: "AKTIF" },
+  { id: "s-5", nisn: "0067891238", nis: "24005", nama: "Farhan Maulana", gender: "L", kelas: "X IPA 2", waliKelas: "Bambang Santoso, M.Si", namaWali: "Maulana Malik", teleponWali: "0813-5555-6666", status: "AKTIF" },
+  { id: "s-6", nisn: "0067891239", nis: "24006", nama: "Gita Ramadhani", gender: "P", kelas: "XI IPA 1", waliKelas: "Dewi Lestari, M.Pd", namaWali: "Ramadhan Effendi", teleponWali: "0815-6666-7777", status: "AKTIF" },
+  { id: "s-7", nisn: "0067891240", nis: "24007", nama: "Hafiz Aditya", gender: "L", kelas: "XI IPA 1", waliKelas: "Dewi Lestari, M.Pd", namaWali: "Aditya Pratama", teleponWali: "0815-7777-8888", status: "AKTIF" },
+  { id: "s-8", nisn: "0067891241", nis: "24008", nama: "Indah Permata", gender: "P", kelas: "XI IPA 2", waliKelas: "Ahmad Fauzi, S.Pd", namaWali: "Permata Wijaya", teleponWali: "0816-8888-9999", status: "AKTIF" },
+  { id: "s-9", nisn: "0067891242", nis: "24009", nama: "Joko Prasetyo", gender: "L", kelas: "XI IPA 2", waliKelas: "Ahmad Fauzi, S.Pd", namaWali: "Prasetyo Utomo", teleponWali: "0817-9999-0000", status: "AKTIF" },
+  { id: "s-10", nisn: "0067891243", nis: "24010", nama: "Kirana Salsabila", gender: "P", kelas: "XII IPA 1", waliKelas: "Rian Pratama, S.Pd", namaWali: "H. Hendro Suwito", teleponWali: "0818-1234-5678", status: "AKTIF" },
+  { id: "s-11", nisn: "0067891244", nis: "24011", nama: "Lutfi Hakim", gender: "L", kelas: "XII IPA 1", waliKelas: "Rian Pratama, S.Pd", namaWali: "Lukman Hakim", teleponWali: "0818-2345-6789", status: "AKTIF" },
+  { id: "s-12", nisn: "0067891245", nis: "24012", nama: "Mutiara Anjani", gender: "P", kelas: "XII IPS 1", waliKelas: "Dr. Retno Wahyuni", namaWali: "Anjani Dewi", teleponWali: "0819-3456-7890", status: "AKTIF" },
+];
+
 export interface CurrentUser {
   id: string;
   nama: string;
@@ -579,7 +633,18 @@ interface StoreValue {
   simpanJurnal: (entry: Omit<JurnalEntry, "id">) => void;
   tambahIzin: (izin: Omit<PermohonanIzin, "id" | "status" | "tanggalPengajuan">) => void;
   updateStatusIzin: (id: string, status: StatusIzin, approverNama?: string) => void;
+  
+  tahunAjaranAktif: string;
+  semesterAktif: "Ganjil" | "Genap";
+  setTahunAjaran: (tahun: string, semester: "Ganjil" | "Genap") => void;
+  daftarMapel: MataPelajaran[];
+  tambahMapel: (mapel: Omit<MataPelajaran, "id">) => void;
+  hapusMapel: (id: string) => void;
+  daftarSiswaInduk: SiswaInduk[];
+  tambahSiswaInduk: (siswa: Omit<SiswaInduk, "id">) => void;
+  hapusSiswaInduk: (id: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
+
   logout: () => void;
 }
 
@@ -598,6 +663,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarIzin, setDaftarIzin] = useState<PermohonanIzin[]>(daftarIzinAwal);
   const [kasusBKList, setKasusBKList] = useState<KasusBK[]>(daftarKasusBKAwal);
   const [presensiGuruList, setPresensiGuruList] = useState<PresensiGuruRecord[]>(daftarPresensiGuruAwal);
+
+  
+  const [tahunAjaranAktif, setTahunAjaranAktif] = useState<string>("2024/2025");
+  const [semesterAktif, setSemesterAktif] = useState<"Ganjil" | "Genap">("Ganjil");
+  const [daftarMapel, setDaftarMapel] = useState<MataPelajaran[]>(daftarMapelAwal);
+  const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
   const [currentUser, setCurrentUser] = useState<CurrentUser>(USER_GURU_DEFAULT);
 
@@ -740,6 +811,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : i
           )
         );
+      },
+      tahunAjaranAktif,
+      semesterAktif,
+      setTahunAjaran: (tahun: string, semester: "Ganjil" | "Genap") => {
+        setTahunAjaranAktif(tahun);
+        setSemesterAktif(semester);
+      },
+      daftarMapel,
+      tambahMapel: (entry: Omit<MataPelajaran, "id">) => {
+        const baru: MataPelajaran = { ...entry, id: "mp-" + Date.now() };
+        setDaftarMapel((prev) => [baru, ...prev]);
+      },
+      hapusMapel: (id: string) => {
+        setDaftarMapel((prev) => prev.filter((m) => m.id !== id));
+      },
+      daftarSiswaInduk,
+      tambahSiswaInduk: (entry: Omit<SiswaInduk, "id">) => {
+        const baru: SiswaInduk = { ...entry, id: "s-" + Date.now() };
+        setDaftarSiswaInduk((prev) => [baru, ...prev]);
+      },
+      hapusSiswaInduk: (id: string) => {
+        setDaftarSiswaInduk((prev) => prev.filter((s) => s.id !== id));
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
