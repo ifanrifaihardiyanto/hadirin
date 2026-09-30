@@ -754,8 +754,10 @@ interface StoreValue {
   daftarNilai: NilaiSiswa[];
   updateNilaiSiswa: (id: string, nilaiTugas: number, nilaiFormatif: number, nilaiSumatif: number) => void;
   loginAs: (role: UserRole, email?: string) => void;
-
   logout: () => void;
+  isMobileMenuOpen: boolean;
+  setMobileMenuOpen: (open: boolean) => void;
+  toggleMobileMenu: () => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -785,6 +787,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarMateri, setDaftarMateri] = useState<MateriAjar[]>(daftarMateriAwal);
   const [daftarNilai, setDaftarNilai] = useState<NilaiSiswa[]>(daftarNilaiAwal);
   const [currentUser, setCurrentUser] = useState<CurrentUser>(USER_GURU_DEFAULT);
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
 
   useEffect(() => {
     try {
@@ -1051,6 +1055,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }
       },
+      isMobileMenuOpen,
+      setMobileMenuOpen,
+      toggleMobileMenu,
     }),
     [
       daftarGuru,
@@ -1063,6 +1070,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       kasusBKList,
       presensiGuruList,
       currentUser,
+      isMobileMenuOpen,
     ]
   );
 

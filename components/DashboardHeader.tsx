@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
+  Menu,
   Bell,
   Calendar,
   Search,
@@ -31,7 +32,7 @@ const daftarPilihanTahun = [
 ];
 
 export default function DashboardHeader({ role = "guru" }: DashboardHeaderProps) {
-  const { currentUser, tahunAjaranAktif, semesterAktif, setTahunAjaran } = useStore();
+  const { currentUser, tahunAjaranAktif, semesterAktif, setTahunAjaran, toggleMobileMenu } = useStore();
   const [openTahunDropdown, setOpenTahunDropdown] = useState(false);
 
   const isGuru = role === "guru" || currentUser?.role === "guru";
@@ -44,9 +45,18 @@ export default function DashboardHeader({ role = "guru" }: DashboardHeaderProps)
 
   return (
     <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-border bg-white/95 px-6 backdrop-blur-md md:px-8">
-      {/* Left: Search Bar */}
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:flex items-center gap-2 rounded-xl border border-border bg-slate-50/80 px-3 py-1.5 text-xs text-muted-foreground w-64 md:w-80 shadow-2xs focus-within:ring-2 focus-within:ring-navy-900 focus-within:bg-white transition-all">
+      {/* Left: Mobile/Tablet Hamburger Toggle & Search Bar */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={toggleMobileMenu}
+          className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-navy-900 shadow-2xs hover:bg-slate-50 transition-colors lg:hidden cursor-pointer"
+          aria-label="Buka Menu Navigasi"
+        >
+          <Menu size={18} />
+        </button>
+
+        <div className="hidden sm:flex items-center gap-2 rounded-xl border border-border bg-slate-50/80 px-3 py-1.5 text-xs text-muted-foreground w-48 md:w-80 shadow-2xs focus-within:ring-2 focus-within:ring-navy-900 focus-within:bg-white transition-all">
           <Search size={14} className="text-slate-400 shrink-0" />
           <input
             type="text"
