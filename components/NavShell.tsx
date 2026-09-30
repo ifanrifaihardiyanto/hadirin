@@ -12,14 +12,19 @@ import {
   CheckCheck,
   LogOut,
   UserCheck,
+  GraduationCap,
+  Heart,
+  Receipt,
+  Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
-const mainNav = [
-  { href: "/", label: "Beranda", icon: Home },
+// 1. Menu Guru
+const guruMainNav = [
+  { href: "/", label: "Beranda Guru", icon: Home },
   { href: "/presensi-guru", label: "Presensi Mandiri", icon: UserCheck },
   { href: "/kelas", label: "Daftar Kelas", icon: CalendarCheck },
   { href: "/jurnal", label: "Jurnal Mengajar", icon: BookOpen },
@@ -27,22 +32,50 @@ const mainNav = [
   { href: "/rekap", label: "Rekapitulasi", icon: BarChart3 },
 ];
 
-const accountNav = [
+// 2. Menu Siswa
+const siswaMainNav = [
+  { href: "/siswa", label: "Portal Siswa", icon: Home },
+  { href: "/izin", label: "Pengajuan Izin", icon: FileCheck },
+  { href: "/profil", label: "Profil Siswa", icon: User },
+];
+
+// 3. Menu Orang Tua
+const ortuMainNav = [
+  { href: "/ortu", label: "Portal Orang Tua", icon: Home },
+  { href: "/izin", label: "Surat Izin Anak", icon: FileCheck },
   { href: "/profil", label: "Profil Akun", icon: User },
 ];
 
-const mobileTeacherNav = [
-  { href: "/", label: "Beranda", icon: Home },
-  { href: "/presensi-guru", label: "Presensi", icon: UserCheck },
-  { href: "/kelas", label: "Kelas", icon: CalendarCheck },
-  { href: "/jurnal", label: "Jurnal", icon: BookOpen },
-  { href: "/izin", label: "Izin", icon: FileCheck },
+const accountNav = [
+  { href: "/profil", label: "Profil Akun", icon: User },
 ];
 
 export default function NavShell() {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, logout } = useStore();
+
+  const role = currentUser?.role;
+  const isSiswa = role === "siswa";
+  const isOrtu = role === "orang_tua";
+
+  const currentNav = isSiswa
+    ? siswaMainNav
+    : isOrtu
+    ? ortuMainNav
+    : guruMainNav;
+
+  const roleBadge = isSiswa
+    ? "SISWA"
+    : isOrtu
+    ? "ORANG TUA"
+    : "GURU";
+
+  const roleBadgeColor = isSiswa
+    ? "bg-sky-100 text-sky-900 border border-sky-200"
+    : isOrtu
+    ? "bg-rose-100 text-rose-900 border border-rose-200"
+    : "bg-navy-100 text-navy-800";
 
   function handleLogout() {
     logout();
@@ -62,8 +95,8 @@ export default function NavShell() {
             <span className="font-display text-lg font-bold tracking-tight text-navy-950">
               Hadirin
             </span>
-            <span className="ml-1.5 rounded-sm bg-navy-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-navy-800">
-              GURU
+            <span className={cn("ml-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold", roleBadgeColor)}>
+              {roleBadge}
             </span>
           </div>
         </div>
@@ -75,7 +108,7 @@ export default function NavShell() {
               Menu Utama
             </p>
             <div className="flex flex-col gap-1">
-              {mainNav.map(({ href, label, icon: Icon }) => {
+              {currentNav.map(({ href, label, icon: Icon }) => {
                 const active = pathname === href;
                 return (
                   <Link
@@ -131,20 +164,20 @@ export default function NavShell() {
           </div>
         </div>
 
-        {/* Active Account & Logout Footer */}
+        {/* User profile & Logout */}
         <div className="border-t border-border p-4 space-y-3 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9 border border-navy-200">
-              <AvatarFallback className="bg-navy-100 font-bold text-navy-900 text-xs">
-                SW
+              <AvatarFallback className={cn("font-bold text-xs", isSiswa ? "bg-sky-100 text-sky-900" : isOrtu ? "bg-rose-100 text-rose-900" : "bg-navy-100 text-navy-900")}>
+                {currentUser?.nama?.slice(0, 2).toUpperCase() || "SW"}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="truncate text-xs font-bold text-navy-950">
-                {currentUser?.nama || "Sari Wulandari"}
+                {currentUser?.nama || "Sari Wulandari, S.Pd"}
               </p>
               <p className="truncate text-[11px] text-muted-foreground">
-                Guru Pengajar
+                {currentUser?.jabatan || "Guru Pengajar Matematika"}
               </p>
             </div>
           </div>
@@ -164,7 +197,7 @@ export default function NavShell() {
       {/* Mobile Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white/95 backdrop-blur-md md:hidden">
         <div className="flex items-stretch justify-around">
-          {mobileTeacherNav.map(({ href, label, icon: Icon }) => {
+          {currentNav.slice(0, 5).map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link
@@ -184,7 +217,7 @@ export default function NavShell() {
                       : "text-muted-foreground"
                   }
                 >
-                  {label}
+                  {label.split(" ")[0]}
                 </span>
               </Link>
             );

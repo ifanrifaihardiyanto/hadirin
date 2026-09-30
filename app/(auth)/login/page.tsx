@@ -56,24 +56,81 @@ export default function LoginPage() {
   // Otomatis mendeteksi role dan tujuan rute berdasarkan email / NIP / NISN (Standar SaaS)
   function detectRoleAndPath(input: string): { role: UserRole; path: string } {
     const val = input.toLowerCase().trim();
-    if (val.includes("owner") || val === "owner@hadirin.id") {
+
+    // 1. Akun Demo Eksplisit (100% tepat sasaran)
+    if (val === "ahmad.fadillah@sman3contoh.sch.id" || val === "24001" || val.includes("ahmad.fadillah")) {
+      return { role: "siswa", path: "/siswa" };
+    }
+    if (val === "ortu.ahmad@gmail.com" || val === "ortu@gmail.com") {
+      return { role: "orang_tua", path: "/ortu" };
+    }
+    if (val === "owner@hadirin.id") {
       return { role: "super_admin", path: "/admin/saas" };
     }
-    if (val.includes("tu") || val.includes("tatausaha") || val.includes("bendahara")) {
+    if (val === "tu@sman3contoh.sch.id") {
       return { role: "tu", path: "/admin" };
     }
-    if (val.includes("kepsek") || val.includes("kepala")) {
+    if (val === "kepsek@sman3contoh.sch.id") {
       return { role: "kepsek", path: "/admin" };
     }
+    if (val === "admin@sman3contoh.sch.id") {
+      return { role: "admin_sekolah", path: "/admin" };
+    }
+    if (val === "sari.wulandari@sman3contoh.sch.id") {
+      return { role: "guru", path: "/" };
+    }
+
+    // 2. ORANG TUA / WALI (Harus dievaluasi sebelum TU, karena kata 'ortu' mengandung 'tu')
+    if (
+      val.startsWith("ortu") ||
+      val.includes("ortu") ||
+      val.includes("wali") ||
+      val.includes("orangtua") ||
+      val.includes("parent")
+    ) {
+      return { role: "orang_tua", path: "/ortu" };
+    }
+
+    // 3. SISWA / MURID / NISN
+    if (
+      val.startsWith("siswa") ||
+      val.includes("siswa") ||
+      val.includes("murid") ||
+      val.includes("student") ||
+      /^\d{4,}$/.test(val)
+    ) {
+      return { role: "siswa", path: "/siswa" };
+    }
+
+    // 4. SUPER ADMIN SAAS OWNER
+    if (val.includes("owner") || val.includes("saas") || val.includes("superadmin")) {
+      return { role: "super_admin", path: "/admin/saas" };
+    }
+
+    // 5. KEPALA SEKOLAH
+    if (val.includes("kepsek") || val.includes("kepala") || val.includes("principal")) {
+      return { role: "kepsek", path: "/admin" };
+    }
+
+    // 6. TATA USAHA (Gunakan pencocokan awalan/kata utuh agar tidak salah mencocokkan 'ortu')
+    if (
+      val === "tu" ||
+      val.startsWith("tu@") ||
+      val.startsWith("tu.") ||
+      val.startsWith("tu_") ||
+      val.startsWith("tatausaha") ||
+      val.includes("tatausaha") ||
+      val.includes("bendahara")
+    ) {
+      return { role: "tu", path: "/admin" };
+    }
+
+    // 7. ADMIN SEKOLAH
     if (val.includes("admin")) {
       return { role: "admin_sekolah", path: "/admin" };
     }
-    if (val.includes("siswa") || /^\d{5,}$/.test(val) || val.includes("24001")) {
-      return { role: "siswa", path: "/siswa" };
-    }
-    if (val.includes("ortu") || val.includes("wali")) {
-      return { role: "orang_tua", path: "/ortu" };
-    }
+
+    // 8. DEFAULT GURU
     return { role: "guru", path: "/" };
   }
 
