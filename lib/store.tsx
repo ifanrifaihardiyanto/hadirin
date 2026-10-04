@@ -380,6 +380,140 @@ export const SLOT_WAKTU: SlotWaktu[] = [
   { mulai: "14.00", selesai: "15.30" },
 ];
 
+export interface AgendaAkademik {
+  id: string;
+  judul: string;
+  kategori: "UJIAN" | "LIBUR" | "KBM" | "RAPOR" | "KEGIATAN_SEKOLAH" | "RAPAT_GURU";
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  sasaran: "SEMUA" | "GURU" | "SISWA" | "ORANG_TUA";
+  keterangan?: string;
+  warna?: "emerald" | "sky" | "amber" | "rose" | "purple" | "indigo";
+}
+
+export const daftarAgendaAkademikAwal: AgendaAkademik[] = [
+  {
+    id: "ag-1",
+    judul: "Masa Pengenalan Lingkungan Sekolah (MPLS) Siswa Baru",
+    kategori: "KEGIATAN_SEKOLAH",
+    tanggalMulai: "2024-07-15",
+    tanggalSelesai: "2024-07-19",
+    sasaran: "SEMUA",
+    keterangan: "Kegiatan orientasi lingkungan dan pembentukan karakter bagi peserta didik kelas X.",
+    warna: "sky",
+  },
+  {
+    id: "ag-2",
+    judul: "Awal Masuk KBM Efektif Semester Ganjil 2024/2025",
+    kategori: "KBM",
+    tanggalMulai: "2024-07-22",
+    tanggalSelesai: "2024-07-22",
+    sasaran: "SEMUA",
+    keterangan: "Hari pertama KBM tatap muka aktif seluruh tingkatan kelas X, XI, dan XII.",
+    warna: "emerald",
+  },
+  {
+    id: "ag-3",
+    judul: "Peringatan HUT Kemerdekaan RI ke-79 & Libur Nasional",
+    kategori: "LIBUR",
+    tanggalMulai: "2024-08-17",
+    tanggalSelesai: "2024-08-17",
+    sasaran: "SEMUA",
+    keterangan: "Upacara bendera HUT RI ke-79 dan perlombaan semarak kemerdekaan antarkelas.",
+    warna: "rose",
+  },
+  {
+    id: "ag-4",
+    judul: "Penilaian Tengah Semester (PTS) / Formatif Tengah Ganjil",
+    kategori: "UJIAN",
+    tanggalMulai: "2024-09-16",
+    tanggalSelesai: "2024-09-20",
+    sasaran: "SISWA",
+    keterangan: "Ujian tertulis dan praktik tengah semester berbasis CBT.",
+    warna: "amber",
+  },
+  {
+    id: "ag-5",
+    judul: "Asesmen Nasional Berbasis Komputer (ANBK) Tingkat SMA",
+    kategori: "UJIAN",
+    tanggalMulai: "2024-10-14",
+    tanggalSelesai: "2024-10-17",
+    sasaran: "SISWA",
+    keterangan: "Pelaksanaan ANBK sampling siswa kelas XI di Laboratorium Multimedia.",
+    warna: "purple",
+  },
+  {
+    id: "ag-6",
+    judul: "Peringatan Hari Sumpah Pemuda & Pentas Bulan Bahasa",
+    kategori: "KEGIATAN_SEKOLAH",
+    tanggalMulai: "2024-10-28",
+    tanggalSelesai: "2024-10-28",
+    sasaran: "SEMUA",
+    keterangan: "Gebyar lomba literasi puisi, pidato 3 bahasa, dan penampilan minat bakat seni.",
+    warna: "indigo",
+  },
+  {
+    id: "ag-7",
+    judul: "Upacara Hari Guru Nasional & Rapat Koordinasi PTK",
+    kategori: "RAPAT_GURU",
+    tanggalMulai: "2024-11-25",
+    tanggalSelesai: "2024-11-25",
+    sasaran: "GURU",
+    keterangan: "Apresiasi guru berprestasi dan rapat persiapan Penilaian Akhir Semester.",
+    warna: "sky",
+  },
+  {
+    id: "ag-8",
+    judul: "Penilaian Akhir Semester (PAS) / Sumatif Akhir Semester",
+    kategori: "UJIAN",
+    tanggalMulai: "2024-12-02",
+    tanggalSelesai: "2024-12-13",
+    sasaran: "SISWA",
+    keterangan: "Pekan asesmen sumatif serentak semester ganjil seluruh mata pelajaran.",
+    warna: "rose",
+  },
+  {
+    id: "ag-9",
+    judul: "Pekan Remedial & Rapat Pleno Nilai Rapor",
+    kategori: "RAPAT_GURU",
+    tanggalMulai: "2024-12-16",
+    tanggalSelesai: "2024-12-19",
+    sasaran: "GURU",
+    keterangan: "Input nilai akhir rapor pada sistem Hadirin dan pengesahan oleh Kepala Sekolah.",
+    warna: "amber",
+  },
+  {
+    id: "ag-10",
+    judul: "Pembagian E-Rapor Hasil Belajar Semester Ganjil",
+    kategori: "RAPOR",
+    tanggalMulai: "2024-12-20",
+    tanggalSelesai: "2024-12-20",
+    sasaran: "ORANG_TUA",
+    keterangan: "Pengambilan lembar rapor oleh orang tua/wali murid di masing-masing rombel.",
+    warna: "emerald",
+  },
+  {
+    id: "ag-11",
+    judul: "Libur Akhir Semester Ganjil 2024/2025",
+    kategori: "LIBUR",
+    tanggalMulai: "2024-12-23",
+    tanggalSelesai: "2025-01-04",
+    sasaran: "SEMUA",
+    keterangan: "Masa libur semester ganjil siswa dan cuti bersama pendidik.",
+    warna: "rose",
+  },
+  {
+    id: "ag-12",
+    judul: "Awal Masuk KBM Efektif Semester Genap 2024/2025",
+    kategori: "KBM",
+    tanggalMulai: "2025-01-06",
+    tanggalSelesai: "2025-01-06",
+    sasaran: "SEMUA",
+    keterangan: "Hari pertama KBM semester genap dan penyesuaian jadwal pelajaran.",
+    warna: "emerald",
+  },
+];
+
 export const JAM_PER_SLOT = 1.5;
 export const TARGET_JAM_MINGGU = 24;
 
@@ -766,6 +900,10 @@ interface StoreValue {
   hapusKelas: (id: string) => void;
   updateKelas: (id: string, data: Partial<Kelas>) => void;
   pindahSiswaRombel: (siswaId: string, kelasBaru: string) => void;
+  daftarAgendaAkademik: AgendaAkademik[];
+  tambahAgendaAkademik: (agenda: Omit<AgendaAkademik, "id">) => void;
+  hapusAgendaAkademik: (id: string) => void;
+  updateAgendaAkademik: (id: string, data: Partial<AgendaAkademik>) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -793,6 +931,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [tahunAjaranAktif, setTahunAjaranAktif] = useState<string>("2024/2025");
   const [semesterAktif, setSemesterAktif] = useState<"Ganjil" | "Genap">("Ganjil");
   const [daftarMapel, setDaftarMapel] = useState<MataPelajaran[]>(daftarMapelAwal);
+  const [daftarAgendaAkademik, setDaftarAgendaAkademik] = useState<AgendaAkademik[]>(daftarAgendaAkademikAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -1036,6 +1175,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setDaftarSiswaInduk((prev) =>
           prev.map((s) => (s.id === siswaId ? { ...s, kelas: kelasBaru } : s))
         );
+      },
+      daftarAgendaAkademik,
+      tambahAgendaAkademik: (entry: Omit<AgendaAkademik, "id">) => {
+        const baru: AgendaAkademik = { ...entry, id: "ag-" + Date.now() };
+        setDaftarAgendaAkademik((prev) => [baru, ...prev]);
+      },
+      hapusAgendaAkademik: (id: string) => {
+        setDaftarAgendaAkademik((prev) => prev.filter((a) => a.id !== id));
+      },
+      updateAgendaAkademik: (id: string, data: Partial<AgendaAkademik>) => {
+        setDaftarAgendaAkademik((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;

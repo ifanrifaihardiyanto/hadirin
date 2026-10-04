@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Users,
   CalendarClock,
+  CalendarDays,
   BookOpen,
   FileCheck,
   HeartHandshake,
@@ -89,6 +90,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
         items: [
           { href: "/admin/siswa", label: "Data Induk Siswa", icon: GraduationCap },
           { href: "/admin/kelas", label: "Rombel & Kelas", icon: School },
+          { href: "/admin/kalender", label: "Kalender Akademik", icon: CalendarDays },
           { href: "/admin/guru", label: "Data Guru & Pegawai", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Pelajaran", icon: CalendarClock },
@@ -119,6 +121,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
         items: [
           { href: "/admin/siswa", label: "Data Siswa Induk", icon: GraduationCap },
           { href: "/admin/kelas", label: "Rombel & Kelas", icon: School },
+          { href: "/admin/kalender", label: "Kalender Akademik", icon: CalendarDays },
           { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
