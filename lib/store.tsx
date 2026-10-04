@@ -337,6 +337,15 @@ export interface PermohonanIzin {
 export interface Kelas {
   id: string;
   nama: string;
+  tingkat?: "Kelas X" | "Kelas XI" | "Kelas XII";
+  jurusan?: "MIPA" | "IPS" | "Umum / Fase E" | "Bahasa";
+  waliKelas?: string;
+  ruangan?: string;
+  kapasitas?: number;
+  kurikulum?: "Kurikulum Merdeka" | "Kurikulum 2013";
+  tahunAjaran?: string;
+  semester?: "Ganjil" | "Genap";
+  status?: "AKTIF" | "ARSIP";
 }
 
 export interface JadwalEntry {
@@ -407,12 +416,12 @@ export const HARI_INI = "Kamis";
 export const CURRENT_GURU_ID = "g1";
 
 export const daftarKelasAwal: Kelas[] = [
-  { id: "k1", nama: "X IPA 1" },
-  { id: "k2", nama: "X IPA 2" },
-  { id: "k3", nama: "X IPS 1" },
-  { id: "k4", nama: "XI IPA 1" },
-  { id: "k5", nama: "XI IPA 2" },
-  { id: "k6", nama: "XII IPA 1" },
+  { id: "k1", nama: "X IPA 1", tingkat: "Kelas X", jurusan: "MIPA", waliKelas: "Sari Wulandari, S.Pd", ruangan: "R.101 (Gedung A Lt. 1)", kapasitas: 36, kurikulum: "Kurikulum Merdeka", tahunAjaran: "2024/2025", semester: "Ganjil", status: "AKTIF" },
+  { id: "k2", nama: "X IPA 2", tingkat: "Kelas X", jurusan: "MIPA", waliKelas: "Bambang Santoso, M.Si", ruangan: "R.102 (Gedung A Lt. 1)", kapasitas: 36, kurikulum: "Kurikulum Merdeka", tahunAjaran: "2024/2025", semester: "Ganjil", status: "AKTIF" },
+  { id: "k3", nama: "X IPS 1", tingkat: "Kelas X", jurusan: "IPS", waliKelas: "Dewi Lestari, M.Pd", ruangan: "R.103 (Gedung A Lt. 1)", kapasitas: 36, kurikulum: "Kurikulum Merdeka", tahunAjaran: "2024/2025", semester: "Ganjil", status: "AKTIF" },
+  { id: "k4", nama: "XI IPA 1", tingkat: "Kelas XI", jurusan: "MIPA", waliKelas: "Ahmad Fauzi, S.Pd", ruangan: "R.201 (Gedung B Lt. 2)", kapasitas: 36, kurikulum: "Kurikulum Merdeka", tahunAjaran: "2024/2025", semester: "Ganjil", status: "AKTIF" },
+  { id: "k5", nama: "XI IPA 2", tingkat: "Kelas XI", jurusan: "MIPA", waliKelas: "Rian Pratama, S.Pd", ruangan: "R.202 (Gedung B Lt. 2)", kapasitas: 36, kurikulum: "Kurikulum Merdeka", tahunAjaran: "2024/2025", semester: "Ganjil", status: "AKTIF" },
+  { id: "k6", nama: "XII IPA 1", tingkat: "Kelas XII", jurusan: "MIPA", waliKelas: "Dr. Retno Wahyuni", ruangan: "R.301 (Gedung C Lt. 3)", kapasitas: 36, kurikulum: "Kurikulum 2013", tahunAjaran: "2024/2025", semester: "Ganjil", status: "AKTIF" },
 ];
 
 const daftarGuruAwal: Guru[] = [
@@ -753,6 +762,10 @@ interface StoreValue {
   hapusMateri: (id: string) => void;
   daftarNilai: NilaiSiswa[];
   updateNilaiSiswa: (id: string, nilaiTugas: number, nilaiFormatif: number, nilaiSumatif: number) => void;
+  tambahKelas: (kelas: Omit<Kelas, "id">) => void;
+  hapusKelas: (id: string) => void;
+  updateKelas: (id: string, data: Partial<Kelas>) => void;
+  pindahSiswaRombel: (siswaId: string, kelasBaru: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -764,7 +777,7 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarGuru, setDaftarGuru] = useState<Guru[]>(daftarGuruAwal);
-  const [daftarKelas] = useState<Kelas[]>(daftarKelasAwal);
+  const [daftarKelas, setDaftarKelas] = useState<Kelas[]>(daftarKelasAwal);
   const [jadwal, setJadwal] = useState<JadwalEntry[]>(jadwalAwal);
   const [absensiTersimpanHariIni, setAbsensiTersimpanHariIni] =
     useState<string[]>(absensiAwal);
@@ -1007,6 +1020,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 }
               : n
           )
+        );
+      },
+      tambahKelas: (entry: Omit<Kelas, "id">) => {
+        const baru: Kelas = { ...entry, id: "k-" + Date.now() };
+        setDaftarKelas((prev) => [...prev, baru]);
+      },
+      hapusKelas: (id: string) => {
+        setDaftarKelas((prev) => prev.filter((k) => k.id !== id));
+      },
+      updateKelas: (id: string, data: Partial<Kelas>) => {
+        setDaftarKelas((prev) => prev.map((k) => (k.id === id ? { ...k, ...data } : k)));
+      },
+      pindahSiswaRombel: (siswaId: string, kelasBaru: string) => {
+        setDaftarSiswaInduk((prev) =>
+          prev.map((s) => (s.id === siswaId ? { ...s, kelas: kelasBaru } : s))
         );
       },
       loginAs: (role: UserRole, email?: string) => {
