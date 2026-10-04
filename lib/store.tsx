@@ -594,6 +594,130 @@ export const daftarPengumumanAwal: Pengumuman[] = [
   },
 ];
 
+export interface PendaftarPPDB {
+  id: string;
+  noPendaftaran: string;
+  nama: string;
+  nisn: string;
+  nik: string;
+  asalSekolah: string;
+  jalur: "ZONASI" | "PRESTASI" | "AFIRMASI" | "MUTASI";
+  pilihanJurusan: "MIPA" | "IPS" | "BAHASA";
+  nilaiRataRapor: number;
+  namaWali: string;
+  teleponWali: string;
+  statusVerifikasi: "MENUNGGU" | "TERVERIFIKASI" | "PERBAIKAN" | "DITOLAK";
+  statusKelulusan: "LULUS" | "CADANGAN" | "TIDAK_LULUS" | "PROSES";
+  berkasKK: boolean;
+  berkasAkta: boolean;
+  berkasRapor: boolean;
+  tanggalDaftar: string;
+  catatanVerifikasi?: string;
+}
+
+export const daftarPPDBAwal: PendaftarPPDB[] = [
+  {
+    id: "ppdb-1",
+    noPendaftaran: "PPDB-2024-001",
+    nama: "Ananda Rizky Pratama",
+    nisn: "0081234567",
+    nik: "3201234567890001",
+    asalSekolah: "SMP Negeri 1 Contoh",
+    jalur: "PRESTASI",
+    pilihanJurusan: "MIPA",
+    nilaiRataRapor: 92.4,
+    namaWali: "H. Pratama Wijaya",
+    teleponWali: "0812-9876-5432",
+    statusVerifikasi: "TERVERIFIKASI",
+    statusKelulusan: "LULUS",
+    berkasKK: true,
+    berkasAkta: true,
+    berkasRapor: true,
+    tanggalDaftar: "2024-06-10",
+    catatanVerifikasi: "Berkas lengkap dan piagam juara 1 OSN Matematika terverifikasi valid.",
+  },
+  {
+    id: "ppdb-2",
+    noPendaftaran: "PPDB-2024-002",
+    nama: "Clarissa Putri Maharani",
+    nisn: "0081234568",
+    nik: "3201234567890002",
+    asalSekolah: "SMP Negeri 3 Jakarta",
+    jalur: "ZONASI",
+    pilihanJurusan: "MIPA",
+    nilaiRataRapor: 88.5,
+    namaWali: "Bambang Maharani",
+    teleponWali: "0813-1122-3344",
+    statusVerifikasi: "TERVERIFIKASI",
+    statusKelulusan: "LULUS",
+    berkasKK: true,
+    berkasAkta: true,
+    berkasRapor: true,
+    tanggalDaftar: "2024-06-11",
+    catatanVerifikasi: "Jarak domisili 450 meter dari sekolah (Radius Zonasi 1).",
+  },
+  {
+    id: "ppdb-3",
+    noPendaftaran: "PPDB-2024-003",
+    nama: "Dimas Arya Pangestu",
+    nisn: "0081234569",
+    nik: "3201234567890003",
+    asalSekolah: "SMP Islam Terpadu Al-Falah",
+    jalur: "AFIRMASI",
+    pilihanJurusan: "IPS",
+    nilaiRataRapor: 85.0,
+    namaWali: "Suryono Pangestu",
+    teleponWali: "0815-5566-7788",
+    statusVerifikasi: "TERVERIFIKASI",
+    statusKelulusan: "PROSES",
+    berkasKK: true,
+    berkasAkta: true,
+    berkasRapor: true,
+    tanggalDaftar: "2024-06-12",
+    catatanVerifikasi: "Kartu Indonesia Pintar (KIP) aktif terdaftar di DTKS.",
+  },
+  {
+    id: "ppdb-4",
+    noPendaftaran: "PPDB-2024-004",
+    nama: "Fanya Aulia Rahma",
+    nisn: "0081234570",
+    nik: "3201234567890004",
+    asalSekolah: "SMP Negeri 5 Depok",
+    jalur: "MUTASI",
+    pilihanJurusan: "MIPA",
+    nilaiRataRapor: 89.0,
+    namaWali: "Kolonel Rahmat Hidayat",
+    teleponWali: "0818-9900-1122",
+    statusVerifikasi: "MENUNGGU",
+    statusKelulusan: "PROSES",
+    berkasKK: true,
+    berkasAkta: true,
+    berkasRapor: false,
+    tanggalDaftar: "2024-06-14",
+    catatanVerifikasi: "Menunggu kelengkapan scan rapor semester 1-5 yang belum terunggah.",
+  },
+  {
+    id: "ppdb-5",
+    noPendaftaran: "PPDB-2024-005",
+    nama: "Gilang Ramadhan",
+    nisn: "0081234571",
+    nik: "3201234567890005",
+    asalSekolah: "SMP Bina Bangsa",
+    jalur: "ZONASI",
+    pilihanJurusan: "IPS",
+    nilaiRataRapor: 81.2,
+    namaWali: "Ramadhani",
+    teleponWali: "0819-3344-5566",
+    statusVerifikasi: "PERBAIKAN",
+    statusKelulusan: "PROSES",
+    berkasKK: false,
+    berkasAkta: true,
+    berkasRapor: true,
+    tanggalDaftar: "2024-06-15",
+    catatanVerifikasi: "Foto Kartu Keluarga (KK) buram dan tidak terbaca jelas.",
+  },
+];
+
 export const JAM_PER_SLOT = 1.5;
 export const TARGET_JAM_MINGGU = 24;
 
@@ -989,6 +1113,10 @@ interface StoreValue {
   hapusPengumuman: (id: string) => void;
   updatePengumuman: (id: string, data: Partial<Pengumuman>) => void;
   togglePinPengumuman: (id: string) => void;
+  daftarPPDB: PendaftarPPDB[];
+  tambahPendaftarPPDB: (pendaftar: Omit<PendaftarPPDB, "id" | "noPendaftaran" | "tanggalDaftar" | "statusVerifikasi" | "statusKelulusan">) => string;
+  updateStatusVerifikasiPPDB: (id: string, status: PendaftarPPDB["statusVerifikasi"], catatan?: string) => void;
+  updateStatusKelulusanPPDB: (id: string, status: PendaftarPPDB["statusKelulusan"]) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -1018,6 +1146,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarMapel, setDaftarMapel] = useState<MataPelajaran[]>(daftarMapelAwal);
   const [daftarAgendaAkademik, setDaftarAgendaAkademik] = useState<AgendaAkademik[]>(daftarAgendaAkademikAwal);
   const [daftarPengumuman, setDaftarPengumuman] = useState<Pengumuman[]>(daftarPengumumanAwal);
+  const [daftarPPDB, setDaftarPPDB] = useState<PendaftarPPDB[]>(daftarPPDBAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -1286,6 +1415,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       togglePinPengumuman: (id: string) => {
         setDaftarPengumuman((prev) => prev.map((p) => (p.id === id ? { ...p, pin: !p.pin } : p)));
+      },
+      daftarPPDB,
+      tambahPendaftarPPDB: (entry: Omit<PendaftarPPDB, "id" | "noPendaftaran" | "tanggalDaftar" | "statusVerifikasi" | "statusKelulusan">) => {
+        const noReg = "PPDB-2024-" + String(daftarPPDB.length + 1).padStart(3, "0");
+        const todayStr = new Date().toISOString().split("T")[0];
+        const baru: PendaftarPPDB = {
+          ...entry,
+          id: "ppdb-" + Date.now(),
+          noPendaftaran: noReg,
+          tanggalDaftar: todayStr,
+          statusVerifikasi: "MENUNGGU",
+          statusKelulusan: "PROSES",
+        };
+        setDaftarPPDB((prev) => [baru, ...prev]);
+        return noReg;
+      },
+      updateStatusVerifikasiPPDB: (id: string, status: PendaftarPPDB["statusVerifikasi"], catatan?: string) => {
+        setDaftarPPDB((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, statusVerifikasi: status, catatanVerifikasi: catatan || p.catatanVerifikasi } : p))
+        );
+      },
+      updateStatusKelulusanPPDB: (id: string, status: PendaftarPPDB["statusKelulusan"]) => {
+        setDaftarPPDB((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, statusKelulusan: status } : p))
+        );
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;

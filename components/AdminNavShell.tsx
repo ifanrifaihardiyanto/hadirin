@@ -29,6 +29,7 @@ import {
   Award,
   School,
   Megaphone,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore, type UserRole } from "@/lib/store";
@@ -93,6 +94,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/siswa", label: "Data Induk Siswa", icon: GraduationCap },
           { href: "/admin/kelas", label: "Rombel & Kelas", icon: School },
           { href: "/admin/kalender", label: "Kalender Akademik", icon: CalendarDays },
+          { href: "/admin/ppdb", label: "Penerimaan Siswa (PPDB)", icon: UserPlus },
           { href: "/admin/guru", label: "Data Guru & Pegawai", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Pelajaran", icon: CalendarClock },
@@ -125,6 +127,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/siswa", label: "Data Siswa Induk", icon: GraduationCap },
           { href: "/admin/kelas", label: "Rombel & Kelas", icon: School },
           { href: "/admin/kalender", label: "Kalender Akademik", icon: CalendarDays },
+          { href: "/admin/ppdb", label: "Penerimaan Siswa (PPDB)", icon: UserPlus },
           { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
