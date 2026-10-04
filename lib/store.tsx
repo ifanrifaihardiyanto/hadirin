@@ -718,6 +718,208 @@ export const daftarPPDBAwal: PendaftarPPDB[] = [
   },
 ];
 
+
+export interface AsetSarpras {
+  id: string;
+  kodeAset: string;
+  namaAset: string;
+  kategori: "ELEKTRONIK" | "MEDIA_AJAR" | "FURNITUR" | "LABORATORIUM" | "OLAHRAGA" | "KENDARAAN";
+  merkModel: string;
+  kondisi: "BAIK" | "RUSAK_RINGAN" | "RUSAK_BERAT";
+  lokasi: string;
+  jumlahTotal: number;
+  jumlahTersedia: number;
+  tahunPengadaan: number;
+  sumberDana: "BOS_REGULER" | "BOS_KINERJA" | "KOMITE" | "HIBAH_PEMDA";
+  keterangan?: string;
+}
+
+export interface PeminjamanSarpras {
+  id: string;
+  kodePinjam: string;
+  asetId: string;
+  namaAset: string;
+  kodeAset: string;
+  namaPeminjam: string;
+  rolePeminjam: "GURU" | "SISWA" | "STAF_TU";
+  kontakPeminjam: string;
+  jumlahUnit: number;
+  tanggalPinjam: string;
+  batasKembali: string;
+  tanggalKembali?: string;
+  keperluan: string;
+  status: "DIPINJAM" | "KEMBALI" | "TERLAMBAT";
+  kondisiKembali?: "BAIK" | "RUSAK" | "HILANG";
+  catatanPengembalian?: string;
+}
+
+export const daftarAsetSarprasAwal: AsetSarpras[] = [
+  {
+    id: "ast-1",
+    kodeAset: "AST-TIK-001",
+    namaAset: "Laptop Asus ExpertBook Core i5",
+    kategori: "ELEKTRONIK",
+    merkModel: "Asus ExpertBook B1400",
+    kondisi: "BAIK",
+    lokasi: "Laboratorium Komputer 1",
+    jumlahTotal: 36,
+    jumlahTersedia: 34,
+    tahunPengadaan: 2023,
+    sumberDana: "BOS_KINERJA",
+    keterangan: "Unit inventaris pembelajaran informatika & ANBK.",
+  },
+  {
+    id: "ast-2",
+    kodeAset: "AST-MED-002",
+    namaAset: "Proyektor LCD Epson 3300 Lumens HDMI",
+    kategori: "MEDIA_AJAR",
+    merkModel: "Epson EB-E500",
+    kondisi: "BAIK",
+    lokasi: "Ruang Guru & Media",
+    jumlahTotal: 12,
+    jumlahTersedia: 10,
+    tahunPengadaan: 2022,
+    sumberDana: "BOS_REGULER",
+    keterangan: "Dapat dipinjam untuk presentasi ruang kelas & aula.",
+  },
+  {
+    id: "ast-3",
+    kodeAset: "AST-LAB-003",
+    namaAset: "Mikroskop Binokuler Siswa 1600x",
+    kategori: "LABORATORIUM",
+    merkModel: "Olympus CX23",
+    kondisi: "BAIK",
+    lokasi: "Laboratorium Biologi",
+    jumlahTotal: 20,
+    jumlahTersedia: 20,
+    tahunPengadaan: 2023,
+    sumberDana: "HIBAH_PEMDA",
+    keterangan: "Perangkat praktikum struktur sel dan mikroorganisme.",
+  },
+  {
+    id: "ast-4",
+    kodeAset: "AST-OLR-004",
+    namaAset: "Set Bola Basket Standar Perbasi",
+    kategori: "OLAHRAGA",
+    merkModel: "Molten GG7X Official Leather",
+    kondisi: "BAIK",
+    lokasi: "Gudang Olahraga & Lapangan",
+    jumlahTotal: 15,
+    jumlahTersedia: 12,
+    tahunPengadaan: 2024,
+    sumberDana: "KOMITE",
+    keterangan: "Peralatan ekstrakurikuler & jam penjasorkes.",
+  },
+  {
+    id: "ast-5",
+    kodeAset: "AST-FUR-005",
+    namaAset: "Meja & Kursi Siswa Kayu Solid Ergonomis",
+    kategori: "FURNITUR",
+    merkModel: "Informa School Series",
+    kondisi: "RUSAK_RINGAN",
+    lokasi: "Ruang Kelas X IPA 1",
+    jumlahTotal: 36,
+    jumlahTersedia: 34,
+    tahunPengadaan: 2021,
+    sumberDana: "BOS_REGULER",
+    keterangan: "2 kursi membutuhkan perbaikan baut sandaran kaki.",
+  },
+  {
+    id: "ast-6",
+    kodeAset: "AST-MED-006",
+    namaAset: "Speaker Portable Wireless & Mic Wireless",
+    kategori: "MEDIA_AJAR",
+    merkModel: "Baretone BT-3H1515BWR",
+    kondisi: "BAIK",
+    lokasi: "Ruang OSIS / Kesiswaan",
+    jumlahTotal: 4,
+    jumlahTersedia: 3,
+    tahunPengadaan: 2023,
+    sumberDana: "KOMITE",
+    keterangan: "Perangkat sound apel pagi dan kegiatan ekstrakurikuler.",
+  },
+  {
+    id: "ast-7",
+    kodeAset: "AST-TIK-007",
+    namaAset: "Printer Laser Multifungsi Duplex Network",
+    kategori: "ELEKTRONIK",
+    merkModel: "Canon imageCLASS MF244dw",
+    kondisi: "RUSAK_BERAT",
+    lokasi: "Ruang Tata Usaha",
+    jumlahTotal: 3,
+    jumlahTersedia: 2,
+    tahunPengadaan: 2020,
+    sumberDana: "BOS_REGULER",
+    keterangan: "1 unit paper jam kronis & roller aus, menunggu teknisi servis.",
+  },
+];
+
+export const daftarPeminjamanSarprasAwal: PeminjamanSarpras[] = [
+  {
+    id: "pjm-1",
+    kodePinjam: "PJM-2024-001",
+    asetId: "ast-2",
+    namaAset: "Proyektor LCD Epson 3300 Lumens HDMI",
+    kodeAset: "AST-MED-002",
+    namaPeminjam: "Sari Wulandari, S.Pd",
+    rolePeminjam: "GURU",
+    kontakPeminjam: "0812-3456-7890",
+    jumlahUnit: 1,
+    tanggalPinjam: "2024-07-20",
+    batasKembali: "2024-07-20",
+    tanggalKembali: "2024-07-20",
+    keperluan: "Presentasi Projek P5 Penguatan Karakter di Ruang Multimedia",
+    status: "KEMBALI",
+    kondisiKembali: "BAIK",
+    catatanPengembalian: "Kembali tepat waktu dengan kabel lengkap dan tas bawaan.",
+  },
+  {
+    id: "pjm-2",
+    kodePinjam: "PJM-2024-002",
+    asetId: "ast-1",
+    namaAset: "Laptop Asus ExpertBook Core i5",
+    kodeAset: "AST-TIK-001",
+    namaPeminjam: "Ahmad Fauzi, S.Pd",
+    rolePeminjam: "GURU",
+    kontakPeminjam: "0813-4567-8901",
+    jumlahUnit: 2,
+    tanggalPinjam: "2024-07-24",
+    batasKembali: "2024-07-26",
+    keperluan: "Pelatihan Penginputan E-Rapor Guru Penggerak di Aula",
+    status: "DIPINJAM",
+  },
+  {
+    id: "pjm-3",
+    kodePinjam: "PJM-2024-003",
+    asetId: "ast-4",
+    namaAset: "Set Bola Basket Standar Perbasi",
+    kodeAset: "AST-OLR-004",
+    namaPeminjam: "Farhan Maulana (Ketua OSIS)",
+    rolePeminjam: "SISWA",
+    kontakPeminjam: "0813-5555-6666",
+    jumlahUnit: 3,
+    tanggalPinjam: "2024-07-24",
+    batasKembali: "2024-07-25",
+    keperluan: "Latihan intensif persiapan turnamen DBL antar-SMA",
+    status: "DIPINJAM",
+  },
+  {
+    id: "pjm-4",
+    kodePinjam: "PJM-2024-004",
+    asetId: "ast-6",
+    namaAset: "Speaker Portable Wireless & Mic Wireless",
+    kodeAset: "AST-MED-006",
+    namaPeminjam: "Rina Marlina, M.Pd",
+    rolePeminjam: "GURU",
+    kontakPeminjam: "0815-6789-0123",
+    jumlahUnit: 1,
+    tanggalPinjam: "2024-07-22",
+    batasKembali: "2024-07-23",
+    keperluan: "Latihan paduan suara peringatan HUT RI",
+    status: "TERLAMBAT",
+  },
+];
+
 export const JAM_PER_SLOT = 1.5;
 export const TARGET_JAM_MINGGU = 24;
 
@@ -1117,6 +1319,13 @@ interface StoreValue {
   tambahPendaftarPPDB: (pendaftar: Omit<PendaftarPPDB, "id" | "noPendaftaran" | "tanggalDaftar" | "statusVerifikasi" | "statusKelulusan">) => string;
   updateStatusVerifikasiPPDB: (id: string, status: PendaftarPPDB["statusVerifikasi"], catatan?: string) => void;
   updateStatusKelulusanPPDB: (id: string, status: PendaftarPPDB["statusKelulusan"]) => void;
+  daftarAsetSarpras: AsetSarpras[];
+  tambahAsetSarpras: (aset: Omit<AsetSarpras, "id">) => void;
+  updateAsetSarpras: (id: string, data: Partial<AsetSarpras>) => void;
+  hapusAsetSarpras: (id: string) => void;
+  daftarPeminjamanSarpras: PeminjamanSarpras[];
+  tambahPeminjamanSarpras: (pinjam: Omit<PeminjamanSarpras, "id" | "kodePinjam" | "status">) => string;
+  selesaikanPeminjamanSarpras: (id: string, kondisiKembali: "BAIK" | "RUSAK" | "HILANG", catatan?: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -1147,6 +1356,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarAgendaAkademik, setDaftarAgendaAkademik] = useState<AgendaAkademik[]>(daftarAgendaAkademikAwal);
   const [daftarPengumuman, setDaftarPengumuman] = useState<Pengumuman[]>(daftarPengumumanAwal);
   const [daftarPPDB, setDaftarPPDB] = useState<PendaftarPPDB[]>(daftarPPDBAwal);
+  const [daftarAsetSarpras, setDaftarAsetSarpras] = useState<AsetSarpras[]>(daftarAsetSarprasAwal);
+  const [daftarPeminjamanSarpras, setDaftarPeminjamanSarpras] = useState<PeminjamanSarpras[]>(daftarPeminjamanSarprasAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -1441,6 +1652,68 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           prev.map((p) => (p.id === id ? { ...p, statusKelulusan: status } : p))
         );
       },
+      daftarAsetSarpras,
+      tambahAsetSarpras: (entry: Omit<AsetSarpras, "id">) => {
+        const baru: AsetSarpras = { ...entry, id: "ast-" + Date.now() };
+        setDaftarAsetSarpras((prev) => [baru, ...prev]);
+      },
+      updateAsetSarpras: (id: string, data: Partial<AsetSarpras>) => {
+        setDaftarAsetSarpras((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+      },
+      hapusAsetSarpras: (id: string) => {
+        setDaftarAsetSarpras((prev) => prev.filter((a) => a.id !== id));
+      },
+      daftarPeminjamanSarpras,
+      tambahPeminjamanSarpras: (entry: Omit<PeminjamanSarpras, "id" | "kodePinjam" | "status">) => {
+        const noPinjam = "PJM-2024-" + String(daftarPeminjamanSarpras.length + 1).padStart(3, "0");
+        const baru: PeminjamanSarpras = {
+          ...entry,
+          id: "pjm-" + Date.now(),
+          kodePinjam: noPinjam,
+          status: "DIPINJAM",
+        };
+        setDaftarAsetSarpras((prev) =>
+          prev.map((a) =>
+            a.id === entry.asetId
+              ? { ...a, jumlahTersedia: Math.max(0, a.jumlahTersedia - entry.jumlahUnit) }
+              : a
+          )
+        );
+        setDaftarPeminjamanSarpras((prev) => [baru, ...prev]);
+        return noPinjam;
+      },
+      selesaikanPeminjamanSarpras: (id: string, kondisiKembali: "BAIK" | "RUSAK" | "HILANG", catatan?: string) => {
+        const target = daftarPeminjamanSarpras.find((p) => p.id === id);
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (target) {
+          setDaftarAsetSarpras((prev) =>
+            prev.map((a) => {
+              if (a.id === target.asetId) {
+                const tambahBalik = kondisiKembali === "HILANG" ? 0 : target.jumlahUnit;
+                return {
+                  ...a,
+                  jumlahTersedia: Math.min(a.jumlahTotal, a.jumlahTersedia + tambahBalik),
+                  kondisi: kondisiKembali === "RUSAK" ? "RUSAK_RINGAN" : a.kondisi,
+                };
+              }
+              return a;
+            })
+          );
+        }
+        setDaftarPeminjamanSarpras((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  status: "KEMBALI",
+                  tanggalKembali: todayStr,
+                  kondisiKembali,
+                  catatanPengembalian: catatan || p.catatanPengembalian,
+                }
+              : p
+          )
+        );
+      },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
         switch (role) {
@@ -1502,6 +1775,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       kasusBKList,
       presensiGuruList,
       currentUser,
+      daftarAsetSarpras,
+      daftarPeminjamanSarpras,
       isMobileMenuOpen,
     ]
   );
