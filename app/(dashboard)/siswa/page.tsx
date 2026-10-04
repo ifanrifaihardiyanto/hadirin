@@ -15,6 +15,7 @@ import {
   LogOut,
   MapPin,
   Check,
+  Megaphone,
 } from "lucide-react";
 import { useStore, HARI_INI } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,7 +23,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function PortalSiswaPage() {
-  const { currentUser, logout } = useStore();
+  const { currentUser, logout, daftarPengumuman } = useStore();
+
+  const pengumumanSiswa = daftarPengumuman.filter(
+    (p) => p.status === "DITERBITKAN" && (p.sasaran === "SEMUA" || p.sasaran === "SISWA")
+  );
 
   const jadwalSiswaHariIni = [
     { jam: "07.00 - 08.30", mapel: "Matematika Peminatan", guru: "Sari Wulandari, S.Pd", ruang: "Ruang X IPA 1", status: "SELESAI" },
@@ -55,6 +60,27 @@ export default function PortalSiswaPage() {
           </Badge>
         </div>
       </div>
+
+      {/* Announcement Banner for Students */}
+      {pengumumanSiswa.length > 0 && (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/90 p-4 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Megaphone size={16} className="text-sky-800 shrink-0" />
+              <span className="text-xs font-bold text-sky-950 uppercase tracking-wide">
+                Pengumuman Sekolah ({pengumumanSiswa.length})
+              </span>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded">
+              {pengumumanSiswa[0].kategori}
+            </span>
+          </div>
+          <div className="space-y-1 text-xs text-sky-950">
+            <p className="font-bold text-sm">{pengumumanSiswa[0].judul}</p>
+            <p className="text-slate-700 leading-relaxed line-clamp-2">{pengumumanSiswa[0].konten}</p>
+          </div>
+        </div>
+      )}
 
       {/* Status Presensi Hari Ini Banner */}
       <Card className="border-none bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-md">

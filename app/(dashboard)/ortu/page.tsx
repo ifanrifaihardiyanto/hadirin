@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   FileCheck,
   Award,
+  Megaphone,
 } from "lucide-react";
 import { useStore, HARI_INI } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,7 +21,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function PortalOrangTuaPage() {
-  const { currentUser } = useStore();
+  const { currentUser, daftarPengumuman } = useStore();
+
+  const pengumumanOrtu = daftarPengumuman.filter(
+    (p) => p.status === "DITERBITKAN" && (p.sasaran === "SEMUA" || p.sasaran === "ORANG_TUA")
+  );
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
@@ -46,6 +51,27 @@ export default function PortalOrangTuaPage() {
           </Badge>
         </div>
       </div>
+
+      {/* Announcement Banner for Parents */}
+      {pengumumanOrtu.length > 0 && (
+        <div className="rounded-2xl border border-purple-200 bg-purple-50/90 p-4 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Megaphone size={16} className="text-purple-800 shrink-0" />
+              <span className="text-xs font-bold text-purple-950 uppercase tracking-wide">
+                Pengumuman Sekolah ({pengumumanOrtu.length})
+              </span>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
+              {pengumumanOrtu[0].kategori}
+            </span>
+          </div>
+          <div className="space-y-1 text-xs text-purple-950">
+            <p className="font-bold text-sm">{pengumumanOrtu[0].judul}</p>
+            <p className="text-slate-700 leading-relaxed line-clamp-2">{pengumumanOrtu[0].konten}</p>
+          </div>
+        </div>
+      )}
 
       {/* Profil Ananda Card */}
       <Card className="border border-slate-200 bg-white shadow-xs">

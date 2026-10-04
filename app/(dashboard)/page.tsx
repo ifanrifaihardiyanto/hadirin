@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, CheckCircle2, Clock, CalendarCheck, BookOpen, FileCheck, UserCheck } from "lucide-react";
+import { ChevronRight, CheckCircle2, Clock, CalendarCheck, BookOpen, FileCheck, UserCheck, Megaphone } from "lucide-react";
 import { useStore, HARI_INI, CURRENT_GURU_ID } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
 export default function BerandaPage() {
-  const { jadwal, absensiTersimpanHariIni, daftarGuru } = useStore();
+  const { jadwal, absensiTersimpanHariIni, daftarGuru, daftarPengumuman } = useStore();
+
+  const pengumumanGuru = daftarPengumuman.filter(
+    (p) => p.status === "DITERBITKAN" && (p.sasaran === "SEMUA" || p.sasaran === "GURU")
+  );
 
   const guru = daftarGuru.find((g) => g.id === CURRENT_GURU_ID);
 
@@ -39,6 +43,27 @@ export default function BerandaPage() {
           Hari {HARI_INI} Aktif
         </Badge>
       </div>
+
+      {/* Announcements Banner */}
+      {pengumumanGuru.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Megaphone size={16} className="text-amber-800 shrink-0" />
+              <span className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                Pengumuman Sekolah ({pengumumanGuru.length})
+              </span>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+              Pemberitahuan
+            </span>
+          </div>
+          <div className="space-y-1 text-xs text-amber-950">
+            <p className="font-bold text-sm">{pengumumanGuru[0].judul}</p>
+            <p className="text-slate-700 leading-relaxed line-clamp-2">{pengumumanGuru[0].konten}</p>
+          </div>
+        </div>
+      )}
 
       {/* Progres Presensi Card */}
       <Card className="border-none bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-md">

@@ -28,6 +28,7 @@ import {
   FileText,
   Award,
   School,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore, type UserRole } from "@/lib/store";
@@ -75,6 +76,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
         title: "Ringkasan",
         items: [
           { href: "/admin", label: "Dashboard TU", icon: LayoutDashboard },
+          { href: "/admin/pengumuman", label: "Pengumuman & Broadcast", icon: Megaphone },
         ],
       },
       {
@@ -114,6 +116,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
         title: "Ringkasan",
         items: [
           { href: "/admin", label: "Dashboard Eksekutif", icon: LayoutDashboard },
+          { href: "/admin/pengumuman", label: "Pengumuman & Broadcast", icon: Megaphone },
         ],
       },
       {
@@ -168,6 +171,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
       title: "Ringkasan",
       items: [
         { href: "/admin", label: "Dashboard Utama", icon: LayoutDashboard },
+        { href: "/admin/pengumuman", label: "Pengumuman & Broadcast", icon: Megaphone },
       ],
     },
     {

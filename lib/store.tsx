@@ -514,6 +514,86 @@ export const daftarAgendaAkademikAwal: AgendaAkademik[] = [
   },
 ];
 
+export interface Pengumuman {
+  id: string;
+  judul: string;
+  konten: string;
+  kategori: "AKADEMIK" | "KEUANGAN" | "EVENT" | "PENTING" | "LIBUR";
+  sasaran: "SEMUA" | "GURU" | "SISWA" | "ORANG_TUA";
+  prioritas: "TINGGI" | "NORMAL";
+  tanggal: string;
+  penulis: string;
+  lampiran?: string;
+  status: "DITERBITKAN" | "DRAFT";
+  pin: boolean;
+}
+
+export const daftarPengumumanAwal: Pengumuman[] = [
+  {
+    id: "p-1",
+    judul: "Pemberitahuan Pelaksanaan Penilaian Tengah Semester (PTS) Ganjil 2024/2025",
+    konten: "Diberitahukan kepada seluruh siswa dan dewan guru bahwa kegiatan Penilaian Tengah Semester (PTS) Ganjil akan dilaksanakan mulai tanggal 16 s/d 20 September 2024. Siswa dimohon mempersiapkan perlengkapan dan memastikan kehadiran tepat waktu.",
+    kategori: "PENTING",
+    sasaran: "SEMUA",
+    prioritas: "TINGGI",
+    tanggal: "2024-09-08",
+    penulis: "Drs. Hendra Wijaya (Kepala Sekolah)",
+    lampiran: "Jadwal_PTS_Ganjil_2024.pdf",
+    status: "DITERBITKAN",
+    pin: true,
+  },
+  {
+    id: "p-2",
+    judul: "Sosialisasi Pembayaran SPP & Iuran Komite Melalui Virtual Account Hadirin",
+    konten: "Bapak/Ibu Orang Tua/Wali Murid yang kami hormati, mulai semester ini sekolah telah memberlakukan pembayaran SPP digital melalui nomor Virtual Account (Bank BSI & Mandiri) di menu Keuangan Portal Orang Tua/Siswa untuk kemudahan konfirmasi otomatis.",
+    kategori: "KEUANGAN",
+    sasaran: "ORANG_TUA",
+    prioritas: "TINGGI",
+    tanggal: "2024-08-25",
+    penulis: "Bendahara & Tata Usaha",
+    lampiran: "Panduan_Pembayaran_SPP.pdf",
+    status: "DITERBITKAN",
+    pin: true,
+  },
+  {
+    id: "p-3",
+    judul: "Rapat Pleno Koordinasi Dewan Pendidik & Penyelarasan Modul Kurikulum Merdeka",
+    konten: "Undangan rapat dinas guru dan staf TU dalam rangka evaluasi KBM bulan pertama dan finalisasi pengisian Jurnal Mengajar Digital serta buku nilai asesmen.",
+    kategori: "AKADEMIK",
+    sasaran: "GURU",
+    prioritas: "NORMAL",
+    tanggal: "2024-08-15",
+    penulis: "Wakasek Kurikulum",
+    status: "DITERBITKAN",
+    pin: false,
+  },
+  {
+    id: "p-4",
+    judul: "Semarak Bulan Bahasa & Peringatan Hari Sumpah Pemuda 2024",
+    konten: "Akan diadakan serangkaian perlombaan antarkelas meliputi cipta & baca puisi, debat bahasa Inggris, pidato bahasa daerah, dan bazar karya seni siswa.",
+    kategori: "EVENT",
+    sasaran: "SISWA",
+    prioritas: "NORMAL",
+    tanggal: "2024-10-01",
+    penulis: "Pembina OSIS",
+    status: "DITERBITKAN",
+    pin: false,
+  },
+  {
+    id: "p-5",
+    judul: "Surat Edaran Libur Resmi Peringatan HUT Kemerdekaan RI ke-79",
+    konten: "Sehubungan dengan peringatan Hari Kemerdekaan RI, kegiatan belajar mengajar diliburkan pada hari Sabtu, 17 Agustus 2024. Siswa dan PTK wajib mengikuti upacara bendera di lapangan upacara utama.",
+    kategori: "LIBUR",
+    sasaran: "SEMUA",
+    prioritas: "NORMAL",
+    tanggal: "2024-08-12",
+    penulis: "Kepala Sekolah",
+    lampiran: "Edaran_Upacara_HUT_RI.pdf",
+    status: "DITERBITKAN",
+    pin: false,
+  },
+];
+
 export const JAM_PER_SLOT = 1.5;
 export const TARGET_JAM_MINGGU = 24;
 
@@ -904,6 +984,11 @@ interface StoreValue {
   tambahAgendaAkademik: (agenda: Omit<AgendaAkademik, "id">) => void;
   hapusAgendaAkademik: (id: string) => void;
   updateAgendaAkademik: (id: string, data: Partial<AgendaAkademik>) => void;
+  daftarPengumuman: Pengumuman[];
+  tambahPengumuman: (pengumuman: Omit<Pengumuman, "id">) => void;
+  hapusPengumuman: (id: string) => void;
+  updatePengumuman: (id: string, data: Partial<Pengumuman>) => void;
+  togglePinPengumuman: (id: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -932,6 +1017,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [semesterAktif, setSemesterAktif] = useState<"Ganjil" | "Genap">("Ganjil");
   const [daftarMapel, setDaftarMapel] = useState<MataPelajaran[]>(daftarMapelAwal);
   const [daftarAgendaAkademik, setDaftarAgendaAkademik] = useState<AgendaAkademik[]>(daftarAgendaAkademikAwal);
+  const [daftarPengumuman, setDaftarPengumuman] = useState<Pengumuman[]>(daftarPengumumanAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -1186,6 +1272,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       updateAgendaAkademik: (id: string, data: Partial<AgendaAkademik>) => {
         setDaftarAgendaAkademik((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+      },
+      daftarPengumuman,
+      tambahPengumuman: (entry: Omit<Pengumuman, "id">) => {
+        const baru: Pengumuman = { ...entry, id: "p-" + Date.now() };
+        setDaftarPengumuman((prev) => [baru, ...prev]);
+      },
+      hapusPengumuman: (id: string) => {
+        setDaftarPengumuman((prev) => prev.filter((p) => p.id !== id));
+      },
+      updatePengumuman: (id: string, data: Partial<Pengumuman>) => {
+        setDaftarPengumuman((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
+      },
+      togglePinPengumuman: (id: string) => {
+        setDaftarPengumuman((prev) => prev.map((p) => (p.id === id ? { ...p, pin: !p.pin } : p)));
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
