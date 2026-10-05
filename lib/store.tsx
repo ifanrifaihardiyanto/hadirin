@@ -1138,6 +1138,258 @@ export const daftarPeminjamanBukuAwal: PeminjamanBuku[] = [
   },
 ];
 
+export interface Ekstrakurikuler {
+  id: string;
+  nama: string;
+  kategori: "WAJIB" | "OLAHRAGA" | "SENI_BUDAYA" | "SAINS_IPTEK" | "KEPEMIMPINAN" | "KEAGAMAAN";
+  pembina: string;
+  kontakPembina: string;
+  hariLatihan: string;
+  jamMulai: string;
+  jamSelesai: string;
+  lokasiLatihan: string;
+  kuotaMaksimal: number;
+  deskripsi?: string;
+  prestasiTerbaru?: string;
+}
+
+export interface AnggotaEkskul {
+  id: string;
+  ekskulId: string;
+  namaEkskul: string;
+  siswaId: string;
+  namaSiswa: string;
+  nisn: string;
+  kelas: string;
+  jabatan: "KETUA" | "WAKIL" | "SEKRETARIS" | "BENDAHARA" | "ANGGOTA";
+  predikatNilai: "SANGAT_BAIK" | "BAIK" | "CUKUP" | "KURANG";
+  kehadiranPersen: number;
+  catatanPembina?: string;
+}
+
+export const daftarEkskulAwal: Ekstrakurikuler[] = [
+  {
+    id: "eks-1",
+    nama: "Pramuka Inti (Gugus Depan)",
+    kategori: "WAJIB",
+    pembina: "Hadi Purnomo, S.Pd",
+    kontakPembina: "0812-1010-2020",
+    hariLatihan: "Jumat",
+    jamMulai: "15:30",
+    jamSelesai: "17:15",
+    lokasiLatihan: "Lapangan Utama & Panggung Terbuka",
+    kuotaMaksimal: 60,
+    deskripsi: "Pendidikan kepanduan pembentukan karakter, kedisiplinan, pioneering, dan survival.",
+    prestasiTerbaru: "Juara 1 Lomba Tingkat Penegak Kwarcab 2024",
+  },
+  {
+    id: "eks-2",
+    nama: "Paskibra Sekolah",
+    kategori: "KEPEMIMPINAN",
+    pembina: "Rian Pratama, S.Pd",
+    kontakPembina: "0812-2323-3434",
+    hariLatihan: "Sabtu",
+    jamMulai: "07:30",
+    jamSelesai: "10:00",
+    lokasiLatihan: "Lapangan Upacara Bendera",
+    kuotaMaksimal: 35,
+    deskripsi: "Pelatihan baris-berbaris presisi, kedisiplinan mental, dan formasi pengibaran bendera pusaka.",
+    prestasiTerbaru: "Paskibraka Terbaik Tingkat Kota Tahun 2024",
+  },
+  {
+    id: "eks-3",
+    nama: "Palang Merah Remaja (PMR Wira)",
+    kategori: "KEPEMIMPINAN",
+    pembina: "Dr. Retno Wahyuni",
+    kontakPembina: "0813-3434-4545",
+    hariLatihan: "Rabu",
+    jamMulai: "15:30",
+    jamSelesai: "17:00",
+    lokasiLatihan: "Ruang PMR & Unit Kesehatan Sekolah (UKS)",
+    kuotaMaksimal: 30,
+    deskripsi: "Pertolongan pertama pada kecelakaan (PPGD), donor darah, dan evakuasi kebencanaan.",
+    prestasiTerbaru: "Juara Umum Jumbara PMR Wira Tingkat Provinsi 2023",
+  },
+  {
+    id: "eks-4",
+    nama: "Klub Futsal & Sepakbola",
+    kategori: "OLAHRAGA",
+    pembina: "Bambang Santoso, M.Si",
+    kontakPembina: "0815-4545-5656",
+    hariLatihan: "Selasa",
+    jamMulai: "16:00",
+    jamSelesai: "17:45",
+    lokasiLatihan: "Lapangan Futsal Sekolah",
+    kuotaMaksimal: 25,
+    deskripsi: "Pembinaan taktik futsal, stamina fisik, dan partisipasi liga pelajar antar-SMA.",
+    prestasiTerbaru: "Semifinalis Turnamen Futsal Pelajar Cup 2024",
+  },
+  {
+    id: "eks-5",
+    nama: "Bola Basket Putera & Puteri",
+    kategori: "OLAHRAGA",
+    pembina: "Hadi Purnomo, S.Pd",
+    kontakPembina: "0816-5656-6767",
+    hariLatihan: "Kamis",
+    jamMulai: "15:30",
+    jamSelesai: "17:30",
+    lokasiLatihan: "Gelanggang Basket Outdoor",
+    kuotaMaksimal: 25,
+    deskripsi: "Pelatihan fundamental dribbling, shooting, set play, dan persiapan kompetisi DBL.",
+    prestasiTerbaru: "Juara 2 Kejuaraan Antar-SMA Perbasi Cup",
+  },
+  {
+    id: "eks-6",
+    nama: "Robotika & Coding Tech",
+    kategori: "SAINS_IPTEK",
+    pembina: "Rifqi Pratama, S.Kom",
+    kontakPembina: "0817-6767-7878",
+    hariLatihan: "Sabtu",
+    jamMulai: "08:30",
+    jamSelesai: "11:00",
+    lokasiLatihan: "Laboratorium Komputer 1",
+    kuotaMaksimal: 20,
+    deskripsi: "Pemrograman mikrokontroler Arduino/ESP32, sensor IoT, koding web, dan lomba robotik nasional.",
+    prestasiTerbaru: "Medali Perunggu Kontes Robot Pintar Pelajar Nasional 2024",
+  },
+  {
+    id: "eks-7",
+    nama: "Karya Ilmiah Remaja (KIR Sains)",
+    kategori: "SAINS_IPTEK",
+    pembina: "Agus Salim, M.Pd",
+    kontakPembina: "0818-7878-8989",
+    hariLatihan: "Kamis",
+    jamMulai: "15:30",
+    jamSelesai: "17:00",
+    lokasiLatihan: "Laboratorium Biologi & Kimia",
+    kuotaMaksimal: 25,
+    deskripsi: "Metodologi riset ilmiah, eksperimen laboratorium, penulisan karya tulis ilmiah (KTI), dan lomba OPSI.",
+    prestasiTerbaru: "Finalis Olimpiade Penelitian Siswa Indonesia (OPSI) Kemendikbud",
+  },
+  {
+    id: "eks-8",
+    nama: "Seni Tari Tradisional & Kreasi",
+    kategori: "SENI_BUDAYA",
+    pembina: "Dewi Lestari, M.Pd",
+    kontakPembina: "0819-8989-9090",
+    hariLatihan: "Rabu",
+    jamMulai: "15:30",
+    jamSelesai: "17:00",
+    lokasiLatihan: "Aula Serbaguna & Sanggar Seni",
+    kuotaMaksimal: 25,
+    deskripsi: "Pelestarian seni tari daerah nusantara, olah tubuh, koreografi pentas seni, dan FLS2N.",
+    prestasiTerbaru: "Juara 1 FLS2N Tingkat Wilayah Cabang Seni Tari 2024",
+  },
+];
+
+export const daftarAnggotaEkskulAwal: AnggotaEkskul[] = [
+  {
+    id: "ang-1",
+    ekskulId: "eks-1",
+    namaEkskul: "Pramuka Inti (Gugus Depan)",
+    siswaId: "s-1",
+    namaSiswa: "Ahmad Fadillah",
+    nisn: "0067891234",
+    kelas: "X IPA 1",
+    jabatan: "KETUA",
+    predikatNilai: "SANGAT_BAIK",
+    kehadiranPersen: 96,
+    catatanPembina: "Memimpin regu dengan sangat cakap dan disiplin tinggi.",
+  },
+  {
+    id: "ang-2",
+    ekskulId: "eks-1",
+    namaEkskul: "Pramuka Inti (Gugus Depan)",
+    siswaId: "s-2",
+    namaSiswa: "Bunga Citra",
+    nisn: "0067891235",
+    kelas: "X IPA 1",
+    jabatan: "BENDAHARA",
+    predikatNilai: "SANGAT_BAIK",
+    kehadiranPersen: 94,
+    catatanPembina: "Pengelolaan logistik dan iuran kas sangat rapi.",
+  },
+  {
+    id: "ang-3",
+    ekskulId: "eks-2",
+    namaEkskul: "Paskibra Sekolah",
+    siswaId: "s-3",
+    namaSiswa: "Dedi Kurniawan",
+    nisn: "0067891236",
+    kelas: "X IPA 1",
+    jabatan: "ANGGOTA",
+    predikatNilai: "BAIK",
+    kehadiranPersen: 88,
+    catatanPembina: "Postur dan langkah tegap baik, perlu peningkatan fokus.",
+  },
+  {
+    id: "ang-4",
+    ekskulId: "eks-3",
+    namaEkskul: "Palang Merah Remaja (PMR Wira)",
+    siswaId: "s-4",
+    namaSiswa: "Eka Putri",
+    nisn: "0067891237",
+    kelas: "X IPA 2",
+    jabatan: "SEKRETARIS",
+    predikatNilai: "SANGAT_BAIK",
+    kehadiranPersen: 95,
+    catatanPembina: "Tanggap saat piket UKS dan cekatan dalam simulasi medis.",
+  },
+  {
+    id: "ang-5",
+    ekskulId: "eks-4",
+    namaEkskul: "Klub Futsal & Sepakbola",
+    siswaId: "s-5",
+    namaSiswa: "Farhan Maulana",
+    nisn: "0067891238",
+    kelas: "X IPA 2",
+    jabatan: "KETUA",
+    predikatNilai: "SANGAT_BAIK",
+    kehadiranPersen: 92,
+    catatanPembina: "Kapten tim yang berdedikasi dan memiliki sportivitas tinggi.",
+  },
+  {
+    id: "ang-6",
+    ekskulId: "eks-6",
+    namaEkskul: "Robotika & Coding Tech",
+    siswaId: "s-7",
+    namaSiswa: "Hafiz Aditya",
+    nisn: "0067891240",
+    kelas: "XI IPA 1",
+    jabatan: "KETUA",
+    predikatNilai: "SANGAT_BAIK",
+    kehadiranPersen: 98,
+    catatanPembina: "Menunjukkan inovasi luar biasa pada proyek robot line follower.",
+  },
+  {
+    id: "ang-7",
+    ekskulId: "eks-7",
+    namaEkskul: "Karya Ilmiah Remaja (KIR Sains)",
+    siswaId: "s-6",
+    namaSiswa: "Gita Ramadhani",
+    nisn: "0067891239",
+    kelas: "XI IPA 1",
+    jabatan: "WAKIL",
+    predikatNilai: "SANGAT_BAIK",
+    kehadiranPersen: 94,
+    catatanPembina: "Karya tulis ilmiah tentang bio-pestisida berpotensi menang lomba.",
+  },
+  {
+    id: "ang-8",
+    ekskulId: "eks-8",
+    namaEkskul: "Seni Tari Tradisional & Kreasi",
+    siswaId: "s-8",
+    namaSiswa: "Indah Permata",
+    nisn: "0067891241",
+    kelas: "XI IPA 2",
+    jabatan: "ANGGOTA",
+    predikatNilai: "BAIK",
+    kehadiranPersen: 90,
+    catatanPembina: "Penguasaan wiraga dan wirasa sangat luwes.",
+  },
+];
+
+
 
 export const JAM_PER_SLOT = 1.5;
 export const TARGET_JAM_MINGGU = 24;
@@ -1553,6 +1805,14 @@ interface StoreValue {
   pinjamBuku: (pinjam: Omit<PeminjamanBuku, "id" | "kodePinjam" | "status" | "denda" | "statusDenda">) => string;
   kembalikanBuku: (id: string, denda?: number, catatan?: string) => void;
   bayarDendaBuku: (id: string) => void;
+  daftarEkskul: Ekstrakurikuler[];
+  tambahEkskul: (ekskul: Omit<Ekstrakurikuler, "id">) => void;
+  updateEkskul: (id: string, data: Partial<Ekstrakurikuler>) => void;
+  hapusEkskul: (id: string) => void;
+  daftarAnggotaEkskul: AnggotaEkskul[];
+  tambahAnggotaEkskul: (anggota: Omit<AnggotaEkskul, "id">) => void;
+  hapusAnggotaEkskul: (id: string) => void;
+  updateNilaiEkskul: (id: string, predikatNilai: AnggotaEkskul["predikatNilai"], kehadiranPersen: number, catatanPembina?: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -1587,6 +1847,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarPeminjamanSarpras, setDaftarPeminjamanSarpras] = useState<PeminjamanSarpras[]>(daftarPeminjamanSarprasAwal);
   const [daftarBuku, setDaftarBuku] = useState<BukuPerpus[]>(daftarBukuAwal);
   const [daftarPeminjamanBuku, setDaftarPeminjamanBuku] = useState<PeminjamanBuku[]>(daftarPeminjamanBukuAwal);
+  const [daftarEkskul, setDaftarEkskul] = useState<Ekstrakurikuler[]>(daftarEkskulAwal);
+  const [daftarAnggotaEkskul, setDaftarAnggotaEkskul] = useState<AnggotaEkskul[]>(daftarAnggotaEkskulAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -2008,6 +2270,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           prev.map((p) => (p.id === id ? { ...p, statusDenda: "LUNAS" } : p))
         );
       },
+      daftarEkskul,
+      tambahEkskul: (entry: Omit<Ekstrakurikuler, "id">) => {
+        const baru: Ekstrakurikuler = { ...entry, id: "eks-" + Date.now() };
+        setDaftarEkskul((prev) => [baru, ...prev]);
+      },
+      updateEkskul: (id: string, data: Partial<Ekstrakurikuler>) => {
+        setDaftarEkskul((prev) => prev.map((e) => (e.id === id ? { ...e, ...data } : e)));
+      },
+      hapusEkskul: (id: string) => {
+        setDaftarEkskul((prev) => prev.filter((e) => e.id !== id));
+        setDaftarAnggotaEkskul((prev) => prev.filter((a) => a.ekskulId !== id));
+      },
+      daftarAnggotaEkskul,
+      tambahAnggotaEkskul: (entry: Omit<AnggotaEkskul, "id">) => {
+        const baru: AnggotaEkskul = { ...entry, id: "ang-" + Date.now() };
+        setDaftarAnggotaEkskul((prev) => [baru, ...prev]);
+      },
+      hapusAnggotaEkskul: (id: string) => {
+        setDaftarAnggotaEkskul((prev) => prev.filter((a) => a.id !== id));
+      },
+      updateNilaiEkskul: (id: string, predikatNilai: AnggotaEkskul["predikatNilai"], kehadiranPersen: number, catatanPembina?: string) => {
+        setDaftarAnggotaEkskul((prev) =>
+          prev.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  predikatNilai,
+                  kehadiranPersen,
+                  catatanPembina: catatanPembina || a.catatanPembina,
+                }
+              : a
+          )
+        );
+      },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
         switch (role) {
@@ -2073,6 +2369,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       daftarPeminjamanSarpras,
       daftarBuku,
       daftarPeminjamanBuku,
+      daftarEkskul,
+      daftarAnggotaEkskul,
       isMobileMenuOpen,
     ]
   );
