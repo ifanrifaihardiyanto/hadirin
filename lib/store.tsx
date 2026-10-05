@@ -2035,6 +2035,237 @@ const daftarIzinAwal: PermohonanIzin[] = [
   },
 ];
 
+
+// ==========================================
+// MODUL UKS & REKAM MEDIS KESEHATAN SISWA
+// ==========================================
+export interface KunjunganUKS {
+  id: string;
+  tanggal: string;
+  jam: string;
+  siswaId: string;
+  namaSiswa: string;
+  kelas: string;
+  keluhan: string;
+  kategoriKeluhan: "DEMAM" | "SAKIT_PERUT_MAAG" | "LUKA_CEDERA" | "PUSING_MIGRAIN" | "ALERGI_ASMA" | "PINGSAN_LEMAS";
+  tindakan: string;
+  obatDiberikan: string;
+  kondisiAkhir: "MEMBAIK_KEMBALI_KE_KELAS" | "ISTIRAHAT_DI_UKS" | "DIRUJUK_PUSKESMAS" | "DIJEMPUT_ORANG_TUA";
+  petugasUKS: string;
+  status: "SELESAI" | "SEDANG_DIRAWAT";
+}
+
+export interface RekamMedisSiswa {
+  id: string;
+  siswaId: string;
+  namaSiswa: string;
+  kelas: string;
+  golonganDarah: "A" | "B" | "AB" | "O" | "-";
+  tinggiBadanCm: number;
+  beratBadanKg: number;
+  bmi: number;
+  statusGizi: "GIZI_BAIK" | "KURANG" | "BERLEBIH" | "OBESITAS";
+  riwayatAlergi: string;
+  riwayatPenyakit: string;
+  kontakDarurat: string;
+  namaOrtu: string;
+  terakhirPeriksa: string;
+}
+
+export interface ObatUKS {
+  id: string;
+  kodeObat: string;
+  namaObat: string;
+  kategori: "ANALGESIK" | "ANTASIDA" | "P3K_LUKA" | "MINYAK_OLES" | "ALAT_MEDIS";
+  stok: number;
+  satuan: string;
+  kadaluarsa: string;
+  indikasi: string;
+}
+
+export const daftarKunjunganUKSAwal: KunjunganUKS[] = [
+  {
+    id: "uks-k-1",
+    tanggal: "2024-09-20",
+    jam: "08:15",
+    siswaId: "sis-1",
+    namaSiswa: "Ahmad Fadillah",
+    kelas: "Kelas X IPA 1",
+    keluhan: "Pusing dan lemas saat apel upacara bendera, belum sarapan.",
+    kategoriKeluhan: "PINGSAN_LEMAS",
+    tindakan: "Diberikan teh manis hangat, istirahat berbaring 30 menit, cek tensi darah (105/70).",
+    obatDiberikan: "Minyak Kayu Putih + Teh Manis",
+    kondisiAkhir: "MEMBAIK_KEMBALI_KE_KELAS",
+    petugasUKS: "drg. Ratna Sari & Tim PMR",
+    status: "SELESAI",
+  },
+  {
+    id: "uks-k-2",
+    tanggal: "2024-09-20",
+    jam: "10:30",
+    siswaId: "sis-2",
+    namaSiswa: "Budi Pratama",
+    kelas: "Kelas X IPA 1",
+    keluhan: "Luka lecet di lutut dan siku akibat terjatuh saat jam olahraga futsal.",
+    kategoriKeluhan: "LUKA_CEDERA",
+    tindakan: "Pembersihan luka antiseptik dengan Rivanol, oles Povidone Iodine, dan balut kasa steril.",
+    obatDiberikan: "Rivanol & Kasa Steril",
+    kondisiAkhir: "MEMBAIK_KEMBALI_KE_KELAS",
+    petugasUKS: "Hj. Siti Aminah, S.Pd (Pembina UKS)",
+    status: "SELESAI",
+  },
+  {
+    id: "uks-k-3",
+    tanggal: "2024-09-20",
+    jam: "11:45",
+    siswaId: "sis-3",
+    namaSiswa: "Citra Lestari",
+    kelas: "Kelas X IPA 2",
+    keluhan: "Nyeri lambung akut (maag kambuh) disertai mual berat.",
+    kategoriKeluhan: "SAKIT_PERUT_MAAG",
+    tindakan: "Pemberian tablet antasida kunyah, kompres perut air hangat. Orang tua dihubungi untuk penjemputan.",
+    obatDiberikan: "Antasida DOEN 1 tab",
+    kondisiAkhir: "DIJEMPUT_ORANG_TUA",
+    petugasUKS: "drg. Ratna Sari",
+    status: "SELESAI",
+  },
+  {
+    id: "uks-k-4",
+    tanggal: "2024-09-20",
+    jam: "12:15",
+    siswaId: "sis-4",
+    namaSiswa: "Dedi Kurniawan",
+    kelas: "Kelas XI IPS 1",
+    keluhan: "Demam tinggi mendadak (suhu 38.6°C) dan meriang.",
+    kategoriKeluhan: "DEMAM",
+    tindakan: "Kompres dahi, berikan Paracetamol 500mg, sedang observasi di ranjang isolasi UKS.",
+    obatDiberikan: "Paracetamol 500mg",
+    kondisiAkhir: "ISTIRAHAT_DI_UKS",
+    petugasUKS: "Tim PMR Madya",
+    status: "SEDANG_DIRAWAT",
+  },
+];
+
+export const daftarRekamMedisUKSAwal: RekamMedisSiswa[] = [
+  {
+    id: "rm-1",
+    siswaId: "sis-1",
+    namaSiswa: "Ahmad Fadillah",
+    kelas: "Kelas X IPA 1",
+    golonganDarah: "O",
+    tinggiBadanCm: 172,
+    beratBadanKg: 62,
+    bmi: 21.0,
+    statusGizi: "GIZI_BAIK",
+    riwayatAlergi: "Alergi debu & udara dingin (bersin)",
+    riwayatPenyakit: "Tidak ada riwayat kronis",
+    kontakDarurat: "0812-8877-6655",
+    namaOrtu: "Ir. Bambang Fadillah",
+    terakhirPeriksa: "2024-09-01",
+  },
+  {
+    id: "rm-2",
+    siswaId: "sis-2",
+    namaSiswa: "Budi Pratama",
+    kelas: "Kelas X IPA 1",
+    golonganDarah: "B",
+    tinggiBadanCm: 168,
+    beratBadanKg: 58,
+    bmi: 20.5,
+    statusGizi: "GIZI_BAIK",
+    riwayatAlergi: "Alergi udang & seafood",
+    riwayatPenyakit: "Riwayat asma ringan saat SD",
+    kontakDarurat: "0813-1122-3344",
+    namaOrtu: "Drs. Hendro Pratama",
+    terakhirPeriksa: "2024-09-01",
+  },
+  {
+    id: "rm-3",
+    siswaId: "sis-3",
+    namaSiswa: "Citra Lestari",
+    kelas: "Kelas X IPA 2",
+    golonganDarah: "A",
+    tinggiBadanCm: 158,
+    beratBadanKg: 44,
+    bmi: 17.6,
+    statusGizi: "KURANG",
+    riwayatAlergi: "Tidak ada",
+    riwayatPenyakit: "Gastritis / Dispepsia (Maag kronis)",
+    kontakDarurat: "0815-5566-7788",
+    namaOrtu: "Ibu Nurhayati",
+    terakhirPeriksa: "2024-09-05",
+  },
+  {
+    id: "rm-4",
+    siswaId: "sis-4",
+    namaSiswa: "Dedi Kurniawan",
+    kelas: "Kelas XI IPS 1",
+    golonganDarah: "AB",
+    tinggiBadanCm: 175,
+    beratBadanKg: 85,
+    bmi: 27.8,
+    statusGizi: "BERLEBIH",
+    riwayatAlergi: "Alergi antibiotik penisilin",
+    riwayatPenyakit: "Tidak ada",
+    kontakDarurat: "0821-4455-6677",
+    namaOrtu: "Bpk. Suryanto",
+    terakhirPeriksa: "2024-09-10",
+  },
+];
+
+export const daftarObatUKSAwal: ObatUKS[] = [
+  {
+    id: "obt-1",
+    kodeObat: "MED-PCT-500",
+    namaObat: "Paracetamol 500mg",
+    kategori: "ANALGESIK",
+    stok: 48,
+    satuan: "Tablet",
+    kadaluarsa: "2026-08-01",
+    indikasi: "Pereda demam dan sakit kepala ringan hingga sedang",
+  },
+  {
+    id: "obt-2",
+    kodeObat: "MED-ATD-001",
+    namaObat: "Antasida DOEN Kunyah",
+    kategori: "ANTASIDA",
+    stok: 35,
+    satuan: "Tablet",
+    kadaluarsa: "2026-05-15",
+    indikasi: "Meredakan gejala asam lambung berlebih, maag, dan perut kembung",
+  },
+  {
+    id: "obt-3",
+    kodeObat: "MED-PVD-060",
+    namaObat: "Povidone Iodine 10% (Betadine)",
+    kategori: "P3K_LUKA",
+    stok: 8,
+    satuan: "Botol",
+    kadaluarsa: "2027-01-10",
+    indikasi: "Antiseptik pembersih luka terbuka untuk mencegah infeksi",
+  },
+  {
+    id: "obt-4",
+    kodeObat: "MED-MKP-120",
+    namaObat: "Minyak Kayu Putih 120ml",
+    kategori: "MINYAK_OLES",
+    stok: 12,
+    satuan: "Botol",
+    kadaluarsa: "2027-11-20",
+    indikasi: "Meredakan masuk angin, perut mulas, dan memberikan kehangatan",
+  },
+  {
+    id: "obt-5",
+    kodeObat: "MED-TNS-DGT",
+    namaObat: "Tensimeter Digital Omron",
+    kategori: "ALAT_MEDIS",
+    stok: 3,
+    satuan: "Unit",
+    kadaluarsa: "2030-01-01",
+    indikasi: "Alat ukur tekanan darah dan detak jantung digital",
+  },
+];
+
 interface StoreValue {
   daftarGuru: Guru[];
   daftarKelas: Kelas[];
@@ -2130,6 +2361,16 @@ interface StoreValue {
   regenerateTokenCBT: (id: string) => string;
   daftarHasilCBT: HasilSiswaCBT[];
   resetSesiCBT: (hasilId: string) => void;
+  submitHasilCBT: (hasil: Omit<HasilSiswaCBT, "id">) => void;
+  daftarKunjunganUKS: KunjunganUKS[];
+  tambahKunjunganUKS: (k: Omit<KunjunganUKS, "id">) => void;
+  updateKunjunganUKS: (id: string, data: Partial<KunjunganUKS>) => void;
+  hapusKunjunganUKS: (id: string) => void;
+  daftarRekamMedisUKS: RekamMedisSiswa[];
+  updateRekamMedisUKS: (id: string, data: Partial<RekamMedisSiswa>) => void;
+  daftarObatUKS: ObatUKS[];
+  updateStokObatUKS: (id: string, delta: number) => void;
+
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -2167,6 +2408,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarEkskul, setDaftarEkskul] = useState<Ekstrakurikuler[]>(daftarEkskulAwal);
   const [daftarAnggotaEkskul, setDaftarAnggotaEkskul] = useState<AnggotaEkskul[]>(daftarAnggotaEkskulAwal);
   const [daftarAlumni, setDaftarAlumni] = useState<AlumniRecord[]>(daftarAlumniAwal);
+  const [daftarKunjunganUKS, setDaftarKunjunganUKS] = useState<KunjunganUKS[]>(daftarKunjunganUKSAwal);
+  const [daftarRekamMedisUKS, setDaftarRekamMedisUKS] = useState<RekamMedisSiswa[]>(daftarRekamMedisUKSAwal);
+  const [daftarObatUKS, setDaftarObatUKS] = useState<ObatUKS[]>(daftarObatUKSAwal);
   const [daftarUjianCBT, setDaftarUjianCBT] = useState<UjianCBT[]>(daftarUjianCBTAwal);
   const [daftarHasilCBT, setDaftarHasilCBT] = useState<HasilSiswaCBT[]>(daftarHasilCBTAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
@@ -2669,6 +2913,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : h
           )
         );
+      },
+      daftarKunjunganUKS,
+      tambahKunjunganUKS: (k: Omit<KunjunganUKS, "id">) => {
+        const baru: KunjunganUKS = { ...k, id: `uks-k-${Date.now()}` };
+        setDaftarKunjunganUKS((prev) => [baru, ...prev]);
+      },
+      updateKunjunganUKS: (id: string, data: Partial<KunjunganUKS>) => {
+        setDaftarKunjunganUKS((prev) => prev.map((item) => (item.id === id ? { ...item, ...data } : item)));
+      },
+      hapusKunjunganUKS: (id: string) => {
+        setDaftarKunjunganUKS((prev) => prev.filter((item) => item.id !== id));
+      },
+      daftarRekamMedisUKS,
+      updateRekamMedisUKS: (id: string, data: Partial<RekamMedisSiswa>) => {
+        setDaftarRekamMedisUKS((prev) => prev.map((item) => (item.id === id ? { ...item, ...data } : item)));
+      },
+      daftarObatUKS,
+      updateStokObatUKS: (id: string, delta: number) => {
+        setDaftarObatUKS((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, stok: Math.max(0, item.stok + delta) } : item
+          )
+        );
+      },
+      submitHasilCBT: (hasil: Omit<HasilSiswaCBT, "id">) => {
+        const newHasil: HasilSiswaCBT = {
+          ...hasil,
+          id: `res-${Date.now()}`,
+        };
+        setDaftarHasilCBT((prev) => [newHasil, ...prev]);
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;

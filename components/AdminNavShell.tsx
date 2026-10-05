@@ -35,6 +35,7 @@ import {
   Trophy,
   Briefcase,
   Laptop,
+  HeartPulse,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore, type UserRole } from "@/lib/store";
@@ -104,6 +105,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/perpus", label: "Perpustakaan & Buku", icon: Library },
           { href: "/admin/ekskul", label: "Ekstrakurikuler", icon: Trophy },
           { href: "/admin/alumni", label: "Alumni & Tracer Study", icon: Briefcase },
+          { href: "/admin/uks", label: "Layanan UKS & Medis", icon: HeartPulse },
           { href: "/admin/guru", label: "Data Guru & Pegawai", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Pelajaran", icon: CalendarClock },
@@ -162,6 +164,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/nilai", label: "Buku Nilai Siswa", icon: Award },
           { href: "/admin/rapor", label: "E-Rapor Kurikulum", icon: GraduationCap },
           { href: "/admin/bk", label: "Layanan BK & Kasus", icon: HeartHandshake },
+          { href: "/admin/uks", label: "Layanan UKS & Medis", icon: HeartPulse },
           { href: "/admin/izin", label: "Verifikasi Izin Siswa", icon: FileCheck },
         ],
       },
@@ -223,6 +226,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
         { href: "/admin/nilai", label: "Buku Nilai Siswa", icon: Award },
         { href: "/admin/rapor", label: "E-Rapor Siswa", icon: GraduationCap },
         { href: "/admin/bk", label: "Layanan BK & Kasus", icon: HeartHandshake },
+        { href: "/admin/uks", label: "Layanan UKS & Medis", icon: HeartPulse },
         { href: "/admin/izin", label: "Verifikasi Izin", icon: FileCheck },
       ],
     },

@@ -21,6 +21,7 @@ import {
   FileText,
   Clock,
   Heart,
+  Laptop,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore, type UserRole } from "@/lib/store";
@@ -53,6 +54,7 @@ function getNavigation(role?: UserRole): NavSection[] {
         items: [
           { href: "/siswa/tugas", label: "Tugas & PR Siswa", icon: FileText },
           { href: "/siswa/materi", label: "Materi & Modul Ajar", icon: BookOpen },
+          { href: "/siswa/ujian", label: "CBT & Ujian Online", icon: Laptop },
           { href: "/izin", label: "Pengajuan Izin / Sakit", icon: FileCheck },
         ],
       },
