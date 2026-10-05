@@ -2455,6 +2455,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           bkRes,
           cbtUjianRes,
           cbtHasilRes,
+          ekskulRes,
+          anggotaEkskulRes,
+          agendaRes,
+          alumniRes,
         ] = await Promise.allSettled([
           api.getGuruList(),
           api.getKelasList(),
@@ -2469,6 +2473,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           api.getKasusBKList(),
           api.getCBTUjianList(),
           api.getCBTHasilList(),
+          api.getEkskulList(),
+          api.getAnggotaEkskulList(),
+          api.getAgendaAkademikList(),
+          api.getAlumniList(),
         ]);
 
         if (gurusRes.status === "fulfilled" && gurusRes.value?.data) {
@@ -2697,6 +2705,75 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             jawabanSalah: Number(h.jawaban_salah) || 0,
           }));
           if (mapped.length > 0) setDaftarHasilCBT(mapped);
+        }
+
+        if (ekskulRes.status === "fulfilled" && ekskulRes.value?.data) {
+          const mapped = ekskulRes.value.data.map((e: any) => ({
+            id: String(e.id),
+            nama: e.nama,
+            kategori: e.kategori || "OLAHRAGA",
+            pembina: e.pembina || e.pembina_guru?.nama || "Pembina",
+            kontakPembina: e.kontak_pembina || "0812-0000-0000",
+            hariLatihan: e.hari_latihan || "Jumat",
+            jamMulai: e.jam_mulai || "15:30",
+            jamSelesai: e.jam_selesai || "17:00",
+            lokasiLatihan: e.lokasi_latihan || "Lapangan Sekolah",
+            kuotaMaksimal: Number(e.kuota_maksimal) || 30,
+            deskripsi: e.deskripsi,
+            prestasiTerbaru: e.prestasi_terbaru,
+          }));
+          if (mapped.length > 0) setDaftarEkskul(mapped);
+        }
+
+        if (anggotaEkskulRes.status === "fulfilled" && anggotaEkskulRes.value?.data) {
+          const mapped = anggotaEkskulRes.value.data.map((a: any) => ({
+            id: String(a.id),
+            ekskulId: String(a.ekskul_id),
+            namaEkskul: a.ekskul?.nama || "Ekstrakurikuler",
+            siswaId: String(a.siswa_id),
+            namaSiswa: a.siswa?.nama || "Siswa",
+            nisn: a.siswa?.nisn || "",
+            kelas: a.siswa?.kelas?.nama || "X IPA 1",
+            jabatan: a.jabatan || "ANGGOTA",
+            predikatNilai: a.predikat_nilai || "BAIK",
+            kehadiranPersen: Number(a.kehadiran_persen) || 100,
+            catatanPembina: a.catatan_pembina,
+          }));
+          if (mapped.length > 0) setDaftarAnggotaEkskul(mapped);
+        }
+
+        if (agendaRes.status === "fulfilled" && agendaRes.value?.data) {
+          const mapped = agendaRes.value.data.map((ag: any) => ({
+            id: String(ag.id),
+            judul: ag.judul,
+            kategori: ag.kategori || "KEGIATAN_SEKOLAH",
+            tanggalMulai: ag.tanggal_mulai,
+            tanggalSelesai: ag.tanggal_selesai || ag.tanggal_mulai,
+            sasaran: ag.sasaran || "SEMUA",
+            keterangan: ag.keterangan,
+            warna: ag.warna || "sky",
+          }));
+          if (mapped.length > 0) setDaftarAgendaAkademik(mapped);
+        }
+
+        if (alumniRes.status === "fulfilled" && alumniRes.value?.data) {
+          const mapped = alumniRes.value.data.map((al: any) => ({
+            id: String(al.id),
+            nisn: al.nisn || "",
+            nama: al.nama,
+            gender: al.gender || "L",
+            tahunLulus: Number(al.tahun_lulus) || 2024,
+            jurusan: al.jurusan || "MIPA",
+            statusTracer: al.status_tracer || "BEKERJA",
+            instansiAtauKampus: al.instansi_atau_kampus || "-",
+            posisiAtauJurusan: al.posisi_atau_jurusan || "-",
+            email: al.email || "-",
+            telepon: al.telepon || "-",
+            kotaDomisili: al.kota_domisili || "-",
+            kesanPesan: al.kesan_pesan,
+            bersediaMentoring: Boolean(al.bersedia_mentoring),
+          }));
+          if (mapped.length > 0) setDaftarAlumni(mapped);
         }
       } catch (err) {
         console.warn("Could not sync store with backend API:", err);
@@ -3004,12 +3081,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahAgendaAkademik: (entry: Omit<AgendaAkademik, "id">) => {
         const baru: AgendaAkademik = { ...entry, id: "ag-" + Date.now() };
         setDaftarAgendaAkademik((prev) => [baru, ...prev]);
+        api.createAgendaAkademik({
+          judul: entry.judul,
+          kategori: entry.kategori,
+          tanggal_mulai: entry.tanggalMulai,
+          tanggal_selesai: entry.tanggalSelesai,
+          sasaran: entry.sasaran,
+          keterangan: entry.keterangan,
+          warna: entry.warna,
+        }).catch((err) => console.warn("Failed to create agenda in backend:", err));
       },
       hapusAgendaAkademik: (id: string) => {
         setDaftarAgendaAkademik((prev) => prev.filter((a) => a.id !== id));
+        if (!id.startsWith("ag-")) {
+          api.deleteAgendaAkademik(id).catch((err) => console.warn("Failed to delete agenda in backend:", err));
+        }
       },
       updateAgendaAkademik: (id: string, data: Partial<AgendaAkademik>) => {
         setDaftarAgendaAkademik((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+        if (!id.startsWith("ag-")) {
+          api.updateAgendaAkademik(id, {
+            ...(data.judul ? { judul: data.judul } : {}),
+            ...(data.kategori ? { kategori: data.kategori } : {}),
+            ...(data.tanggalMulai ? { tanggal_mulai: data.tanggalMulai } : {}),
+            ...(data.tanggalSelesai ? { tanggal_selesai: data.tanggalSelesai } : {}),
+            ...(data.sasaran ? { sasaran: data.sasaran } : {}),
+            ...(data.keterangan ? { keterangan: data.keterangan } : {}),
+            ...(data.warna ? { warna: data.warna } : {}),
+          }).catch((err) => console.warn("Failed to update agenda in backend:", err));
+        }
       },
       daftarPengumuman,
       tambahPengumuman: (entry: Omit<Pengumuman, "id">) => {
@@ -3249,21 +3349,65 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahEkskul: (entry: Omit<Ekstrakurikuler, "id">) => {
         const baru: Ekstrakurikuler = { ...entry, id: "eks-" + Date.now() };
         setDaftarEkskul((prev) => [baru, ...prev]);
+        api.createEkskul({
+          nama: entry.nama,
+          kategori: entry.kategori,
+          pembina: entry.pembina,
+          kontak_pembina: entry.kontakPembina,
+          hari_latihan: entry.hariLatihan,
+          jam_mulai: entry.jamMulai,
+          jam_selesai: entry.jamSelesai,
+          lokasi_latihan: entry.lokasiLatihan,
+          kuota_maksimal: entry.kuotaMaksimal,
+          deskripsi: entry.deskripsi,
+          prestasi_terbaru: entry.prestasiTerbaru,
+        }).catch((err) => console.warn("Failed to create ekskul in backend:", err));
       },
       updateEkskul: (id: string, data: Partial<Ekstrakurikuler>) => {
         setDaftarEkskul((prev) => prev.map((e) => (e.id === id ? { ...e, ...data } : e)));
+        if (!id.startsWith("eks-")) {
+          api.updateEkskul(id, {
+            ...(data.nama ? { nama: data.nama } : {}),
+            ...(data.kategori ? { kategori: data.kategori } : {}),
+            ...(data.pembina ? { pembina: data.pembina } : {}),
+            ...(data.kontakPembina ? { kontak_pembina: data.kontakPembina } : {}),
+            ...(data.hariLatihan ? { hari_latihan: data.hariLatihan } : {}),
+            ...(data.jamMulai ? { jam_mulai: data.jamMulai } : {}),
+            ...(data.jamSelesai ? { jam_selesai: data.jamSelesai } : {}),
+            ...(data.lokasiLatihan ? { lokasi_latihan: data.lokasiLatihan } : {}),
+            ...(data.kuotaMaksimal !== undefined ? { kuota_maksimal: data.kuotaMaksimal } : {}),
+            ...(data.deskripsi ? { deskripsi: data.deskripsi } : {}),
+            ...(data.prestasiTerbaru ? { prestasi_terbaru: data.prestasiTerbaru } : {}),
+          }).catch((err) => console.warn("Failed to update ekskul in backend:", err));
+        }
       },
       hapusEkskul: (id: string) => {
         setDaftarEkskul((prev) => prev.filter((e) => e.id !== id));
         setDaftarAnggotaEkskul((prev) => prev.filter((a) => a.ekskulId !== id));
+        if (!id.startsWith("eks-")) {
+          api.deleteEkskul(id).catch((err) => console.warn("Failed to delete ekskul in backend:", err));
+        }
       },
       daftarAnggotaEkskul,
       tambahAnggotaEkskul: (entry: Omit<AnggotaEkskul, "id">) => {
         const baru: AnggotaEkskul = { ...entry, id: "ang-" + Date.now() };
         setDaftarAnggotaEkskul((prev) => [baru, ...prev]);
+        if (!entry.ekskulId.startsWith("eks-") && !entry.siswaId.startsWith("s-")) {
+          api.createAnggotaEkskul({
+            ekskul_id: Number(entry.ekskulId),
+            siswa_id: Number(entry.siswaId),
+            jabatan: entry.jabatan,
+            predikat_nilai: entry.predikatNilai,
+            kehadiran_persen: entry.kehadiranPersen,
+            catatan_pembina: entry.catatanPembina,
+          }).catch((err) => console.warn("Failed to add anggota ekskul in backend:", err));
+        }
       },
       hapusAnggotaEkskul: (id: string) => {
         setDaftarAnggotaEkskul((prev) => prev.filter((a) => a.id !== id));
+        if (!id.startsWith("ang-")) {
+          api.deleteAnggotaEkskul(id).catch((err) => console.warn("Failed to delete anggota ekskul in backend:", err));
+        }
       },
       updateNilaiEkskul: (id: string, predikatNilai: AnggotaEkskul["predikatNilai"], kehadiranPersen: number, catatanPembina?: string) => {
         setDaftarAnggotaEkskul((prev) =>
@@ -3278,17 +3422,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : a
           )
         );
+        if (!id.startsWith("ang-")) {
+          api.updateNilaiAnggotaEkskul(id, {
+            predikat_nilai: predikatNilai,
+            kehadiran_persen: kehadiranPersen,
+            catatan_pembina: catatanPembina,
+          }).catch((err) => console.warn("Failed to update nilai ekskul in backend:", err));
+        }
       },
       daftarAlumni,
       tambahAlumni: (entry: Omit<AlumniRecord, "id">) => {
         const baru: AlumniRecord = { ...entry, id: "alm-" + Date.now() };
         setDaftarAlumni((prev) => [baru, ...prev]);
+        api.createAlumni({
+          nisn: entry.nisn,
+          nama: entry.nama,
+          gender: entry.gender,
+          tahun_lulus: entry.tahunLulus,
+          jurusan: entry.jurusan,
+          status_tracer: entry.statusTracer,
+          instansi_atau_kampus: entry.instansiAtauKampus,
+          posisi_atau_jurusan: entry.posisiAtauJurusan,
+          email: entry.email,
+          telepon: entry.telepon,
+          kota_domisili: entry.kotaDomisili,
+          kesan_pesan: entry.kesanPesan,
+          bersedia_mentoring: entry.bersediaMentoring,
+        }).catch((err) => console.warn("Failed to add alumni in backend:", err));
       },
       updateAlumni: (id: string, data: Partial<AlumniRecord>) => {
         setDaftarAlumni((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+        if (!id.startsWith("alm-")) {
+          api.updateAlumni(id, {
+            ...(data.nisn ? { nisn: data.nisn } : {}),
+            ...(data.nama ? { nama: data.nama } : {}),
+            ...(data.gender ? { gender: data.gender } : {}),
+            ...(data.tahunLulus ? { tahun_lulus: data.tahunLulus } : {}),
+            ...(data.jurusan ? { jurusan: data.jurusan } : {}),
+            ...(data.statusTracer ? { status_tracer: data.statusTracer } : {}),
+            ...(data.instansiAtauKampus ? { instansi_atau_kampus: data.instansiAtauKampus } : {}),
+            ...(data.posisiAtauJurusan ? { posisi_atau_jurusan: data.posisiAtauJurusan } : {}),
+            ...(data.email ? { email: data.email } : {}),
+            ...(data.telepon ? { telepon: data.telepon } : {}),
+            ...(data.kotaDomisili ? { kota_domisili: data.kotaDomisili } : {}),
+            ...(data.kesanPesan ? { kesan_pesan: data.kesanPesan } : {}),
+            ...(data.bersediaMentoring !== undefined ? { bersedia_mentoring: data.bersediaMentoring } : {}),
+          }).catch((err) => console.warn("Failed to update alumni in backend:", err));
+        }
       },
       hapusAlumni: (id: string) => {
         setDaftarAlumni((prev) => prev.filter((a) => a.id !== id));
+        if (!id.startsWith("alm-")) {
+          api.deleteAlumni(id).catch((err) => console.warn("Failed to delete alumni in backend:", err));
+        }
       },
       daftarUjianCBT,
       tambahUjianCBT: (entry: Omit<UjianCBT, "id" | "tokenUjian">) => {

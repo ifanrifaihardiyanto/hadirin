@@ -555,5 +555,121 @@ export const api = {
       method: "PATCH",
     });
   },
+
+  // Ekstrakurikuler & Anggota (Fase 6)
+  async getEkskulList() {
+    return fetchApi("/ekskul");
+  },
+
+  async createEkskul(payload: any) {
+    return fetchApi("/ekskul", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateEkskul(id: string | number, payload: any) {
+    return fetchApi(`/ekskul/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteEkskul(id: string | number) {
+    return fetchApi(`/ekskul/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  async getAnggotaEkskulList(params?: { ekskul_id?: string | number }) {
+    const query = new URLSearchParams();
+    if (params?.ekskul_id) query.append("ekskul_id", String(params.ekskul_id));
+    const qs = query.toString();
+    return fetchApi(`/ekskul-anggota${qs ? `?${qs}` : ""}`);
+  },
+
+  async createAnggotaEkskul(payload: any) {
+    return fetchApi("/ekskul-anggota", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateNilaiAnggotaEkskul(id: string | number, payload: any) {
+    return fetchApi(`/ekskul-anggota/${id}/nilai`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteAnggotaEkskul(id: string | number) {
+    return fetchApi(`/ekskul-anggota/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Agenda Akademik (Fase 6)
+  async getAgendaAkademikList(params?: { kategori?: string; bulan?: number; tahun?: number }) {
+    const query = new URLSearchParams();
+    if (params?.kategori) query.append("kategori", params.kategori);
+    if (params?.bulan) query.append("bulan", String(params.bulan));
+    if (params?.tahun) query.append("tahun", String(params.tahun));
+    const qs = query.toString();
+    return fetchApi(`/agenda${qs ? `?${qs}` : ""}`);
+  },
+
+  async createAgendaAkademik(payload: any) {
+    return fetchApi("/agenda", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateAgendaAkademik(id: string | number, payload: any) {
+    return fetchApi(`/agenda/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteAgendaAkademik(id: string | number) {
+    return fetchApi(`/agenda/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Alumni & Tracer Study (Fase 6)
+  async getAlumniList(params?: { tahun_lulus?: number; status_tracer?: string; search?: string }) {
+    const query = new URLSearchParams();
+    if (params?.tahun_lulus) query.append("tahun_lulus", String(params.tahun_lulus));
+    if (params?.status_tracer) query.append("status_tracer", params.status_tracer);
+    if (params?.search) query.append("search", params.search);
+    const qs = query.toString();
+    return fetchApi(`/alumni${qs ? `?${qs}` : ""}`);
+  },
+
+  async getAlumniStats() {
+    return fetchApi("/alumni/stats");
+  },
+
+  async createAlumni(payload: any) {
+    return fetchApi("/alumni", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateAlumni(id: string | number, payload: any) {
+    return fetchApi(`/alumni/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteAlumni(id: string | number) {
+    return fetchApi(`/alumni/${id}`, {
+      method: "DELETE",
+    });
+  },
 };
 
