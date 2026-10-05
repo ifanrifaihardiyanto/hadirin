@@ -1505,6 +1505,195 @@ export const daftarAlumniAwal: AlumniRecord[] = [
   },
 ];
 
+export interface UjianCBT {
+  id: string;
+  kodeUjian: string;
+  judul: string;
+  mapel: string;
+  tingkatKelas: string;
+  jenisUjian: "PTS" | "PAS" | "HARIAN" | "SIMULASI_ANBK" | "TRYOUT";
+  tanggalUjian: string;
+  jamMulai: string;
+  jamSelesai: string;
+  durasiMenit: number;
+  tokenUjian: string;
+  status: "DRAFT" | "AKTIF" | "SELESAI";
+  jumlahSoal: number;
+  kkm: number;
+  acakSoal: boolean;
+  acakOpsi: boolean;
+}
+
+export interface HasilSiswaCBT {
+  id: string;
+  ujianId: string;
+  siswaId: string;
+  namaSiswa: string;
+  nisn: string;
+  kelas: string;
+  nilai: number;
+  statusKelulusan: "LULUS" | "REMEDIAL";
+  waktuMulai: string;
+  waktuSelesai: string;
+  statusPengerjaan: "SELESAI" | "SEDANG_MENGERJAKAN";
+  jawabanBenar: number;
+  jawabanSalah: number;
+}
+
+export const daftarUjianCBTAwal: UjianCBT[] = [
+  {
+    id: "cbt-1",
+    kodeUjian: "CBT-PTS-MAT-01",
+    judul: "Penilaian Tengah Semester (PTS) Matematika Wajib",
+    mapel: "Matematika Wajib",
+    tingkatKelas: "Kelas X",
+    jenisUjian: "PTS",
+    tanggalUjian: "2024-09-16",
+    jamMulai: "07:30",
+    jamSelesai: "09:00",
+    durasiMenit: 90,
+    tokenUjian: "MAT24X",
+    status: "AKTIF",
+    jumlahSoal: 25,
+    kkm: 75,
+    acakSoal: true,
+    acakOpsi: true,
+  },
+  {
+    id: "cbt-2",
+    kodeUjian: "CBT-ANBK-SIM-02",
+    judul: "Simulasi Mandiri CBT Literasi & Numerasi ANBK",
+    mapel: "Informatika & Koding",
+    tingkatKelas: "Kelas XI",
+    jenisUjian: "SIMULASI_ANBK",
+    tanggalUjian: "2024-10-14",
+    jamMulai: "08:00",
+    jamSelesai: "10:00",
+    durasiMenit: 120,
+    tokenUjian: "ANBK24",
+    status: "AKTIF",
+    jumlahSoal: 36,
+    kkm: 70,
+    acakSoal: true,
+    acakOpsi: false,
+  },
+  {
+    id: "cbt-3",
+    kodeUjian: "CBT-PH-FIS-03",
+    judul: "Penilaian Harian Formatif Vektor & Kinematika",
+    mapel: "Fisika Peminatan",
+    tingkatKelas: "Kelas X",
+    jenisUjian: "HARIAN",
+    tanggalUjian: "2024-08-28",
+    jamMulai: "09:30",
+    jamSelesai: "10:30",
+    durasiMenit: 60,
+    tokenUjian: "FISIK9",
+    status: "SELESAI",
+    jumlahSoal: 20,
+    kkm: 75,
+    acakSoal: false,
+    acakOpsi: true,
+  },
+  {
+    id: "cbt-4",
+    kodeUjian: "CBT-PAS-BIO-04",
+    judul: "Asesmen Sumatif Akhir Semester (SAS) Biologi Sel",
+    mapel: "Biologi Peminatan",
+    tingkatKelas: "Kelas X",
+    jenisUjian: "PAS",
+    tanggalUjian: "2024-12-05",
+    jamMulai: "07:30",
+    jamSelesai: "09:30",
+    durasiMenit: 120,
+    tokenUjian: "BIOSUM",
+    status: "DRAFT",
+    jumlahSoal: 40,
+    kkm: 78,
+    acakSoal: true,
+    acakOpsi: true,
+  },
+];
+
+export const daftarHasilCBTAwal: HasilSiswaCBT[] = [
+  {
+    id: "hcbt-1",
+    ujianId: "cbt-1",
+    siswaId: "s-1",
+    namaSiswa: "Ahmad Fadillah",
+    nisn: "0067891234",
+    kelas: "X IPA 1",
+    nilai: 88,
+    statusKelulusan: "LULUS",
+    waktuMulai: "07:31",
+    waktuSelesai: "08:45",
+    statusPengerjaan: "SELESAI",
+    jawabanBenar: 22,
+    jawabanSalah: 3,
+  },
+  {
+    id: "hcbt-2",
+    ujianId: "cbt-1",
+    siswaId: "s-2",
+    namaSiswa: "Bunga Citra",
+    nisn: "0067891235",
+    kelas: "X IPA 1",
+    nilai: 92,
+    statusKelulusan: "LULUS",
+    waktuMulai: "07:30",
+    waktuSelesai: "08:38",
+    statusPengerjaan: "SELESAI",
+    jawabanBenar: 23,
+    jawabanSalah: 2,
+  },
+  {
+    id: "hcbt-3",
+    ujianId: "cbt-1",
+    siswaId: "s-3",
+    namaSiswa: "Dedi Kurniawan",
+    nisn: "0067891236",
+    kelas: "X IPA 1",
+    nilai: 68,
+    statusKelulusan: "REMEDIAL",
+    waktuMulai: "07:35",
+    waktuSelesai: "08:58",
+    statusPengerjaan: "SELESAI",
+    jawabanBenar: 17,
+    jawabanSalah: 8,
+  },
+  {
+    id: "hcbt-4",
+    ujianId: "cbt-1",
+    siswaId: "s-4",
+    namaSiswa: "Eka Putri",
+    nisn: "0067891237",
+    kelas: "X IPA 2",
+    nilai: 84,
+    statusKelulusan: "LULUS",
+    waktuMulai: "07:32",
+    waktuSelesai: "08:49",
+    statusPengerjaan: "SELESAI",
+    jawabanBenar: 21,
+    jawabanSalah: 4,
+  },
+  {
+    id: "hcbt-5",
+    ujianId: "cbt-1",
+    siswaId: "s-5",
+    namaSiswa: "Farhan Maulana",
+    nisn: "0067891238",
+    kelas: "X IPA 2",
+    nilai: 72,
+    statusKelulusan: "REMEDIAL",
+    waktuMulai: "07:34",
+    waktuSelesai: "-",
+    statusPengerjaan: "SEDANG_MENGERJAKAN",
+    jawabanBenar: 18,
+    jawabanSalah: 7,
+  },
+];
+
+
 
 
 
@@ -1934,6 +2123,13 @@ interface StoreValue {
   tambahAlumni: (alumni: Omit<AlumniRecord, "id">) => void;
   updateAlumni: (id: string, data: Partial<AlumniRecord>) => void;
   hapusAlumni: (id: string) => void;
+  daftarUjianCBT: UjianCBT[];
+  tambahUjianCBT: (ujian: Omit<UjianCBT, "id" | "tokenUjian">) => string;
+  updateUjianCBT: (id: string, data: Partial<UjianCBT>) => void;
+  hapusUjianCBT: (id: string) => void;
+  regenerateTokenCBT: (id: string) => string;
+  daftarHasilCBT: HasilSiswaCBT[];
+  resetSesiCBT: (hasilId: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -1971,6 +2167,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarEkskul, setDaftarEkskul] = useState<Ekstrakurikuler[]>(daftarEkskulAwal);
   const [daftarAnggotaEkskul, setDaftarAnggotaEkskul] = useState<AnggotaEkskul[]>(daftarAnggotaEkskulAwal);
   const [daftarAlumni, setDaftarAlumni] = useState<AlumniRecord[]>(daftarAlumniAwal);
+  const [daftarUjianCBT, setDaftarUjianCBT] = useState<UjianCBT[]>(daftarUjianCBTAwal);
+  const [daftarHasilCBT, setDaftarHasilCBT] = useState<HasilSiswaCBT[]>(daftarHasilCBTAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -2437,6 +2635,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       hapusAlumni: (id: string) => {
         setDaftarAlumni((prev) => prev.filter((a) => a.id !== id));
       },
+      daftarUjianCBT,
+      tambahUjianCBT: (entry: Omit<UjianCBT, "id" | "tokenUjian">) => {
+        const tokenBaru = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const baru: UjianCBT = {
+          ...entry,
+          id: "cbt-" + Date.now(),
+          tokenUjian: tokenBaru,
+        };
+        setDaftarUjianCBT((prev) => [baru, ...prev]);
+        return baru.id;
+      },
+      updateUjianCBT: (id: string, data: Partial<UjianCBT>) => {
+        setDaftarUjianCBT((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)));
+      },
+      hapusUjianCBT: (id: string) => {
+        setDaftarUjianCBT((prev) => prev.filter((u) => u.id !== id));
+        setDaftarHasilCBT((prev) => prev.filter((h) => h.ujianId !== id));
+      },
+      regenerateTokenCBT: (id: string) => {
+        const tokenBaru = Math.random().toString(36).substring(2, 8).toUpperCase();
+        setDaftarUjianCBT((prev) =>
+          prev.map((u) => (u.id === id ? { ...u, tokenUjian: tokenBaru } : u))
+        );
+        return tokenBaru;
+      },
+      daftarHasilCBT,
+      resetSesiCBT: (hasilId: string) => {
+        setDaftarHasilCBT((prev) =>
+          prev.map((h) =>
+            h.id === hasilId
+              ? { ...h, statusPengerjaan: "SEDANG_MENGERJAKAN", waktuSelesai: "-" }
+              : h
+          )
+        );
+      },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
         switch (role) {
@@ -2505,6 +2738,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       daftarEkskul,
       daftarAnggotaEkskul,
       daftarAlumni,
+      daftarUjianCBT,
+      daftarHasilCBT,
       isMobileMenuOpen,
     ]
   );

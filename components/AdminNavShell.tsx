@@ -34,6 +34,7 @@ import {
   Library,
   Trophy,
   Briefcase,
+  Laptop,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore, type UserRole } from "@/lib/store";
@@ -114,6 +115,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/presensi-guru", label: "Presensi Guru & PTK", icon: UserCheck },
           { href: "/admin/izin", label: "Verifikasi Izin Siswa", icon: FileCheck },
           { href: "/admin/rapor", label: "Arsip E-Rapor", icon: Award },
+          { href: "/admin/cbt", label: "CBT & Ujian Online", icon: Laptop },
         ],
       },
     ];
@@ -217,6 +219,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
     {
       title: "Penilaian & Siswa",
       items: [
+        { href: "/admin/cbt", label: "CBT & Ujian Online", icon: Laptop },
         { href: "/admin/nilai", label: "Buku Nilai Siswa", icon: Award },
         { href: "/admin/rapor", label: "E-Rapor Siswa", icon: GraduationCap },
         { href: "/admin/bk", label: "Layanan BK & Kasus", icon: HeartHandshake },
