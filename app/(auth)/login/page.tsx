@@ -30,8 +30,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore, type UserRole } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api-client";
-
 
 // Demo accounts for fast 1-click testing
 const akunDemoList = [
@@ -142,7 +140,7 @@ export default function LoginPage() {
     setError(null);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -153,29 +151,12 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    try {
-      // Call Laravel backend API
-      const res = await api.login(identifier, password);
-      const user = res.data?.user;
-      const role = (user?.role as UserRole) || detectRoleAndPath(identifier).role;
-      const { path } = detectRoleAndPath(identifier);
-
+    setTimeout(() => {
+      setLoading(false);
+      const { role, path } = detectRoleAndPath(identifier);
       loginAs(role, identifier);
       router.push(path);
-    } catch (err: any) {
-      // If error from backend, display error message
-      const msg = err?.message || "Gagal masuk ke sistem. Periksa kembali email dan kata sandi Anda.";
-      // Allow fallback if offline or mock account not yet in backend
-      if (identifier.includes("ahmad.fadillah") || identifier.includes("ortu") || identifier.includes("owner")) {
-        const { role, path } = detectRoleAndPath(identifier);
-        loginAs(role, identifier);
-        router.push(path);
-      } else {
-        setError(msg);
-      }
-    } finally {
-      setLoading(false);
-    }
+    }, 450);
   }
 
   return (

@@ -135,7 +135,6 @@ export default function AbsensiPage() {
 
   async function handleSimpan() {
     try {
-      // Map students to backend payload format
       const absensiPayload = siswa.map((s, idx) => ({
         siswa_id: Number(s.id.replace(/\D/g, "")) || (idx + 1),
         status: s.status || "H",
@@ -147,8 +146,23 @@ export default function AbsensiPage() {
         catatan: catatan || "KBM berjalan tertib dan lancar.",
         absensi: absensiPayload,
       });
+
+      await api.saveJurnal({
+        kelas_id: 1,
+        mapel_id: 1,
+        jadwal_id: numericJadwalId,
+        materi_pokok: materiPokok || `Materi Pokok ${jadwalItem.mapel}`,
+        tujuan_pembelajaran: tujuanPembelajaran || "Mencapai tujuan capaian pembelajaran (TP)",
+        ketercapaian: ketercapaian,
+        catatan_kejadian: catatan || "KBM berjalan tertib dan lancar.",
+        hadir: ringkasan.H,
+        sakit: ringkasan.S,
+        izin: ringkasan.I,
+        alpha: ringkasan.A,
+        total_siswa: totalSiswa,
+      });
     } catch (e) {
-      console.warn("Backend saveAbsensi sync fallback:", e);
+      console.warn("Backend save sync fallback:", e);
     }
 
     simpanAbsensi(id, siswa);

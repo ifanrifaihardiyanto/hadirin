@@ -200,4 +200,99 @@ export const api = {
     const qs = query.toString();
     return fetchApi(`/izin${qs ? `?${qs}` : ""}`);
   },
+
+  // Jurnal Mengajar (Fase 3)
+  async getJurnalList(params?: { guru_id?: string | number; kelas_id?: string | number }) {
+    const query = new URLSearchParams();
+    if (params?.guru_id) query.append("guru_id", String(params.guru_id));
+    if (params?.kelas_id) query.append("kelas_id", String(params.kelas_id));
+    const qs = query.toString();
+    return fetchApi(`/jurnal${qs ? `?${qs}` : ""}`);
+  },
+
+  async saveJurnal(payload: any) {
+    return fetchApi("/jurnal", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Materi Ajar (Fase 3)
+  async getMateriList(params?: { mapel_id?: string | number; kelas_id?: string | number }) {
+    const query = new URLSearchParams();
+    if (params?.mapel_id) query.append("mapel_id", String(params.mapel_id));
+    if (params?.kelas_id) query.append("kelas_id", String(params.kelas_id));
+    const qs = query.toString();
+    return fetchApi(`/materi${qs ? `?${qs}` : ""}`);
+  },
+
+  async uploadMateri(payload: any) {
+    return fetchApi("/materi", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Tugas (Fase 3)
+  async getTugasList(params?: { kelas_id?: string | number; mapel_id?: string | number }) {
+    const query = new URLSearchParams();
+    if (params?.kelas_id) query.append("kelas_id", String(params.kelas_id));
+    if (params?.mapel_id) query.append("mapel_id", String(params.mapel_id));
+    const qs = query.toString();
+    return fetchApi(`/tugas${qs ? `?${qs}` : ""}`);
+  },
+
+  async createTugas(payload: any) {
+    return fetchApi("/tugas", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async submitTugas(tugasId: string | number, payload: { file_url?: string; catatan_siswa?: string; siswa_id?: number }) {
+    return fetchApi(`/tugas/${tugasId}/submit`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async nilaiTugas(tugasId: string | number, siswaId: string | number, payload: { nilai: number; catatan_guru?: string }) {
+    return fetchApi(`/tugas/${tugasId}/nilai/${siswaId}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Nilai Siswa (Fase 3)
+  async getNilaiList(params?: { kelas_id?: string | number; mapel_id?: string | number }) {
+    const query = new URLSearchParams();
+    if (params?.kelas_id) query.append("kelas_id", String(params.kelas_id));
+    if (params?.mapel_id) query.append("mapel_id", String(params.mapel_id));
+    const qs = query.toString();
+    return fetchApi(`/nilai${qs ? `?${qs}` : ""}`);
+  },
+
+  async saveNilai(payload: any) {
+    return fetchApi("/nilai", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Bimbingan Konseling / BK (Fase 3)
+  async getKasusBKList(params?: { status?: string; kategori?: string }) {
+    const query = new URLSearchParams();
+    if (params?.status) query.append("status", params.status);
+    if (params?.kategori) query.append("kategori", params.kategori);
+    const qs = query.toString();
+    return fetchApi(`/bk${qs ? `?${qs}` : ""}`);
+  },
+
+  async createKasusBK(payload: any) {
+    return fetchApi("/bk", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
 };
+
