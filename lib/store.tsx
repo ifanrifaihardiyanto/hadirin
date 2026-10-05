@@ -1389,6 +1389,123 @@ export const daftarAnggotaEkskulAwal: AnggotaEkskul[] = [
   },
 ];
 
+export interface AlumniRecord {
+  id: string;
+  nisn: string;
+  nama: string;
+  gender: "L" | "P";
+  tahunLulus: number;
+  jurusan: "MIPA" | "IPS" | "BAHASA";
+  statusTracer: "KULIAH_PTN" | "KULIAH_PTS" | "BEKERJA" | "WIRAUSAHA" | "STUDI_LUAR_NEGERI" | "MENCARI_KERJA";
+  instansiAtauKampus: string;
+  posisiAtauJurusan: string;
+  email: string;
+  telepon: string;
+  kotaDomisili: string;
+  kesanPesan?: string;
+  bersediaMentoring: boolean;
+}
+
+export const daftarAlumniAwal: AlumniRecord[] = [
+  {
+    id: "alm-1",
+    nisn: "0031245678",
+    nama: "Muhammad Rayhan Pratama",
+    gender: "L",
+    tahunLulus: 2021,
+    jurusan: "MIPA",
+    statusTracer: "KULIAH_PTN",
+    instansiAtauKampus: "Institut Teknologi Bandung (ITB)",
+    posisiAtauJurusan: "Teknik Informatika (S1)",
+    email: "rayhan.pratama@alumni.itb.ac.id",
+    telepon: "0812-9988-7766",
+    kotaDomisili: "Bandung",
+    kesanPesan: "Fasilitas lab komputer dan bimbingan guru olimpiade sangat membantu adaptasi di ITB.",
+    bersediaMentoring: true,
+  },
+  {
+    id: "alm-2",
+    nisn: "0031245679",
+    nama: "Nabila Aurelia Putri",
+    gender: "P",
+    tahunLulus: 2022,
+    jurusan: "MIPA",
+    statusTracer: "KULIAH_PTN",
+    instansiAtauKampus: "Universitas Indonesia (UI)",
+    posisiAtauJurusan: "Pendidikan Dokter / Kedokteran (S1)",
+    email: "nabila.aurelia@ui.ac.id",
+    telepon: "0813-1122-4455",
+    kotaDomisili: "Depok / Jakarta",
+    kesanPesan: "Pendidikan karakter dan kepemimpinan di SMA memberi modal ketahanan mental saat preklinik.",
+    bersediaMentoring: true,
+  },
+  {
+    id: "alm-3",
+    nisn: "0021245680",
+    nama: "Dimas Bagus Wicaksono",
+    gender: "L",
+    tahunLulus: 2021,
+    jurusan: "IPS",
+    statusTracer: "BEKERJA",
+    instansiAtauKampus: "PT Telkom Indonesia (Persero) Tbk",
+    posisiAtauJurusan: "Associate Product Specialist",
+    email: "dimas.wicaksono@telkom.co.id",
+    telepon: "0815-5566-8899",
+    kotaDomisili: "Jakarta Selatan",
+    kesanPesan: "Kultur aktif organisasi OSIS dan ekskul KIR sangat melatih problem solving di industri.",
+    bersediaMentoring: false,
+  },
+  {
+    id: "alm-4",
+    nisn: "0031245681",
+    nama: "Siti Rahmadani",
+    gender: "P",
+    tahunLulus: 2023,
+    jurusan: "IPS",
+    statusTracer: "WIRAUSAHA",
+    instansiAtauKampus: "Karsa Kreasi Nusantara (Studio Branding & Agensi)",
+    posisiAtauJurusan: "Founder & Creative Director",
+    email: "siti.rahmadhani@karsakreasi.com",
+    telepon: "0818-7788-9900",
+    kotaDomisili: "Bogor",
+    kesanPesan: "Bazar kewirausahaan sekolah dulu membuka minat saya membangun agensi kreatif sendiri.",
+    bersediaMentoring: true,
+  },
+  {
+    id: "alm-5",
+    nisn: "0041245682",
+    nama: "Kevin Jonathan Chandra",
+    gender: "L",
+    tahunLulus: 2023,
+    jurusan: "MIPA",
+    statusTracer: "STUDI_LUAR_NEGERI",
+    instansiAtauKampus: "Nanyang Technological University (NTU)",
+    posisiAtauJurusan: "Electrical & Electronic Engineering (B.Eng)",
+    email: "kevin.jonathan@e.ntu.edu.sg",
+    telepon: "+65 8123 4567",
+    kotaDomisili: "Singapore",
+    kesanPesan: "Bimbingan beasiswa Indonesia Maju dan pembekalan bahasa Inggris sekolah sangat berharga.",
+    bersediaMentoring: true,
+  },
+  {
+    id: "alm-6",
+    nisn: "0041245683",
+    nama: "Adinda Putri Maharani",
+    gender: "P",
+    tahunLulus: 2024,
+    jurusan: "MIPA",
+    statusTracer: "KULIAH_PTS",
+    instansiAtauKampus: "Universitas Bina Nusantara (BINUS University)",
+    posisiAtauJurusan: "Computer Science - Cyber Security",
+    email: "adinda.putri@binus.ac.id",
+    telepon: "0819-3344-7788",
+    kotaDomisili: "Tangerang",
+    kesanPesan: "Terima kasih kepada dewan guru atas bimbingan selama 3 tahun masa SMA yang menyenangkan.",
+    bersediaMentoring: false,
+  },
+];
+
+
 
 
 export const JAM_PER_SLOT = 1.5;
@@ -1813,6 +1930,10 @@ interface StoreValue {
   tambahAnggotaEkskul: (anggota: Omit<AnggotaEkskul, "id">) => void;
   hapusAnggotaEkskul: (id: string) => void;
   updateNilaiEkskul: (id: string, predikatNilai: AnggotaEkskul["predikatNilai"], kehadiranPersen: number, catatanPembina?: string) => void;
+  daftarAlumni: AlumniRecord[];
+  tambahAlumni: (alumni: Omit<AlumniRecord, "id">) => void;
+  updateAlumni: (id: string, data: Partial<AlumniRecord>) => void;
+  hapusAlumni: (id: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -1849,6 +1970,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarPeminjamanBuku, setDaftarPeminjamanBuku] = useState<PeminjamanBuku[]>(daftarPeminjamanBukuAwal);
   const [daftarEkskul, setDaftarEkskul] = useState<Ekstrakurikuler[]>(daftarEkskulAwal);
   const [daftarAnggotaEkskul, setDaftarAnggotaEkskul] = useState<AnggotaEkskul[]>(daftarAnggotaEkskulAwal);
+  const [daftarAlumni, setDaftarAlumni] = useState<AlumniRecord[]>(daftarAlumniAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -2304,6 +2426,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           )
         );
       },
+      daftarAlumni,
+      tambahAlumni: (entry: Omit<AlumniRecord, "id">) => {
+        const baru: AlumniRecord = { ...entry, id: "alm-" + Date.now() };
+        setDaftarAlumni((prev) => [baru, ...prev]);
+      },
+      updateAlumni: (id: string, data: Partial<AlumniRecord>) => {
+        setDaftarAlumni((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+      },
+      hapusAlumni: (id: string) => {
+        setDaftarAlumni((prev) => prev.filter((a) => a.id !== id));
+      },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
         switch (role) {
@@ -2371,6 +2504,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       daftarPeminjamanBuku,
       daftarEkskul,
       daftarAnggotaEkskul,
+      daftarAlumni,
       isMobileMenuOpen,
     ]
   );

@@ -33,6 +33,7 @@ import {
   Package,
   Library,
   Trophy,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore, type UserRole } from "@/lib/store";
@@ -101,6 +102,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/sarpras", label: "Sarana & Inventaris", icon: Package },
           { href: "/admin/perpus", label: "Perpustakaan & Buku", icon: Library },
           { href: "/admin/ekskul", label: "Ekstrakurikuler", icon: Trophy },
+          { href: "/admin/alumni", label: "Alumni & Tracer Study", icon: Briefcase },
           { href: "/admin/guru", label: "Data Guru & Pegawai", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Pelajaran", icon: CalendarClock },
@@ -137,6 +139,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/sarpras", label: "Sarana & Inventaris", icon: Package },
           { href: "/admin/perpus", label: "Perpustakaan & Buku", icon: Library },
           { href: "/admin/ekskul", label: "Ekstrakurikuler", icon: Trophy },
+          { href: "/admin/alumni", label: "Alumni & Tracer Study", icon: Briefcase },
           { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
@@ -196,6 +199,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
         { href: "/admin/sarpras", label: "Sarana & Inventaris", icon: Package },
           { href: "/admin/perpus", label: "Perpustakaan & Buku", icon: Library },
           { href: "/admin/ekskul", label: "Ekstrakurikuler", icon: Trophy },
+          { href: "/admin/alumni", label: "Alumni & Tracer Study", icon: Briefcase },
         { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
         { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
         { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
