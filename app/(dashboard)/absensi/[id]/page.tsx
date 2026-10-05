@@ -18,9 +18,7 @@ import {
 } from "lucide-react";
 import { useStore, type Ketercapaian } from "@/lib/store";
 import { type StatusKey, type Siswa } from "@/lib/mock-data";
-import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -133,38 +131,7 @@ export default function AbsensiPage() {
     setQuery("");
   }
 
-  async function handleSimpan() {
-    try {
-      const absensiPayload = siswa.map((s, idx) => ({
-        siswa_id: Number(s.id.replace(/\D/g, "")) || (idx + 1),
-        status: s.status || "H",
-        catatan: undefined,
-      }));
-
-      const numericJadwalId = Number(String(id).replace(/\D/g, "")) || 1;
-      await api.saveAbsensi(numericJadwalId, {
-        catatan: catatan || "KBM berjalan tertib dan lancar.",
-        absensi: absensiPayload,
-      });
-
-      await api.saveJurnal({
-        kelas_id: 1,
-        mapel_id: 1,
-        jadwal_id: numericJadwalId,
-        materi_pokok: materiPokok || `Materi Pokok ${jadwalItem.mapel}`,
-        tujuan_pembelajaran: tujuanPembelajaran || "Mencapai tujuan capaian pembelajaran (TP)",
-        ketercapaian: ketercapaian,
-        catatan_kejadian: catatan || "KBM berjalan tertib dan lancar.",
-        hadir: ringkasan.H,
-        sakit: ringkasan.S,
-        izin: ringkasan.I,
-        alpha: ringkasan.A,
-        total_siswa: totalSiswa,
-      });
-    } catch (e) {
-      console.warn("Backend save sync fallback:", e);
-    }
-
+  function handleSimpan() {
     simpanAbsensi(id, siswa);
 
     const guru = daftarGuru.find((g) => g.id === (jadwalItem.guruId || currentUser?.id));

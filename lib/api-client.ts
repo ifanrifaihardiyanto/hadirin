@@ -294,5 +294,147 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
+
+  // Keuangan & SPP (Fase 4)
+  async getSPPList(params?: { siswa_id?: string | number; status?: string; bulan?: string }) {
+    const query = new URLSearchParams();
+    if (params?.siswa_id) query.append("siswa_id", String(params.siswa_id));
+    if (params?.status) query.append("status", params.status);
+    if (params?.bulan) query.append("bulan", params.bulan);
+    const qs = query.toString();
+    return fetchApi(`/spp${qs ? `?${qs}` : ""}`);
+  },
+
+  async createSPPTagihan(payload: any) {
+    return fetchApi("/spp", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async bayarSPP(id: string | number, payload?: { metode_bayar?: string; catatan?: string }) {
+    return fetchApi(`/spp/${id}/bayar`, {
+      method: "PATCH",
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
+  // Sarana & Prasarana / Sarpras (Fase 4)
+  async getSarprasAsetList(params?: { kategori?: string; kondisi?: string }) {
+    const query = new URLSearchParams();
+    if (params?.kategori) query.append("kategori", params.kategori);
+    if (params?.kondisi) query.append("kondisi", params.kondisi);
+    const qs = query.toString();
+    return fetchApi(`/sarpras/aset${qs ? `?${qs}` : ""}`);
+  },
+
+  async createSarprasAset(payload: any) {
+    return fetchApi("/sarpras/aset", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getSarprasPeminjamanList(params?: { status?: string }) {
+    const query = new URLSearchParams();
+    if (params?.status) query.append("status", params.status);
+    const qs = query.toString();
+    return fetchApi(`/sarpras/pinjam${qs ? `?${qs}` : ""}`);
+  },
+
+  async pinjamSarpras(payload: any) {
+    return fetchApi("/sarpras/pinjam", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Perpustakaan (Fase 4)
+  async getPerpusBukuList(params?: { kategori?: string; search?: string }) {
+    const query = new URLSearchParams();
+    if (params?.kategori) query.append("kategori", params.kategori);
+    if (params?.search) query.append("search", params.search);
+    const qs = query.toString();
+    return fetchApi(`/perpus/buku${qs ? `?${qs}` : ""}`);
+  },
+
+  async createPerpusBuku(payload: any) {
+    return fetchApi("/perpus/buku", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getPerpusPeminjamanList(params?: { status?: string }) {
+    const query = new URLSearchParams();
+    if (params?.status) query.append("status", params.status);
+    const qs = query.toString();
+    return fetchApi(`/perpus/pinjam${qs ? `?${qs}` : ""}`);
+  },
+
+  async pinjamPerpusBuku(payload: any) {
+    return fetchApi("/perpus/pinjam", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // UKS (Fase 4)
+  async getUKSList(params?: { tanggal?: string; kategori?: string }) {
+    const query = new URLSearchParams();
+    if (params?.tanggal) query.append("tanggal", params.tanggal);
+    if (params?.kategori) query.append("kategori", params.kategori);
+    const qs = query.toString();
+    return fetchApi(`/uks${qs ? `?${qs}` : ""}`);
+  },
+
+  async recordKunjunganUKS(payload: any) {
+    return fetchApi("/uks", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // PPDB (Fase 4)
+  async daftarPPDBPublic(payload: any) {
+    return fetchApi("/ppdb/daftar", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getPPDBList(params?: { status_verifikasi?: string; jalur?: string }) {
+    const query = new URLSearchParams();
+    if (params?.status_verifikasi) query.append("status_verifikasi", params.status_verifikasi);
+    if (params?.jalur) query.append("jalur", params.jalur);
+    const qs = query.toString();
+    return fetchApi(`/ppdb${qs ? `?${qs}` : ""}`);
+  },
+
+  async verifikasiPPDB(
+    id: string | number,
+    payload: { status_verifikasi: string; status_kelulusan?: string; catatan?: string }
+  ) {
+    return fetchApi(`/ppdb/${id}/verifikasi`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Pengumuman (Fase 4)
+  async getPengumumanList(params?: { kategori?: string; sasaran?: string }) {
+    const query = new URLSearchParams();
+    if (params?.kategori) query.append("kategori", params.kategori);
+    if (params?.sasaran) query.append("sasaran", params.sasaran);
+    const qs = query.toString();
+    return fetchApi(`/pengumuman${qs ? `?${qs}` : ""}`);
+  },
+
+  async createPengumuman(payload: any) {
+    return fetchApi("/pengumuman", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
 };
 
