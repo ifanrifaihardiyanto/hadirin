@@ -485,5 +485,75 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
+
+  // CBT / Ujian Komputer (Fase 5)
+  async getCBTUjianList(params?: { tingkat_kelas?: string; status?: string }) {
+    const query = new URLSearchParams();
+    if (params?.tingkat_kelas) query.append("tingkat_kelas", params.tingkat_kelas);
+    if (params?.status) query.append("status", params.status);
+    const qs = query.toString();
+    return fetchApi(`/cbt/ujian${qs ? `?${qs}` : ""}`);
+  },
+
+  async createCBTUjian(payload: any) {
+    return fetchApi("/cbt/ujian", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async regenerateCBTToken(id: string | number) {
+    return fetchApi<{ success: boolean; token: string }>(`/cbt/ujian/${id}/token`, {
+      method: "PATCH",
+    });
+  },
+
+  async getCBTHasilList(params?: { ujian_id?: string | number; siswa_id?: string | number }) {
+    const query = new URLSearchParams();
+    if (params?.ujian_id) query.append("ujian_id", String(params.ujian_id));
+    if (params?.siswa_id) query.append("siswa_id", String(params.siswa_id));
+    const qs = query.toString();
+    return fetchApi(`/cbt/hasil${qs ? `?${qs}` : ""}`);
+  },
+
+  async resetCBTSesi(id: string | number) {
+    return fetchApi(`/cbt/hasil/${id}/reset`, {
+      method: "PATCH",
+    });
+  },
+
+  async submitCBTHasil(payload: any) {
+    return fetchApi("/cbt/submit", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // E-Rapor Digital (Fase 5)
+  async getRaporList(params?: { kelas_id?: string | number; semester?: string; tahun_ajaran?: string }) {
+    const query = new URLSearchParams();
+    if (params?.kelas_id) query.append("kelas_id", String(params.kelas_id));
+    if (params?.semester) query.append("semester", params.semester);
+    if (params?.tahun_ajaran) query.append("tahun_ajaran", params.tahun_ajaran);
+    const qs = query.toString();
+    return fetchApi(`/rapor${qs ? `?${qs}` : ""}`);
+  },
+
+  async getRaporDetail(id: string | number) {
+    return fetchApi(`/rapor/${id}`);
+  },
+
+  async saveRapor(payload: any) {
+    return fetchApi("/rapor", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async terbitkanRapor(id: string | number) {
+    return fetchApi(`/rapor/${id}/terbitkan`, {
+      method: "PATCH",
+    });
+  },
 };
 

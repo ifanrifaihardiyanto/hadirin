@@ -2453,6 +2453,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ppdbRes,
           pengumumanRes,
           bkRes,
+          cbtUjianRes,
+          cbtHasilRes,
         ] = await Promise.allSettled([
           api.getGuruList(),
           api.getKelasList(),
@@ -2465,6 +2467,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           api.getPPDBList(),
           api.getPengumumanList(),
           api.getKasusBKList(),
+          api.getCBTUjianList(),
+          api.getCBTHasilList(),
         ]);
 
         if (gurusRes.status === "fulfilled" && gurusRes.value?.data) {
@@ -2652,6 +2656,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             waliKelas: k.siswa?.kelas?.wali_kelas?.nama || "-",
           }));
           if (mapped.length > 0) setKasusBKList(mapped);
+        }
+
+        if (cbtUjianRes.status === "fulfilled" && cbtUjianRes.value?.data) {
+          const mapped = cbtUjianRes.value.data.map((u: any) => ({
+            id: String(u.id),
+            kodeUjian: u.kode_ujian,
+            judul: u.judul,
+            mapel: u.mapel_nama || u.mapel?.nama || "Matematika Wajib",
+            tingkatKelas: u.tingkat_kelas,
+            jenisUjian: u.jenis_ujian,
+            tanggalUjian: u.tanggal_ujian,
+            jamMulai: u.jam_mulai ? u.jam_mulai.substring(0, 5) : "07:30",
+            jamSelesai: u.jam_selesai ? u.jam_selesai.substring(0, 5) : "09:00",
+            durasiMenit: Number(u.durasi_menit) || 90,
+            tokenUjian: u.token_ujian,
+            status: u.status,
+            jumlahSoal: Number(u.jumlah_soal) || 25,
+            kkm: Number(u.kkm) || 75,
+            acakSoal: Boolean(u.acak_soal),
+            acakOpsi: Boolean(u.acak_opsi),
+          }));
+          if (mapped.length > 0) setDaftarUjianCBT(mapped);
+        }
+
+        if (cbtHasilRes.status === "fulfilled" && cbtHasilRes.value?.data) {
+          const mapped = cbtHasilRes.value.data.map((h: any) => ({
+            id: String(h.id),
+            ujianId: String(h.ujian_id),
+            siswaId: String(h.siswa_id),
+            namaSiswa: h.siswa?.nama || "Siswa",
+            nisn: h.siswa?.nisn || "",
+            kelas: h.siswa?.kelas?.nama || "X IPA 1",
+            nilai: Number(h.nilai) || 0,
+            statusKelulusan: h.status_kelulusan,
+            waktuMulai: h.waktu_mulai || "07:30",
+            waktuSelesai: h.waktu_selesai || "-",
+            statusPengerjaan: h.status_pengerjaan,
+            jawabanBenar: Number(h.jawaban_benar) || 0,
+            jawabanSalah: Number(h.jawaban_salah) || 0,
+          }));
+          if (mapped.length > 0) setDaftarHasilCBT(mapped);
         }
       } catch (err) {
         console.warn("Could not sync store with backend API:", err);
@@ -3254,6 +3299,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           tokenUjian: tokenBaru,
         };
         setDaftarUjianCBT((prev) => [baru, ...prev]);
+        api.createCBTUjian({
+          judul: entry.judul,
+          mapel_nama: entry.mapel,
+          tingkat_kelas: entry.tingkatKelas,
+          jenis_ujian: entry.jenisUjian,
+          tanggal_ujian: entry.tanggalUjian,
+          jam_mulai: entry.jamMulai,
+          jam_selesai: entry.jamSelesai,
+          durasi_menit: entry.durasiMenit,
+          jumlah_soal: entry.jumlahSoal,
+          kkm: entry.kkm,
+          acak_soal: entry.acakSoal,
+          acak_opsi: entry.acakOpsi,
+          status: entry.status,
+        }).catch((e) => console.warn("API createCBTUjian failed:", e));
         return baru.id;
       },
       updateUjianCBT: (id: string, data: Partial<UjianCBT>) => {
@@ -3268,6 +3328,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setDaftarUjianCBT((prev) =>
           prev.map((u) => (u.id === id ? { ...u, tokenUjian: tokenBaru } : u))
         );
+        api.regenerateCBTToken(id).catch((e) => console.warn("API regenerateCBTToken failed:", e));
         return tokenBaru;
       },
       daftarHasilCBT,
@@ -3279,6 +3340,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : h
           )
         );
+        api.resetCBTSesi(hasilId).catch((e) => console.warn("API resetCBTSesi failed:", e));
       },
       daftarKunjunganUKS,
       tambahKunjunganUKS: (k: Omit<KunjunganUKS, "id">) => {
@@ -3321,6 +3383,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           id: `res-${Date.now()}`,
         };
         setDaftarHasilCBT((prev) => [newHasil, ...prev]);
+        api.submitCBTHasil({
+          ujian_id: hasil.ujianId,
+          siswa_id: hasil.siswaId,
+          jawaban_benar: hasil.jawabanBenar,
+          jawaban_salah: hasil.jawabanSalah,
+        }).catch((e) => console.warn("API submitCBTHasil failed:", e));
       },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
