@@ -671,5 +671,43 @@ export const api = {
       method: "DELETE",
     });
   },
+
+  // SaaS Multi-Tenancy Platform (Fase 7)
+  async getSaasTenants(params?: { search?: string; status?: string; paket?: string }) {
+    const query = new URLSearchParams();
+    if (params?.search) query.append("search", params.search);
+    if (params?.status) query.append("status", params.status);
+    if (params?.paket) query.append("paket", params.paket);
+    const qs = query.toString();
+    return fetchApi(`/saas/tenants${qs ? `?${qs}` : ""}`);
+  },
+
+  async getSaasStats() {
+    return fetchApi("/saas/stats");
+  },
+
+  async createSaasTenant(payload: any) {
+    return fetchApi("/saas/tenants", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getSaasTenantDetail(id: string | number) {
+    return fetchApi(`/saas/tenants/${id}`);
+  },
+
+  async updateSaasTenant(id: string | number, payload: any) {
+    return fetchApi(`/saas/tenants/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async toggleSaasTenantStatus(id: string | number) {
+    return fetchApi(`/saas/tenants/${id}/toggle-status`, {
+      method: "PATCH",
+    });
+  },
 };
 
