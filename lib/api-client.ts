@@ -84,8 +84,22 @@ export const api = {
     return fetchApi("/guru");
   },
 
+  async createGuru(payload: any) {
+    return fetchApi("/guru", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   async getKelasList() {
     return fetchApi("/kelas");
+  },
+
+  async createKelas(payload: any) {
+    return fetchApi("/kelas", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   async getSiswaList(params?: { kelas_id?: string | number; status?: string }) {
@@ -96,8 +110,22 @@ export const api = {
     return fetchApi(`/siswa${qs ? `?${qs}` : ""}`);
   },
 
+  async createSiswa(payload: any) {
+    return fetchApi("/siswa", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   async getMapelList() {
     return fetchApi("/mapel");
+  },
+
+  async createMapel(payload: any) {
+    return fetchApi("/mapel", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   // Jadwal & Absensi (Fase 2)
@@ -201,6 +229,20 @@ export const api = {
     return fetchApi(`/izin${qs ? `?${qs}` : ""}`);
   },
 
+  async createIzin(payload: any) {
+    return fetchApi("/izin", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateIzinStatus(id: string | number, status: string) {
+    return fetchApi(`/izin/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+
   // Jurnal Mengajar (Fase 3)
   async getJurnalList(params?: { guru_id?: string | number; kelas_id?: string | number }) {
     const query = new URLSearchParams();
@@ -291,6 +333,13 @@ export const api = {
   async createKasusBK(payload: any) {
     return fetchApi("/bk", {
       method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateKasusBKStatus(id: string | number, payload: { status: string; tindakan?: string }) {
+    return fetchApi(`/bk/${id}/status`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     });
   },

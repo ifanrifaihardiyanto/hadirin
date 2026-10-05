@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { buatSiswa, type Siswa } from "./mock-data";
+import { api, getToken } from "./api-client";
 
 export interface Guru {
   id: string;
@@ -2434,6 +2435,232 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  useEffect(() => {
+    async function loadDataFromBackend() {
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        const [
+          gurusRes,
+          kelasListRes,
+          siswaRes,
+          mapelRes,
+          sppRes,
+          sarprasRes,
+          perpusRes,
+          uksRes,
+          ppdbRes,
+          pengumumanRes,
+          bkRes,
+        ] = await Promise.allSettled([
+          api.getGuruList(),
+          api.getKelasList(),
+          api.getSiswaList(),
+          api.getMapelList(),
+          api.getSPPList(),
+          api.getSarprasAsetList(),
+          api.getPerpusBukuList(),
+          api.getUKSList(),
+          api.getPPDBList(),
+          api.getPengumumanList(),
+          api.getKasusBKList(),
+        ]);
+
+        if (gurusRes.status === "fulfilled" && gurusRes.value?.data) {
+          const mapped = gurusRes.value.data.map((g: any) => ({
+            id: String(g.id),
+            nama: g.nama,
+            email: g.email,
+            telepon: g.telepon || "0812-0000-0000",
+            mapel: g.jabatan ? [g.jabatan] : ["Guru Pengajar"],
+          }));
+          if (mapped.length > 0) setDaftarGuru(mapped);
+        }
+
+        if (kelasListRes.status === "fulfilled" && kelasListRes.value?.data) {
+          const mapped = kelasListRes.value.data.map((k: any) => ({
+            id: String(k.id),
+            nama: k.nama,
+            tingkat: (k.tingkat ? `Kelas ${k.tingkat}` : "Kelas X") as "Kelas X" | "Kelas XI" | "Kelas XII",
+            jurusan: (k.jurusan || "MIPA") as "MIPA" | "IPS" | "Umum / Fase E" | "Bahasa",
+            waliKelas: k.wali_kelas?.nama || "Belum Ditentukan",
+            tahunAjaran: k.tahun_ajaran || "2024/2025",
+            status: "AKTIF" as const,
+          }));
+          if (mapped.length > 0) setDaftarKelas(mapped);
+        }
+
+        if (siswaRes.status === "fulfilled" && siswaRes.value?.data) {
+          const mapped = siswaRes.value.data.map((s: any) => ({
+            id: String(s.id),
+            nisn: s.nisn || "",
+            nis: s.nis || "",
+            nama: s.nama,
+            gender: (s.gender === "P" ? "P" : "L") as "L" | "P",
+            kelas: s.kelas?.nama || "X IPA 1",
+            waliKelas: s.kelas?.wali_kelas?.nama || "-",
+            namaWali: s.nama_wali || "-",
+            teleponWali: s.telepon_wali || "-",
+            status: (s.status === "MUTASI" || s.status === "ALUMNI" ? s.status : "AKTIF") as "AKTIF" | "MUTASI" | "ALUMNI",
+          }));
+          if (mapped.length > 0) setDaftarSiswaInduk(mapped);
+        }
+
+        if (mapelRes.status === "fulfilled" && mapelRes.value?.data) {
+          const mapped = mapelRes.value.data.map((m: any) => ({
+            id: String(m.id),
+            kode: m.kode,
+            nama: m.nama,
+            kelompok: m.kelompok || "A (Wajib)",
+            tingkat: m.tingkat || "Semua Tingkat",
+            bebanJam: Number(m.beban_jam) || 3,
+            guruPengampu: m.guru?.nama || "Guru Pengampu",
+            status: (m.status === "NONAKTIF" ? "NONAKTIF" : "AKTIF") as "AKTIF" | "NONAKTIF",
+          }));
+          if (mapped.length > 0) setDaftarMapel(mapped);
+        }
+
+        if (sppRes.status === "fulfilled" && sppRes.value?.data) {
+          const mapped = sppRes.value.data.map((t: any) => ({
+            id: String(t.id),
+            noKwitansi: t.no_kwitansi || `KW-${t.id}`,
+            siswaId: String(t.siswa_id || t.siswa?.id || ""),
+            siswaNama: t.siswa?.nama || "Siswa",
+            nisn: t.siswa?.nisn || "",
+            kelas: t.siswa?.kelas?.nama || "X IPA 1",
+            bulan: t.bulan,
+            nominal: Number(t.nominal),
+            status: t.status,
+            tanggalBayar: t.tanggal_bayar,
+            metodeBayar: t.metode_bayar,
+            catatan: t.catatan,
+          }));
+          if (mapped.length > 0) setDaftarTagihanSPP(mapped);
+        }
+
+        if (sarprasRes.status === "fulfilled" && sarprasRes.value?.data) {
+          const mapped = sarprasRes.value.data.map((a: any) => ({
+            id: String(a.id),
+            kodeAset: a.kode_aset,
+            namaAset: a.nama_aset,
+            kategori: a.kategori,
+            merkModel: a.merk_model || "",
+            kondisi: a.kondisi,
+            lokasi: a.lokasi,
+            jumlahTotal: Number(a.jumlah_total),
+            jumlahTersedia: Number(a.jumlah_tersedia),
+            tahunPengadaan: Number(a.tahun_pengadaan) || 2024,
+            sumberDana: a.sumber_dana || "BOS_REGULER",
+            keterangan: a.keterangan,
+          }));
+          if (mapped.length > 0) setDaftarAsetSarpras(mapped);
+        }
+
+        if (perpusRes.status === "fulfilled" && perpusRes.value?.data) {
+          const mapped = perpusRes.value.data.map((b: any) => ({
+            id: String(b.id),
+            isbn: b.isbn || "",
+            kodeBuku: b.kode_buku,
+            judul: b.judul,
+            pengarang: b.pengarang,
+            penerbit: b.penerbit,
+            tahunTerbit: Number(b.tahun_terbit) || 2024,
+            kategori: b.kategori,
+            lokasiRak: b.lokasi_rak || "Rak A",
+            jumlahEksemplar: Number(b.jumlah_eksemplar),
+            eksemplarTersedia: Number(b.eksemplar_tersedia),
+            tipeFormat: b.tipe_format || "FISIK",
+            ebookUrl: b.ebook_url,
+            sinopsis: b.sinopsis,
+          }));
+          if (mapped.length > 0) setDaftarBuku(mapped);
+        }
+
+        if (uksRes.status === "fulfilled" && uksRes.value?.data) {
+          const mapped = uksRes.value.data.map((u: any) => ({
+            id: String(u.id),
+            tanggal: u.tanggal,
+            jam: u.jam ? u.jam.substring(0, 5) : "08:00",
+            siswaId: String(u.siswa_id || u.siswa?.id || ""),
+            namaSiswa: u.siswa?.nama || "Siswa",
+            kelas: u.siswa?.kelas?.nama || "X IPA 1",
+            keluhan: u.keluhan,
+            kategoriKeluhan: u.kategori_keluhan,
+            tindakan: u.tindakan,
+            obatDiberikan: u.obat_diberikan,
+            kondisiAkhir: u.kondisi_akhir,
+            petugasUKS: u.petugas_uks,
+            status: u.status,
+          }));
+          if (mapped.length > 0) setDaftarKunjunganUKS(mapped);
+        }
+
+        if (ppdbRes.status === "fulfilled" && ppdbRes.value?.data) {
+          const mapped = ppdbRes.value.data.map((p: any) => ({
+            id: String(p.id),
+            noPendaftaran: p.no_pendaftaran,
+            nama: p.nama,
+            nisn: p.nisn,
+            nik: p.nik || "",
+            asalSekolah: p.asal_sekolah,
+            jalur: p.jalur,
+            pilihanJurusan: p.pilihan_jurusan || "MIPA",
+            nilaiRataRapor: Number(p.nilai_rata_rapor) || 85,
+            namaWali: p.nama_wali,
+            teleponWali: p.telepon_wali,
+            statusVerifikasi: p.status_verifikasi,
+            statusKelulusan: p.status_kelulusan,
+            berkasKK: Boolean(p.berkas_kk),
+            berkasAkta: Boolean(p.berkas_akta),
+            berkasRapor: Boolean(p.berkas_rapor),
+            tanggalDaftar: p.tanggal_daftar,
+            catatanVerifikasi: p.catatan_verifikasi,
+          }));
+          if (mapped.length > 0) setDaftarPPDB(mapped);
+        }
+
+        if (pengumumanRes.status === "fulfilled" && pengumumanRes.value?.data) {
+          const mapped = pengumumanRes.value.data.map((pg: any) => ({
+            id: String(pg.id),
+            judul: pg.judul,
+            konten: pg.konten,
+            kategori: pg.kategori,
+            sasaran: pg.sasaran,
+            prioritas: pg.prioritas,
+            tanggal: pg.tanggal,
+            penulis: pg.penulis,
+            status: pg.status,
+            pin: Boolean(pg.pin),
+          }));
+          if (mapped.length > 0) setDaftarPengumuman(mapped);
+        }
+
+        if (bkRes.status === "fulfilled" && bkRes.value?.data) {
+          const mapped = bkRes.value.data.map((k: any) => ({
+            id: String(k.id),
+            nis: k.siswa?.nis || "",
+            namaSiswa: k.siswa?.nama || "Siswa",
+            kelas: k.siswa?.kelas?.nama || "X IPA 1",
+            kategori: k.kategori,
+            poin: Number(k.poin) || 0,
+            deskripsi: k.deskripsi,
+            tindakan: k.tindakan || "",
+            status: k.status,
+            tanggalKasus: k.tanggal_kasus,
+            guruBK: k.guru_bk?.nama || "Guru BK",
+            waliKelas: k.siswa?.kelas?.wali_kelas?.nama || "-",
+          }));
+          if (mapped.length > 0) setKasusBKList(mapped);
+        }
+      } catch (err) {
+        console.warn("Could not sync store with backend API:", err);
+      }
+    }
+
+    loadDataFromBackend();
+  }, [currentUser]);
+
   const value = useMemo<StoreValue>(
     () => ({
       daftarGuru,
@@ -2488,11 +2715,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       },
       currentUser,
-      tambahGuru: (guru) =>
+      tambahGuru: (guru) => {
         setDaftarGuru((prev) => [
           ...prev,
           { ...guru, id: `g-${Date.now()}` },
-        ]),
+        ]);
+        api.createGuru({
+          nama: guru.nama,
+          email: guru.email,
+          telepon: guru.telepon || "0812-0000-0000",
+          nip: String(Date.now()).substring(0, 18),
+          gender: "L",
+          jabatan: guru.mapel.join(", ") || "Guru Pengajar",
+        }).catch((e) => console.warn("API createGuru failed:", e));
+      },
       tambahJadwal: (entry) =>
         setJadwal((prev) => [...prev, { ...entry, id: `j-${Date.now()}` }]),
       hapusJadwal: (id) =>
@@ -2530,12 +2766,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
           ...prev,
         ]);
+        api.createIzin({
+          nis: izin.nis,
+          jenis: izin.jenis,
+          tanggal_mulai: izin.tanggalMulai,
+          tanggal_selesai: izin.tanggalSelesai,
+          alasan: izin.alasan,
+          status: "MENUNGGU",
+        }).catch((e) => console.warn("API createIzin failed:", e));
       },
       tambahKasusBK: (kasus: Omit<KasusBK, "id">) => {
         setKasusBKList((prev) => [
           { ...kasus, id: `bk-${Date.now()}` },
           ...prev,
         ]);
+        api.createKasusBK({
+          kategori: kasus.kategori,
+          poin: kasus.poin,
+          deskripsi: kasus.deskripsi,
+          tindakan: kasus.tindakan,
+          status: kasus.status,
+          tanggal_kasus: kasus.tanggalKasus || new Date().toISOString().split("T")[0],
+        }).catch((e) => console.warn("API createKasusBK failed:", e));
       },
       updateStatusKasusBK: (id: string, status: StatusKasusBK, tindakan?: string) => {
         setKasusBKList((prev) =>
@@ -2545,6 +2797,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : k
           )
         );
+        api.updateKasusBKStatus(id, { status, tindakan }).catch((e) => console.warn("API updateKasusBKStatus failed:", e));
       },
       updateStatusIzin: (id: string, status: StatusIzin, approverNama?: string) => {
         setDaftarIzin((prev) =>
@@ -2573,6 +2826,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahMapel: (entry: Omit<MataPelajaran, "id">) => {
         const baru: MataPelajaran = { ...entry, id: "mp-" + Date.now() };
         setDaftarMapel((prev) => [baru, ...prev]);
+        api.createMapel({
+          kode: entry.kode,
+          nama: entry.nama,
+          kelompok: entry.kelompok,
+          tingkat: entry.tingkat,
+          beban_jam: entry.bebanJam,
+          status: entry.status,
+        }).catch((e) => console.warn("API createMapel failed:", e));
       },
       hapusMapel: (id: string) => {
         setDaftarMapel((prev) => prev.filter((m) => m.id !== id));
@@ -2581,6 +2842,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahSiswaInduk: (entry: Omit<SiswaInduk, "id">) => {
         const baru: SiswaInduk = { ...entry, id: "s-" + Date.now() };
         setDaftarSiswaInduk((prev) => [baru, ...prev]);
+        api.createSiswa({
+          nama: entry.nama,
+          nisn: entry.nisn,
+          nis: entry.nis,
+          gender: entry.gender,
+          nama_wali: entry.namaWali,
+          telepon_wali: entry.teleponWali,
+          status: entry.status,
+        }).catch((e) => console.warn("API createSiswa failed:", e));
       },
       hapusSiswaInduk: (id: string) => {
         setDaftarSiswaInduk((prev) => prev.filter((s) => s.id !== id));
@@ -2600,16 +2870,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : t
           )
         );
+        api.bayarSPP(id, { metode_bayar: metode, catatan }).catch((e) => console.warn("API bayarSPP failed:", e));
       },
       tambahTagihanSPP: (entry: Omit<TagihanSPP, "id" | "noKwitansi">) => {
         const id = "spp-" + Date.now();
         const noKwitansi = "KW-" + new Date().getFullYear() + String(new Date().getMonth() + 1).padStart(2, "0") + "-" + String(Math.floor(100 + Math.random() * 900));
         setDaftarTagihanSPP((prev) => [{ ...entry, id, noKwitansi }, ...prev]);
+        api.createSPPTagihan({
+          siswa_id: entry.siswaId,
+          bulan: entry.bulan,
+          nominal: entry.nominal,
+          status: entry.status || "BELUM_BAYAR",
+          catatan: entry.catatan,
+        }).catch((e) => console.warn("API createSPPTagihan failed:", e));
       },
       daftarTugas,
       tambahTugas: (entry: Omit<Tugas, "id">) => {
         const baru: Tugas = { ...entry, id: "t-" + Date.now() };
         setDaftarTugas((prev) => [baru, ...prev]);
+        api.createTugas({
+          judul: entry.judul,
+          deskripsi: entry.deskripsi,
+          deadline: entry.deadline,
+          status: entry.status,
+        }).catch((e) => console.warn("API createTugas failed:", e));
       },
       hapusTugas: (id: string) => {
         setDaftarTugas((prev) => prev.filter((t) => t.id !== id));
@@ -2618,6 +2902,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahMateri: (entry: Omit<MateriAjar, "id">) => {
         const baru: MateriAjar = { ...entry, id: "m-" + Date.now() };
         setDaftarMateri((prev) => [baru, ...prev]);
+        api.uploadMateri({
+          judul: entry.judul,
+          deskripsi: entry.judul,
+          tipe: entry.tipe,
+          file_url: entry.fileUrl,
+          ukuran_file: entry.ukuranFile,
+          tanggal_upload: entry.tanggalUpload,
+        }).catch((e) => console.warn("API uploadMateri failed:", e));
       },
       hapusMateri: (id: string) => {
         setDaftarMateri((prev) => prev.filter((m) => m.id !== id));
@@ -2645,6 +2937,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahKelas: (entry: Omit<Kelas, "id">) => {
         const baru: Kelas = { ...entry, id: "k-" + Date.now() };
         setDaftarKelas((prev) => [...prev, baru]);
+        api.createKelas({
+          nama: entry.nama,
+          tingkat: entry.tingkat?.replace("Kelas ", "") || "X",
+          jurusan: entry.jurusan || "IPA",
+          tahun_ajaran: entry.tahunAjaran || "2024/2025",
+        }).catch((e) => console.warn("API createKelas failed:", e));
       },
       hapusKelas: (id: string) => {
         setDaftarKelas((prev) => prev.filter((k) => k.id !== id));
@@ -2672,6 +2970,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahPengumuman: (entry: Omit<Pengumuman, "id">) => {
         const baru: Pengumuman = { ...entry, id: "p-" + Date.now() };
         setDaftarPengumuman((prev) => [baru, ...prev]);
+        api.createPengumuman({
+          judul: entry.judul,
+          konten: entry.konten,
+          kategori: entry.kategori,
+          sasaran: entry.sasaran,
+          prioritas: entry.prioritas,
+          tanggal: entry.tanggal,
+          penulis: entry.penulis,
+          status: entry.status,
+          pin: entry.pin,
+        }).catch((e) => console.warn("API createPengumuman failed:", e));
       },
       hapusPengumuman: (id: string) => {
         setDaftarPengumuman((prev) => prev.filter((p) => p.id !== id));
@@ -2695,12 +3004,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           statusKelulusan: "PROSES",
         };
         setDaftarPPDB((prev) => [baru, ...prev]);
+        api.daftarPPDBPublic({
+          nama: entry.nama,
+          nisn: entry.nisn,
+          nik: entry.nik,
+          asal_sekolah: entry.asalSekolah,
+          jalur: entry.jalur,
+          pilihan_jurusan: entry.pilihanJurusan,
+          nilai_rata_rapor: entry.nilaiRataRapor,
+          nama_wali: entry.namaWali,
+          telepon_wali: entry.teleponWali,
+          berkas_kk: entry.berkasKK,
+          berkas_akta: entry.berkasAkta,
+          berkas_rapor: entry.berkasRapor,
+        }).catch((e) => console.warn("API daftarPPDBPublic failed:", e));
         return noReg;
       },
       updateStatusVerifikasiPPDB: (id: string, status: PendaftarPPDB["statusVerifikasi"], catatan?: string) => {
         setDaftarPPDB((prev) =>
           prev.map((p) => (p.id === id ? { ...p, statusVerifikasi: status, catatanVerifikasi: catatan || p.catatanVerifikasi } : p))
         );
+        api.verifikasiPPDB(id, { status_verifikasi: status, catatan }).catch((e) => console.warn("API verifikasiPPDB failed:", e));
       },
       updateStatusKelulusanPPDB: (id: string, status: PendaftarPPDB["statusKelulusan"]) => {
         setDaftarPPDB((prev) =>
@@ -2711,6 +3035,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahAsetSarpras: (entry: Omit<AsetSarpras, "id">) => {
         const baru: AsetSarpras = { ...entry, id: "ast-" + Date.now() };
         setDaftarAsetSarpras((prev) => [baru, ...prev]);
+        api.createSarprasAset({
+          kode_aset: entry.kodeAset,
+          nama_aset: entry.namaAset,
+          kategori: entry.kategori,
+          merk_model: entry.merkModel,
+          kondisi: entry.kondisi,
+          lokasi: entry.lokasi,
+          jumlah_total: entry.jumlahTotal,
+          jumlah_tersedia: entry.jumlahTersedia,
+          tahun_pengadaan: entry.tahunPengadaan,
+          sumber_dana: entry.sumberDana,
+        }).catch((e) => console.warn("API createSarprasAset failed:", e));
       },
       updateAsetSarpras: (id: string, data: Partial<AsetSarpras>) => {
         setDaftarAsetSarpras((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
@@ -2735,6 +3071,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           )
         );
         setDaftarPeminjamanSarpras((prev) => [baru, ...prev]);
+        api.pinjamSarpras({
+          aset_id: entry.asetId,
+          peminjam_nama: entry.namaPeminjam,
+          peminjam_role: entry.rolePeminjam,
+          jumlah_pinjam: entry.jumlahUnit,
+          tanggal_pinjam: entry.tanggalPinjam,
+          tanggal_rencana_kembali: entry.batasKembali,
+          keperluan: entry.keperluan,
+        }).catch((e) => console.warn("API pinjamSarpras failed:", e));
         return noPinjam;
       },
       selesaikanPeminjamanSarpras: (id: string, kondisiKembali: "BAIK" | "RUSAK" | "HILANG", catatan?: string) => {
@@ -2773,6 +3118,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahBuku: (entry: Omit<BukuPerpus, "id">) => {
         const baru: BukuPerpus = { ...entry, id: "bk-" + Date.now() };
         setDaftarBuku((prev) => [baru, ...prev]);
+        api.createPerpusBuku({
+          isbn: entry.isbn,
+          kode_buku: entry.kodeBuku,
+          judul: entry.judul,
+          pengarang: entry.pengarang,
+          penerbit: entry.penerbit,
+          tahun_terbit: entry.tahunTerbit,
+          kategori: entry.kategori,
+          lokasi_rak: entry.lokasiRak,
+          jumlah_eksemplar: entry.jumlahEksemplar,
+          eksemplar_tersedia: entry.eksemplarTersedia,
+          tipe_format: entry.tipeFormat,
+          sinopsis: entry.sinopsis,
+        }).catch((e) => console.warn("API createPerpusBuku failed:", e));
       },
       updateBuku: (id: string, data: Partial<BukuPerpus>) => {
         setDaftarBuku((prev) => prev.map((b) => (b.id === id ? { ...b, ...data } : b)));
@@ -2800,6 +3159,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           )
         );
         setDaftarPeminjamanBuku((prev) => [baru, ...prev]);
+        api.pinjamPerpusBuku({
+          buku_id: entry.bukuId,
+          peminjam_nama: entry.namaPeminjam,
+          peminjam_tipe: entry.rolePeminjam,
+          tanggal_pinjam: entry.tanggalPinjam,
+          tanggal_jatuh_tempo: entry.batasKembali,
+        }).catch((e) => console.warn("API pinjamPerpusBuku failed:", e));
         return noPinjam;
       },
       kembalikanBuku: (id: string, denda: number = 0, catatan?: string) => {
@@ -2918,6 +3284,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahKunjunganUKS: (k: Omit<KunjunganUKS, "id">) => {
         const baru: KunjunganUKS = { ...k, id: `uks-k-${Date.now()}` };
         setDaftarKunjunganUKS((prev) => [baru, ...prev]);
+        api.recordKunjunganUKS({
+          siswa_id: k.siswaId,
+          tanggal: k.tanggal,
+          jam: k.jam,
+          keluhan: k.keluhan,
+          kategori_keluhan: k.kategoriKeluhan,
+          tindakan: k.tindakan,
+          obat_diberikan: k.obatDiberikan,
+          kondisi_akhir: k.kondisiAkhir,
+          petugas_uks: k.petugasUKS,
+          status: k.status,
+        }).catch((e) => console.warn("API recordKunjunganUKS failed:", e));
       },
       updateKunjunganUKS: (id: string, data: Partial<KunjunganUKS>) => {
         setDaftarKunjunganUKS((prev) => prev.map((item) => (item.id === id ? { ...item, ...data } : item)));
