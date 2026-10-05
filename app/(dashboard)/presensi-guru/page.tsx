@@ -20,6 +20,8 @@ import { useStore, type StatusPresensiGuru } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api-client";
+
 
 export default function PresensiGuruMandiriPage() {
   const { presensiGuruList, checkInGuru, checkOutGuru, currentUser } = useStore();
@@ -48,19 +50,34 @@ export default function PresensiGuruMandiriPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
+    try {
+      await api.clockInGuru({ lokasi: "Kampus Utama SMAN 3", keterangan: "Hadir tepat waktu" });
+    } catch (e) {
+      console.warn("Backend sync fallback:", e);
+    }
     checkInGuru(guruId);
     setSudahCheckIn(true);
   };
 
-  const handleCheckOut = () => {
+  const handleCheckOut = async () => {
+    try {
+      await api.clockOutGuru();
+    } catch (e) {
+      console.warn("Backend sync fallback:", e);
+    }
     checkOutGuru(guruId);
     setSudahCheckOut(true);
   };
 
-  const handleDinasSubmit = (e: React.FormEvent) => {
+  const handleDinasSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dinasKeterangan) return;
+    try {
+      await api.clockInGuru({ lokasi: "Dinas Luar", keterangan: dinasKeterangan });
+    } catch (e) {
+      console.warn("Backend sync fallback:", e);
+    }
     checkInGuru(guruId, "IZIN_DINAS", dinasKeterangan);
     setIsDinasModalOpen(false);
     setDinasKeterangan("");

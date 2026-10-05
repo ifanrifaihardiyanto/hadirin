@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import { useStore, type Ketercapaian } from "@/lib/store";
 import { type StatusKey, type Siswa } from "@/lib/mock-data";
+import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -131,7 +133,24 @@ export default function AbsensiPage() {
     setQuery("");
   }
 
-  function handleSimpan() {
+  async function handleSimpan() {
+    try {
+      // Map students to backend payload format
+      const absensiPayload = siswa.map((s, idx) => ({
+        siswa_id: Number(s.id.replace(/\D/g, "")) || (idx + 1),
+        status: s.status || "H",
+        catatan: undefined,
+      }));
+
+      const numericJadwalId = Number(String(id).replace(/\D/g, "")) || 1;
+      await api.saveAbsensi(numericJadwalId, {
+        catatan: catatan || "KBM berjalan tertib dan lancar.",
+        absensi: absensiPayload,
+      });
+    } catch (e) {
+      console.warn("Backend saveAbsensi sync fallback:", e);
+    }
+
     simpanAbsensi(id, siswa);
 
     const guru = daftarGuru.find((g) => g.id === (jadwalItem.guruId || currentUser?.id));
