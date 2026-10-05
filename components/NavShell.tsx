@@ -40,7 +40,7 @@ interface NavSection {
 }
 
 function getNavigation(role?: UserRole): NavSection[] {
-  // 1. SISWA
+    // 1. SISWA
   if (role === "siswa") {
     return [
       {
@@ -50,11 +50,16 @@ function getNavigation(role?: UserRole): NavSection[] {
         ],
       },
       {
-        title: "Kegiatan Belajar (LMS)",
+        title: "Kegiatan Belajar & LMS",
         items: [
-          { href: "/siswa/tugas", label: "Tugas & PR Siswa", icon: FileText },
           { href: "/siswa/materi", label: "Materi & Modul Ajar", icon: BookOpen },
+          { href: "/siswa/tugas", label: "Tugas & PR Siswa", icon: FileText },
           { href: "/siswa/ujian", label: "CBT & Ujian Online", icon: Laptop },
+        ],
+      },
+      {
+        title: "Kehadiran & Disiplin",
+        items: [
           { href: "/izin", label: "Pengajuan Izin / Sakit", icon: FileCheck },
         ],
       },
@@ -71,7 +76,7 @@ function getNavigation(role?: UserRole): NavSection[] {
         ],
       },
       {
-        title: "Pengaturan",
+        title: "Pengaturan Akun",
         items: [
           { href: "/profil", label: "Profil Akun Siswa", icon: User },
         ],
