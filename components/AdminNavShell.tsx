@@ -31,6 +31,7 @@ import {
   Megaphone,
   UserPlus,
   Package,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore, type UserRole } from "@/lib/store";
@@ -97,6 +98,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/kalender", label: "Kalender Akademik", icon: CalendarDays },
           { href: "/admin/ppdb", label: "Penerimaan Siswa (PPDB)", icon: UserPlus },
           { href: "/admin/sarpras", label: "Sarana & Inventaris", icon: Package },
+          { href: "/admin/perpus", label: "Perpustakaan & Buku", icon: Library },
           { href: "/admin/guru", label: "Data Guru & Pegawai", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Pelajaran", icon: CalendarClock },
@@ -131,6 +133,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
           { href: "/admin/kalender", label: "Kalender Akademik", icon: CalendarDays },
           { href: "/admin/ppdb", label: "Penerimaan Siswa (PPDB)", icon: UserPlus },
           { href: "/admin/sarpras", label: "Sarana & Inventaris", icon: Package },
+          { href: "/admin/perpus", label: "Perpustakaan & Buku", icon: Library },
           { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
           { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
           { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },
@@ -188,6 +191,7 @@ function getNavigationByRole(role?: UserRole): NavSection[] {
         { href: "/admin/kalender", label: "Kalender Akademik", icon: CalendarDays },
         { href: "/admin/ppdb", label: "Penerimaan Siswa (PPDB)", icon: UserPlus },
         { href: "/admin/sarpras", label: "Sarana & Inventaris", icon: Package },
+          { href: "/admin/perpus", label: "Perpustakaan & Buku", icon: Library },
         { href: "/admin/guru", label: "Data Guru & PTK", icon: Users },
         { href: "/admin/mapel", label: "Mata Pelajaran", icon: BookOpenCheck },
         { href: "/admin/jadwal", label: "Jadwal Mengajar", icon: CalendarClock },

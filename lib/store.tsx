@@ -920,6 +920,225 @@ export const daftarPeminjamanSarprasAwal: PeminjamanSarpras[] = [
   },
 ];
 
+export interface BukuPerpus {
+  id: string;
+  isbn: string;
+  kodeBuku: string;
+  judul: string;
+  pengarang: string;
+  penerbit: string;
+  tahunTerbit: number;
+  kategori: "BUKU_TEKS" | "FIKSI" | "SAINS" | "SEJARAH" | "AGAMA" | "REFERENSI";
+  lokasiRak: string;
+  jumlahEksemplar: number;
+  eksemplarTersedia: number;
+  tipeFormat: "FISIK" | "EBOOK" | "FISIK_DAN_EBOOK";
+  ebookUrl?: string;
+  sinopsis?: string;
+}
+
+export interface PeminjamanBuku {
+  id: string;
+  kodePinjam: string;
+  bukuId: string;
+  judulBuku: string;
+  kodeBuku: string;
+  namaPeminjam: string;
+  nomorIdentitas: string;
+  rolePeminjam: "SISWA" | "GURU" | "STAF";
+  kelasAtauUnit: string;
+  tanggalPinjam: string;
+  batasKembali: string;
+  tanggalKembali?: string;
+  status: "DIPINJAM" | "KEMBALI" | "TERLAMBAT";
+  denda: number;
+  statusDenda: "TIDAK_ADA" | "BELUM_LUNAS" | "LUNAS";
+  catatanPetugas?: string;
+}
+
+export const daftarBukuAwal: BukuPerpus[] = [
+  {
+    id: "bk-1",
+    isbn: "978-602-244-325-4",
+    kodeBuku: "BK-TEK-001",
+    judul: "Matematika Tingkat Lanjut SMA/MA Kelas XI",
+    pengarang: "Al Azhary Masta, dkk.",
+    penerbit: "Pusat Kurikulum dan Perbukuan Kemendikbudristek",
+    tahunTerbit: 2023,
+    kategori: "BUKU_TEKS",
+    lokasiRak: "Rak A-01 (MIPA)",
+    jumlahEksemplar: 45,
+    eksemplarTersedia: 40,
+    tipeFormat: "FISIK_DAN_EBOOK",
+    ebookUrl: "https://buku.kemdikbud.go.id/katalog/matematika-tingkat-lanjut-kelas-xi",
+    sinopsis: "Buku teks utama Kurikulum Merdeka mencakup materi vektor, fungsi trigonometri, dan kalkulus diferensial.",
+  },
+  {
+    id: "bk-2",
+    isbn: "978-602-244-326-1",
+    kodeBuku: "BK-TEK-002",
+    judul: "Biologi untuk SMA/MA Kelas X (Fase E)",
+    pengarang: "Rini Solihat, dkk.",
+    penerbit: "Pusat Perbukuan Kemendikbud",
+    tahunTerbit: 2022,
+    kategori: "BUKU_TEKS",
+    lokasiRak: "Rak A-02 (Biologi)",
+    jumlahEksemplar: 38,
+    eksemplarTersedia: 35,
+    tipeFormat: "FISIK_DAN_EBOOK",
+    ebookUrl: "https://buku.kemdikbud.go.id/katalog/biologi-kelas-x",
+    sinopsis: "Memuat pemahaman konsep keanekaragaman hayati, virus dan peranannya, serta inovasi bioteknologi ramah lingkungan.",
+  },
+  {
+    id: "bk-3",
+    isbn: "978-979-3062-79-2",
+    kodeBuku: "BK-FIK-003",
+    judul: "Laskar Pelangi",
+    pengarang: "Andrea Hirata",
+    penerbit: "Bentang Pustaka",
+    tahunTerbit: 2005,
+    kategori: "FIKSI",
+    lokasiRak: "Rak B-01 (Sastra & Novel)",
+    jumlahEksemplar: 10,
+    eksemplarTersedia: 8,
+    tipeFormat: "FISIK",
+    sinopsis: "Kisah inspiratif sepuluh anak laskar pelangi di Desa Gantung, Belitung dalam memperjuangkan hak pendidikan dasar.",
+  },
+  {
+    id: "bk-4",
+    isbn: "978-602-03-3160-7",
+    kodeBuku: "BK-SNS-004",
+    judul: "Kosmos: Menjelajah Jagat Raya dan Waktu",
+    pengarang: "Carl Sagan (Terj. Bambang)",
+    penerbit: "Kepustakaan Populer Gramedia (KPG)",
+    tahunTerbit: 2016,
+    kategori: "SAINS",
+    lokasiRak: "Rak C-02 (Astronomi & Fisika)",
+    jumlahEksemplar: 6,
+    eksemplarTersedia: 5,
+    tipeFormat: "FISIK",
+    sinopsis: "Eksplorasi ilmiah tentang asal-usul alam semesta, bintang, tata surya, dan sains peradaban manusia.",
+  },
+  {
+    id: "bk-5",
+    isbn: "978-623-238-112-9",
+    kodeBuku: "BK-SEJ-005",
+    judul: "Sejarah Nasional Indonesia: Era Pergerakan dan Kemerdekaan",
+    pengarang: "Prof. Dr. Sartono Kartodirdjo",
+    penerbit: "Balai Pustaka",
+    tahunTerbit: 2021,
+    kategori: "SEJARAH",
+    lokasiRak: "Rak D-01 (Sejarah)",
+    jumlahEksemplar: 12,
+    eksemplarTersedia: 11,
+    tipeFormat: "FISIK_DAN_EBOOK",
+    ebookUrl: "https://repositori.kemdikbud.go.id/sejarah-nasional",
+    sinopsis: "Rujukan komprehensif sejarah pergerakan Budi Utomo, Sumpah Pemuda hingga proklamasi kemerdekaan Republik Indonesia.",
+  },
+  {
+    id: "bk-6",
+    isbn: "978-979-1102-88-9",
+    kodeBuku: "BK-AGM-006",
+    judul: "Fikih Sunnah dan Akhlak Mulia Generasi Muda",
+    pengarang: "Sayyid Sabiq",
+    penerbit: "Republika Penerbit",
+    tahunTerbit: 2020,
+    kategori: "AGAMA",
+    lokasiRak: "Rak E-01 (Studi Islam)",
+    jumlahEksemplar: 15,
+    eksemplarTersedia: 14,
+    tipeFormat: "FISIK",
+    sinopsis: "Panduan ibadah praktis, etika pergaulan Islami, dan penguatan budi pekerti peserta didik.",
+  },
+  {
+    id: "bk-7",
+    isbn: "978-024-124-043-4",
+    kodeBuku: "BK-REF-007",
+    judul: "Ensiklopedia Sains dan Teknologi Bergambar Visual",
+    pengarang: "DK Publishing Team",
+    penerbit: "Dorling Kindersley / Erlangga",
+    tahunTerbit: 2022,
+    kategori: "REFERENSI",
+    lokasiRak: "Rak F-03 (Ensiklopedia Meja Baca)",
+    jumlahEksemplar: 5,
+    eksemplarTersedia: 4,
+    tipeFormat: "FISIK",
+    sinopsis: "Buku referensi visual lengkap mengenai fisika terapan, robotika, anatomi tubuh, dan energi terbarukan.",
+  },
+];
+
+export const daftarPeminjamanBukuAwal: PeminjamanBuku[] = [
+  {
+    id: "pb-1",
+    kodePinjam: "SIP-2024-001",
+    bukuId: "bk-3",
+    judulBuku: "Laskar Pelangi",
+    kodeBuku: "BK-FIK-003",
+    namaPeminjam: "Ahmad Fadillah",
+    nomorIdentitas: "0067891234",
+    rolePeminjam: "SISWA",
+    kelasAtauUnit: "X IPA 1",
+    tanggalPinjam: "2024-07-15",
+    batasKembali: "2024-07-22",
+    tanggalKembali: "2024-07-21",
+    status: "KEMBALI",
+    denda: 0,
+    statusDenda: "TIDAK_ADA",
+    catatanPetugas: "Buku kembali dalam kondisi bersih dan bersampul.",
+  },
+  {
+    id: "pb-2",
+    kodePinjam: "SIP-2024-002",
+    bukuId: "bk-1",
+    judulBuku: "Matematika Tingkat Lanjut SMA/MA Kelas XI",
+    kodeBuku: "BK-TEK-001",
+    namaPeminjam: "Sari Wulandari, S.Pd",
+    nomorIdentitas: "19850412 200902 2 003",
+    rolePeminjam: "GURU",
+    kelasAtauUnit: "Guru Matematika",
+    tanggalPinjam: "2024-07-20",
+    batasKembali: "2024-08-03",
+    status: "DIPINJAM",
+    denda: 0,
+    statusDenda: "TIDAK_ADA",
+    catatanPetugas: "Peminjaman bahan ajar modul kurikulum semester ganjil.",
+  },
+  {
+    id: "pb-3",
+    kodePinjam: "SIP-2024-003",
+    bukuId: "bk-4",
+    judulBuku: "Kosmos: Menjelajah Jagat Raya dan Waktu",
+    kodeBuku: "BK-SNS-004",
+    namaPeminjam: "Bunga Citra",
+    nomorIdentitas: "0067891235",
+    rolePeminjam: "SISWA",
+    kelasAtauUnit: "X IPA 1",
+    tanggalPinjam: "2024-07-18",
+    batasKembali: "2024-07-25",
+    status: "DIPINJAM",
+    denda: 0,
+    statusDenda: "TIDAK_ADA",
+  },
+  {
+    id: "pb-4",
+    kodePinjam: "SIP-2024-004",
+    bukuId: "bk-7",
+    judulBuku: "Ensiklopedia Sains dan Teknologi Bergambar Visual",
+    kodeBuku: "BK-REF-007",
+    namaPeminjam: "Farhan Maulana",
+    nomorIdentitas: "0067891238",
+    rolePeminjam: "SISWA",
+    kelasAtauUnit: "X IPA 2",
+    tanggalPinjam: "2024-07-10",
+    batasKembali: "2024-07-17",
+    status: "TERLAMBAT",
+    denda: 7000,
+    statusDenda: "BELUM_LUNAS",
+    catatanPetugas: "Terlambat 7 hari pengembalian dari batas waktu.",
+  },
+];
+
+
 export const JAM_PER_SLOT = 1.5;
 export const TARGET_JAM_MINGGU = 24;
 
@@ -1326,6 +1545,14 @@ interface StoreValue {
   daftarPeminjamanSarpras: PeminjamanSarpras[];
   tambahPeminjamanSarpras: (pinjam: Omit<PeminjamanSarpras, "id" | "kodePinjam" | "status">) => string;
   selesaikanPeminjamanSarpras: (id: string, kondisiKembali: "BAIK" | "RUSAK" | "HILANG", catatan?: string) => void;
+  daftarBuku: BukuPerpus[];
+  tambahBuku: (buku: Omit<BukuPerpus, "id">) => void;
+  updateBuku: (id: string, data: Partial<BukuPerpus>) => void;
+  hapusBuku: (id: string) => void;
+  daftarPeminjamanBuku: PeminjamanBuku[];
+  pinjamBuku: (pinjam: Omit<PeminjamanBuku, "id" | "kodePinjam" | "status" | "denda" | "statusDenda">) => string;
+  kembalikanBuku: (id: string, denda?: number, catatan?: string) => void;
+  bayarDendaBuku: (id: string) => void;
   loginAs: (role: UserRole, email?: string) => void;
   logout: () => void;
   isMobileMenuOpen: boolean;
@@ -1358,6 +1585,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [daftarPPDB, setDaftarPPDB] = useState<PendaftarPPDB[]>(daftarPPDBAwal);
   const [daftarAsetSarpras, setDaftarAsetSarpras] = useState<AsetSarpras[]>(daftarAsetSarprasAwal);
   const [daftarPeminjamanSarpras, setDaftarPeminjamanSarpras] = useState<PeminjamanSarpras[]>(daftarPeminjamanSarprasAwal);
+  const [daftarBuku, setDaftarBuku] = useState<BukuPerpus[]>(daftarBukuAwal);
+  const [daftarPeminjamanBuku, setDaftarPeminjamanBuku] = useState<PeminjamanBuku[]>(daftarPeminjamanBukuAwal);
   const [daftarSiswaInduk, setDaftarSiswaInduk] = useState<SiswaInduk[]>(daftarSiswaIndukAwal);
 
     const [daftarTagihanSPP, setDaftarTagihanSPP] = useState<TagihanSPP[]>(daftarTagihanSPPAwal);
@@ -1714,6 +1943,71 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           )
         );
       },
+      daftarBuku,
+      tambahBuku: (entry: Omit<BukuPerpus, "id">) => {
+        const baru: BukuPerpus = { ...entry, id: "bk-" + Date.now() };
+        setDaftarBuku((prev) => [baru, ...prev]);
+      },
+      updateBuku: (id: string, data: Partial<BukuPerpus>) => {
+        setDaftarBuku((prev) => prev.map((b) => (b.id === id ? { ...b, ...data } : b)));
+      },
+      hapusBuku: (id: string) => {
+        setDaftarBuku((prev) => prev.filter((b) => b.id !== id));
+      },
+      daftarPeminjamanBuku,
+      pinjamBuku: (entry: Omit<PeminjamanBuku, "id" | "kodePinjam" | "status" | "denda" | "statusDenda">) => {
+        const noPinjam = "SIP-2024-" + String(daftarPeminjamanBuku.length + 1).padStart(3, "0");
+        const baru: PeminjamanBuku = {
+          ...entry,
+          id: "pb-" + Date.now(),
+          kodePinjam: noPinjam,
+          status: "DIPINJAM",
+          denda: 0,
+          statusDenda: "TIDAK_ADA",
+        };
+        // Deduct available copies in book
+        setDaftarBuku((prev) =>
+          prev.map((b) =>
+            b.id === entry.bukuId
+              ? { ...b, eksemplarTersedia: Math.max(0, b.eksemplarTersedia - 1) }
+              : b
+          )
+        );
+        setDaftarPeminjamanBuku((prev) => [baru, ...prev]);
+        return noPinjam;
+      },
+      kembalikanBuku: (id: string, denda: number = 0, catatan?: string) => {
+        const target = daftarPeminjamanBuku.find((p) => p.id === id);
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (target) {
+          setDaftarBuku((prev) =>
+            prev.map((b) =>
+              b.id === target.bukuId
+                ? { ...b, eksemplarTersedia: Math.min(b.jumlahEksemplar, b.eksemplarTersedia + 1) }
+                : b
+            )
+          );
+        }
+        setDaftarPeminjamanBuku((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  status: "KEMBALI",
+                  tanggalKembali: todayStr,
+                  denda: denda,
+                  statusDenda: denda > 0 ? "BELUM_LUNAS" : "TIDAK_ADA",
+                  catatanPetugas: catatan || p.catatanPetugas,
+                }
+              : p
+          )
+        );
+      },
+      bayarDendaBuku: (id: string) => {
+        setDaftarPeminjamanBuku((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, statusDenda: "LUNAS" } : p))
+        );
+      },
       loginAs: (role: UserRole, email?: string) => {
         let user: CurrentUser;
         switch (role) {
@@ -1777,6 +2071,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       currentUser,
       daftarAsetSarpras,
       daftarPeminjamanSarpras,
+      daftarBuku,
+      daftarPeminjamanBuku,
       isMobileMenuOpen,
     ]
   );
