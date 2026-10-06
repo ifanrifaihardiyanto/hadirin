@@ -533,11 +533,16 @@ export const api = {
 
   async verifikasiPPDB(
     id: string | number,
-    payload: { status_verifikasi: string; status_kelulusan?: string; catatan?: string }
+    payload: { status_verifikasi: string; status_kelulusan?: string; catatan_verifikasi?: string; catatan?: string }
   ) {
+    const bodyPayload = {
+      status_verifikasi: payload.status_verifikasi,
+      ...(payload.status_kelulusan ? { status_kelulusan: payload.status_kelulusan } : {}),
+      catatan_verifikasi: payload.catatan_verifikasi ?? payload.catatan ?? "",
+    };
     return fetchApi(`/ppdb/${id}/verifikasi`, {
       method: "PATCH",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(bodyPayload),
     });
   },
 

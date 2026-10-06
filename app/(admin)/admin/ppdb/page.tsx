@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   UserPlus,
@@ -11,36 +11,52 @@ import {
   AlertCircle,
   Clock,
   XCircle,
-  FileText,
   FileCheck,
   ChevronRight,
   ExternalLink,
-  Edit3,
   Award,
   Users,
-  Building,
   Printer,
-  Sparkles,
-  Phone,
-  Check,
   X,
-  Eye,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useStore, type PendaftarPPDB } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
-const JALUR_CONFIG: Record<PendaftarPPDB["jalur"], { label: string; badgeClass: string }> = {
+export interface PPDBItem {
+  id: string | number;
+  no_pendaftaran: string;
+  nama: string;
+  nisn: string;
+  nik?: string;
+  asal_sekolah: string;
+  jalur: "ZONASI" | "PRESTASI" | "AFIRMASI" | "MUTASI" | string;
+  pilihan_jurusan: string;
+  nilai_rata_rapor: number;
+  nama_wali: string;
+  telepon_wali: string;
+  status_verifikasi: "MENUNGGU" | "TERVERIFIKASI" | "PERBAIKAN" | "DITOLAK";
+  status_kelulusan: "PROSES" | "LULUS" | "CADANGAN" | "TIDAK_LULUS";
+  berkas_kk: boolean;
+  berkas_akta: boolean;
+  berkas_rapor: boolean;
+  catatan_verifikasi?: string;
+  tanggal_daftar?: string;
+}
+
+const JALUR_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   ZONASI: { label: "Zonasi Domisili (50%)", badgeClass: "bg-sky-100 text-sky-900 border-sky-200" },
   PRESTASI: { label: "Prestasi Akademik (30%)", badgeClass: "bg-purple-100 text-purple-900 border-purple-200" },
   AFIRMASI: { label: "Afirmasi / KIP (15%)", badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-200" },
   MUTASI: { label: "Perpindahan Ortu (5%)", badgeClass: "bg-amber-100 text-amber-900 border-amber-200" },
 };
 
-const VERIF_CONFIG: Record<PendaftarPPDB["statusVerifikasi"], { label: string; badgeClass: string; icon: any }> = {
+const VERIF_CONFIG: Record<string, { label: string; badgeClass: string; icon: any }> = {
   TERVERIFIKASI: { label: "Lolos Berkas", badgeClass: "bg-emerald-100 text-emerald-800", icon: CheckCircle2 },
   MENUNGGU: { label: "Menunggu Verifikasi", badgeClass: "bg-amber-100 text-amber-800", icon: Clock },
   PERBAIKAN: { label: "Perlu Perbaikan", badgeClass: "bg-orange-100 text-orange-800", icon: AlertCircle },
@@ -48,21 +64,19 @@ const VERIF_CONFIG: Record<PendaftarPPDB["statusVerifikasi"], { label: string; b
 };
 
 export default function AdminPPDBPage() {
-  const {
-    daftarPPDB,
-    updateStatusVerifikasiPPDB,
-    updateStatusKelulusanPPDB,
-    tahunAjaranAktif,
-  } = useStore();
+  const [daftarPPDB, setDaftarPPDB] = useState<PPDBItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [jalurFilter, setJalurFilter] = useState<string>("SEMUA");
   const [statusFilter, setStatusFilter] = useState<string>("SEMUA");
 
   // Verification Modal
-  const [selectedPendaftar, setSelectedPendaftar] = useState<PendaftarPPDB | null>(null);
-  const [modalStatus, setModalStatus] = useState<PendaftarPPDB["statusVerifikasi"]>("TERVERIFIKASI");
-  const [modalKelulusan, setModalKelulusan] = useState<PendaftarPPDB["statusKelulusan"]>("PROSES");
+  const [selectedPendaftar, setSelectedPendaftar] = useState<PPDBItem | null>(null);
+  const [modalStatus, setModalStatus] = useState<PPDBItem["status_verifikasi"]>("TERVERIFIKASI");
+  const [modalKelulusan, setModalKelulusan] = useState<PPDBItem["status_kelulusan"]>("PROSES");
   const [modalCatatan, setModalCatatan] = useState("");
 
   // Toast
@@ -72,21 +86,92 @@ export default function AdminPPDBPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const openVerifikasiDialog = (p: PendaftarPPDB) => {
+  const fetchPPDB = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const res = await api.getPPDBList();
+      const raw = (res as any)?.data || (res as any) || [];
+      const normalized: PPDBItem[] = Array.isArray(raw)
+        ? raw.map((item: any) => ({
+            id: item.id,
+            no_pendaftaran: item.no_pendaftaran || item.noPendaftaran || `PPDB-${item.id}`,
+            nama: item.nama || "",
+            nisn: item.nisn || "",
+            nik: item.nik || "",
+            asal_sekolah: item.asal_sekolah || item.asalSekolah || "-",
+            jalur: item.jalur || "ZONASI",
+            pilihan_jurusan: item.pilihan_jurusan || item.pilihanJurusan || "MIPA",
+            nilai_rata_rapor: Number(item.nilai_rata_rapor ?? item.nilaiRataRapor ?? 0),
+            nama_wali: item.nama_wali || item.namaWali || "-",
+            telepon_wali: item.telepon_wali || item.teleponWali || "-",
+            status_verifikasi: item.status_verifikasi || item.statusVerifikasi || "MENUNGGU",
+            status_kelulusan: item.status_kelulusan || item.statusKelulusan || "PROSES",
+            berkas_kk: Boolean(item.berkas_kk ?? item.berkasKK),
+            berkas_akta: Boolean(item.berkas_akta ?? item.berkasAkta),
+            berkas_rapor: Boolean(item.berkas_rapor ?? item.berkasRapor),
+            catatan_verifikasi: item.catatan_verifikasi || item.catatanVerifikasi || "",
+            tanggal_daftar: item.tanggal_daftar || item.tanggalDaftar || "",
+          }))
+        : [];
+      setDaftarPPDB(normalized);
+      if (isManualRefresh) {
+        showToast("Data pendaftar PPDB berhasil diperbarui.");
+      }
+    } catch (err: any) {
+      console.error("Gagal memuat data PPDB:", err);
+      showToast("Gagal memuat data PPDB dari server.");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPPDB();
+  }, [fetchPPDB]);
+
+  const openVerifikasiDialog = (p: PPDBItem) => {
     setSelectedPendaftar(p);
-    setModalStatus(p.statusVerifikasi);
-    setModalKelulusan(p.statusKelulusan);
-    setModalCatatan(p.catatanVerifikasi || "");
+    setModalStatus(p.status_verifikasi);
+    setModalKelulusan(p.status_kelulusan);
+    setModalCatatan(p.catatan_verifikasi || "");
   };
 
-  const handleSaveVerifikasi = (e: React.FormEvent) => {
+  const handleSaveVerifikasi = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPendaftar) return;
 
-    updateStatusVerifikasiPPDB(selectedPendaftar.id, modalStatus, modalCatatan);
-    updateStatusKelulusanPPDB(selectedPendaftar.id, modalKelulusan);
-    showToast(`Status pendaftar ${selectedPendaftar.nama} berhasil diperbarui.`);
-    setSelectedPendaftar(null);
+    setIsSaving(true);
+    try {
+      await api.verifikasiPPDB(selectedPendaftar.id, {
+        status_verifikasi: modalStatus,
+        status_kelulusan: modalKelulusan,
+        catatan_verifikasi: modalCatatan,
+      });
+
+      // Update state locally
+      setDaftarPPDB((prev) =>
+        prev.map((item) =>
+          item.id === selectedPendaftar.id
+            ? {
+                ...item,
+                status_verifikasi: modalStatus,
+                status_kelulusan: modalKelulusan,
+                catatan_verifikasi: modalCatatan,
+              }
+            : item
+        )
+      );
+      showToast(`Status pendaftar ${selectedPendaftar.nama} berhasil diperbarui.`);
+      setSelectedPendaftar(null);
+    } catch (err: any) {
+      console.error("Gagal verifikasi PPDB:", err);
+      showToast("Gagal menyimpan verifikasi. Silakan coba lagi.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Filtered List
@@ -94,12 +179,12 @@ export default function AdminPPDBPage() {
     return daftarPPDB.filter((p) => {
       const matchSearch =
         p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.noPendaftaran.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.no_pendaftaran.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.nisn.includes(searchQuery) ||
-        p.asalSekolah.toLowerCase().includes(searchQuery.toLowerCase());
+        p.asal_sekolah.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchJalur = jalurFilter === "SEMUA" || p.jalur === jalurFilter;
-      const matchStatus = statusFilter === "SEMUA" || p.statusVerifikasi === statusFilter;
+      const matchStatus = statusFilter === "SEMUA" || p.status_verifikasi === statusFilter;
 
       return matchSearch && matchJalur && matchStatus;
     });
@@ -107,33 +192,46 @@ export default function AdminPPDBPage() {
 
   // Summary Metrics
   const totalPendaftar = daftarPPDB.length;
-  const totalLolosBerkas = daftarPPDB.filter((p) => p.statusVerifikasi === "TERVERIFIKASI").length;
-  const totalMenunggu = daftarPPDB.filter((p) => p.statusVerifikasi === "MENUNGGU").length;
-  const totalDiterima = daftarPPDB.filter((p) => p.statusKelulusan === "LULUS").length;
+  const totalLolosBerkas = daftarPPDB.filter((p) => p.status_verifikasi === "TERVERIFIKASI").length;
+  const totalMenunggu = daftarPPDB.filter((p) => p.status_verifikasi === "MENUNGGU").length;
+  const totalDiterima = daftarPPDB.filter((p) => p.status_kelulusan === "LULUS").length;
   const kuotaPagu = 240;
 
   // CSV Export
   const handleExportCSV = () => {
-    const headers = ["No Pendaftaran", "Nama Siswa", "NISN", "Asal Sekolah", "Jalur", "Jurusan", "Nilai Rapor", "Nama Wali", "Telepon", "Status Verifikasi", "Status Kelulusan"];
+    const headers = [
+      "No Pendaftaran",
+      "Nama Siswa",
+      "NISN",
+      "Asal Sekolah",
+      "Jalur",
+      "Jurusan",
+      "Nilai Rapor",
+      "Nama Wali",
+      "Telepon",
+      "Status Verifikasi",
+      "Status Kelulusan",
+    ];
     const rows = daftarPPDB.map((p) => [
-      p.noPendaftaran,
+      p.no_pendaftaran,
       `"${p.nama}"`,
       p.nisn,
-      `"${p.asalSekolah}"`,
+      `"${p.asal_sekolah}"`,
       p.jalur,
-      p.pilihanJurusan,
-      p.nilaiRataRapor,
-      `"${p.namaWali}"`,
-      `"${p.teleponWali}"`,
-      p.statusVerifikasi,
-      p.statusKelulusan,
+      p.pilihan_jurusan,
+      p.nilai_rata_rapor,
+      `"${p.nama_wali}"`,
+      `"${p.telepon_wali}"`,
+      p.status_verifikasi,
+      p.status_kelulusan,
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const csvContent =
+      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Data_Pendaftar_PPDB_${tahunAjaranAktif.replace("/", "-")}.csv`);
+    link.setAttribute("download", `Data_Pendaftar_PPDB_${new Date().getFullYear()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -163,11 +261,22 @@ export default function AdminPPDBPage() {
             Penerimaan Peserta Didik Baru (PPDB)
           </h1>
           <p className="text-xs text-muted-foreground sm:text-sm mt-0.5">
-            Verifikasi berkas calon siswa baru, seleksi perangkingan jalur pendaftaran, dan penetapan kelulusan ({tahunAjaranAktif}).
+            Verifikasi berkas calon siswa baru, seleksi perangkingan jalur pendaftaran, dan penetapan kelulusan live dari database.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchPPDB(true)}
+            disabled={isRefreshing || isLoading}
+            className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
+          >
+            <RefreshCw size={14} className={cn("text-slate-600", (isRefreshing || isLoading) && "animate-spin")} />
+            <span>{isRefreshing ? "Memuat..." : "Refresh"}</span>
+          </Button>
+
           <Link
             href="/ppdb"
             target="_blank"
@@ -181,6 +290,7 @@ export default function AdminPPDBPage() {
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
+            disabled={daftarPPDB.length === 0}
             className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
           >
             <Download size={14} className="text-slate-600" />
@@ -201,73 +311,89 @@ export default function AdminPPDBPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
-              <Users size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Total Pendaftar</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalPendaftar}
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono">/ {kuotaPagu} Pagu</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border border-border shadow-xs bg-white animate-pulse">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="h-11 w-11 rounded-2xl bg-slate-200 shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-3 w-20 bg-slate-200 rounded" />
+                  <div className="h-5 w-14 bg-slate-200 rounded" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
+                  <Users size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Total Pendaftar</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {totalPendaftar}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">/ {kuotaPagu} Pagu</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-900 shrink-0">
-              <CheckCircle2 size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Lolos Berkas</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalLolosBerkas}
-                </span>
-                <span className="text-[10px] text-emerald-700 font-semibold">Terverifikasi</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-900 shrink-0">
+                  <CheckCircle2 size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Lolos Berkas</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {totalLolosBerkas}
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">Terverifikasi</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-900 shrink-0">
-              <Clock size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Menunggu Antrean</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalMenunggu}
-                </span>
-                <span className="text-[10px] text-amber-700 font-semibold">Perlu Dicek</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-900 shrink-0">
+                  <Clock size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Menunggu Antrean</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {totalMenunggu}
+                    </span>
+                    <span className="text-[10px] text-amber-700 font-semibold">Perlu Dicek</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-50 text-purple-900 shrink-0">
-              <Award size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Diterima / Lulus</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalDiterima}
-                </span>
-                <span className="text-[10px] text-purple-700 font-medium">Calon Siswa</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-50 text-purple-900 shrink-0">
+                  <Award size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Diterima / Lulus</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {totalDiterima}
+                    </span>
+                    <span className="text-[10px] text-purple-700 font-medium">Calon Siswa</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Filter & Search Bar */}
@@ -316,7 +442,7 @@ export default function AdminPPDBPage() {
             >
               Semua Jalur
             </button>
-            {(Object.keys(JALUR_CONFIG) as PendaftarPPDB["jalur"][]).map((j) => (
+            {Object.keys(JALUR_CONFIG).map((j) => (
               <button
                 key={j}
                 type="button"
@@ -373,73 +499,127 @@ export default function AdminPPDBPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredList.map((p) => {
-                const jalurCfg = JALUR_CONFIG[p.jalur];
-                const verifCfg = VERIF_CONFIG[p.statusVerifikasi];
-                const VerifIcon = verifCfg.icon;
-
-                return (
-                  <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-navy-950">
-                      {p.noPendaftaran}
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    <td className="py-4 px-4">
+                      <div className="h-4 w-24 bg-slate-200 rounded" />
                     </td>
-                    <td className="py-3 px-4">
-                      <p className="font-bold text-navy-950 text-sm leading-tight">{p.nama}</p>
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">NISN: {p.nisn}</p>
+                    <td className="py-4 px-4 space-y-1.5">
+                      <div className="h-4 w-36 bg-slate-200 rounded" />
+                      <div className="h-3 w-20 bg-slate-100 rounded" />
                     </td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">
-                      {p.asalSekolah}
+                    <td className="py-4 px-4">
+                      <div className="h-4 w-28 bg-slate-200 rounded" />
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="space-y-1">
-                        <Badge variant="outline" className={cn("text-[10px] font-bold uppercase font-mono px-1.5 py-0.5", jalurCfg.badgeClass)}>
-                          {p.jalur}
-                        </Badge>
-                        <p className="text-[11px] text-slate-500 font-medium">Pilihan: {p.pilihanJurusan}</p>
-                      </div>
+                    <td className="py-4 px-4 space-y-1">
+                      <div className="h-4 w-16 bg-slate-200 rounded" />
+                      <div className="h-3 w-24 bg-slate-100 rounded" />
                     </td>
-                    <td className="py-3 px-4 text-center font-mono font-bold text-navy-950 text-sm">
-                      {p.nilaiRataRapor}
+                    <td className="py-4 px-4 text-center">
+                      <div className="h-4 w-8 bg-slate-200 rounded mx-auto" />
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-mono font-bold", p.berkasKK ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400")}>
-                          KK
-                        </span>
-                        <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-mono font-bold", p.berkasAkta ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400")}>
-                          Akta
-                        </span>
-                        <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-mono font-bold", p.berkasRapor ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400")}>
-                          Rapor
-                        </span>
-                      </div>
+                    <td className="py-4 px-4">
+                      <div className="h-4 w-20 bg-slate-200 rounded" />
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="space-y-1">
-                        <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", verifCfg.badgeClass)}>
-                          <VerifIcon size={12} />
-                          <span>{verifCfg.label}</span>
-                        </span>
-                        {p.statusKelulusan === "LULUS" && (
-                          <Badge className="bg-purple-600 text-white text-[9px] font-bold block w-fit">
-                            Diterima
-                          </Badge>
-                        )}
-                      </div>
+                    <td className="py-4 px-4">
+                      <div className="h-4 w-24 bg-slate-200 rounded" />
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <Button
-                        size="sm"
-                        onClick={() => openVerifikasiDialog(p)}
-                        className="h-7 text-xs font-semibold bg-navy-900 hover:bg-navy-800 text-white gap-1 px-2.5 cursor-pointer shadow-2xs"
-                      >
-                        <FileCheck size={13} />
-                        <span>Verifikasi</span>
-                      </Button>
+                    <td className="py-4 px-4 text-right">
+                      <div className="h-7 w-20 bg-slate-200 rounded ml-auto" />
                     </td>
                   </tr>
-                );
-              })}
+                ))
+              ) : filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <UserPlus className="h-8 w-8 text-slate-300" />
+                      <p className="font-semibold text-sm">Tidak ada calon siswa ditemukan</p>
+                      <p className="text-xs text-slate-400">
+                        {searchQuery || jalurFilter !== "SEMUA" || statusFilter !== "SEMUA"
+                          ? "Coba ubah kata kunci pencarian atau filter yang dipilih."
+                          : "Belum ada calon siswa yang mendaftar pada portal PPDB."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredList.map((p) => {
+                  const jalurCfg = JALUR_CONFIG[p.jalur] || {
+                    label: p.jalur,
+                    badgeClass: "bg-slate-100 text-slate-800 border-slate-200",
+                  };
+                  const verifCfg = VERIF_CONFIG[p.status_verifikasi] || {
+                    label: p.status_verifikasi,
+                    badgeClass: "bg-slate-100 text-slate-800",
+                    icon: AlertCircle,
+                  };
+                  const VerifIcon = verifCfg.icon;
+
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4 font-mono font-bold text-navy-950">
+                        {p.no_pendaftaran}
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="font-bold text-navy-950 text-sm leading-tight">{p.nama}</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">NISN: {p.nisn}</p>
+                      </td>
+                      <td className="py-3 px-4 text-slate-700 font-medium">
+                        {p.asal_sekolah}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="space-y-1">
+                          <Badge variant="outline" className={cn("text-[10px] font-bold uppercase font-mono px-1.5 py-0.5", jalurCfg.badgeClass)}>
+                            {p.jalur}
+                          </Badge>
+                          <p className="text-[11px] text-slate-500 font-medium">Pilihan: {p.pilihan_jurusan}</p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono font-bold text-navy-950 text-sm">
+                        {p.nilai_rata_rapor}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-mono font-bold", p.berkas_kk ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400")}>
+                            KK
+                          </span>
+                          <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-mono font-bold", p.berkas_akta ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400")}>
+                            Akta
+                          </span>
+                          <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-mono font-bold", p.berkas_rapor ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400")}>
+                            Rapor
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="space-y-1">
+                          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", verifCfg.badgeClass)}>
+                            <VerifIcon size={12} />
+                            <span>{verifCfg.label}</span>
+                          </span>
+                          {p.status_kelulusan === "LULUS" && (
+                            <Badge className="bg-purple-600 text-white text-[9px] font-bold block w-fit">
+                              Diterima
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <Button
+                          size="sm"
+                          onClick={() => openVerifikasiDialog(p)}
+                          className="h-7 text-xs font-semibold bg-navy-900 hover:bg-navy-800 text-white gap-1 px-2.5 cursor-pointer shadow-2xs"
+                        >
+                          <FileCheck size={13} />
+                          <span>Verifikasi</span>
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -452,7 +632,7 @@ export default function AdminPPDBPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-mono font-bold text-slate-400">
-                  {selectedPendaftar.noPendaftaran}
+                  {selectedPendaftar.no_pendaftaran}
                 </span>
                 <h3 className="font-display text-lg font-bold text-navy-950">
                   Verifikasi Berkas: {selectedPendaftar.nama}
@@ -477,21 +657,21 @@ export default function AdminPPDBPage() {
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Asal Sekolah:</span>
-                    <strong className="text-navy-950">{selectedPendaftar.asalSekolah}</strong>
+                    <strong className="text-navy-950">{selectedPendaftar.asal_sekolah}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Jalur &amp; Jurusan:</span>
-                    <strong className="text-navy-950">{selectedPendaftar.jalur} - {selectedPendaftar.pilihanJurusan}</strong>
+                    <strong className="text-navy-950">{selectedPendaftar.jalur} - {selectedPendaftar.pilihan_jurusan}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Nilai Rata-rata Rapor:</span>
-                    <strong className="text-navy-950 font-mono text-sm">{selectedPendaftar.nilaiRataRapor}</strong>
+                    <strong className="text-navy-950 font-mono text-sm">{selectedPendaftar.nilai_rata_rapor}</strong>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-slate-600">
-                  <span>Wali: {selectedPendaftar.namaWali}</span>
-                  <span className="font-mono">Telp: {selectedPendaftar.teleponWali}</span>
+                  <span>Wali: {selectedPendaftar.nama_wali}</span>
+                  <span className="font-mono">Telp: {selectedPendaftar.telepon_wali}</span>
                 </div>
               </div>
 
@@ -541,6 +721,7 @@ export default function AdminPPDBPage() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={isSaving}
                     onClick={() => setSelectedPendaftar(null)}
                     className="text-xs cursor-pointer"
                   >
@@ -549,9 +730,11 @@ export default function AdminPPDBPage() {
                   <Button
                     type="submit"
                     size="sm"
-                    className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer"
+                    disabled={isSaving}
+                    className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer gap-1.5"
                   >
-                    Simpan Keputusan Verifikasi
+                    {isSaving && <Loader2 size={13} className="animate-spin" />}
+                    <span>{isSaving ? "Menyimpan..." : "Simpan Keputusan Verifikasi"}</span>
                   </Button>
                 </div>
               </form>
