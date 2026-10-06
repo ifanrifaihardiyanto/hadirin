@@ -274,6 +274,11 @@ export const api = {
     });
   },
 
+  async getPresensiGuruRekap(tanggal?: string) {
+    const qs = tanggal ? `?tanggal=${tanggal}` : "";
+    return fetchApi(`/presensi-guru/rekap${qs}`);
+  },
+
   // Izin
   async getIzinList(params?: { status?: string; tipe?: string }) {
     const query = new URLSearchParams();

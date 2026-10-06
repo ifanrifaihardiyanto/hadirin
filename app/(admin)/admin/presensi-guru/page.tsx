@@ -1,7 +1,7 @@
 "use client";
 
 import * as XLSX from "xlsx";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Printer,
   Search,
@@ -15,8 +15,9 @@ import {
   X,
   LayoutGrid,
   Table as TableIcon,
+  RefreshCw,
 } from "lucide-react";
-import { useStore, type StatusPresensiGuru } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,12 +31,73 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface PresensiItem {
+  id: number;
+  guru_id: number;
+  nama: string;
+  nip: string;
+  jabatan: string;
+  jamMasuk: string;
+  jamPulang: string | null;
+  status: string;
+  lokasi: string;
+  keterangan: string | null;
+}
+
 export default function AdminPresensiGuruPage() {
-  const { presensiGuruList } = useStore();
+  const [selectedTanggal, setSelectedTanggal] = useState<string>(() => {
+    return new Date().toISOString().split("T")[0];
+  });
+  const [loading, setLoading] = useState(true);
+  const [presensiGuruList, setPresensiGuruList] = useState<PresensiItem[]>([]);
+  const [totalPTK, setTotalPTK] = useState<number>(0);
+
   const [filterStatus, setFilterStatus] = useState<string>("SEMUA");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [rekapRes, guruRes] = await Promise.allSettled([
+        api.getPresensiGuruRekap(selectedTanggal),
+        api.getGuruList(),
+      ]);
+
+      if (guruRes.status === "fulfilled" && guruRes.value?.data) {
+        setTotalPTK(guruRes.value.data.length);
+      }
+
+      if (rekapRes.status === "fulfilled" && rekapRes.value?.data) {
+        const rawList = rekapRes.value.data;
+        const mapped: PresensiItem[] = rawList.map((item: any) => ({
+          id: item.id,
+          guru_id: item.guru_id,
+          nama: item.guru?.nama || "Guru",
+          nip: item.guru?.nip || "-",
+          jabatan: item.guru?.jabatan || "Tenaga Pendidik",
+          jamMasuk: item.jam_masuk ? item.jam_masuk.slice(0, 5) : "-",
+          jamPulang: item.jam_pulang ? item.jam_pulang.slice(0, 5) : null,
+          status: item.status || "TEPAT_WAKTU",
+          lokasi: item.lokasi || "Kampus Sekolah",
+          keterangan: item.keterangan || null,
+        }));
+        setPresensiGuruList(mapped);
+      } else {
+        setPresensiGuruList([]);
+      }
+    } catch (err) {
+      console.error("Gagal memuat rekap presensi guru:", err);
+      setPresensiGuruList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedTanggal]);
 
   // Filtered attendance data
   const dataTampil = useMemo(() => {
@@ -52,7 +114,6 @@ export default function AdminPresensiGuruPage() {
   }, [presensiGuruList, filterStatus, searchQuery]);
 
   // Statistics calculation
-  const totalPTK = 42;
   const totalTercatat = presensiGuruList.length;
   const tepatWaktuCount = presensiGuruList.filter((p) => p.status === "TEPAT_WAKTU").length;
   const terlambatCount = presensiGuruList.filter((p) => p.status === "TERLAMBAT").length;
@@ -86,10 +147,10 @@ export default function AdminPresensiGuruPage() {
     const ws = XLSX.utils.json_to_sheet(dataExcel);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Presensi_Guru_PTK");
-    XLSX.writeFile(wb, `Presensi_Dewan_Guru_SMAN3_${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(wb, `Presensi_Dewan_Guru_${selectedTanggal}.xlsx`);
   };
 
-  const getStatusBadge = (status: StatusPresensiGuru) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "TEPAT_WAKTU":
         return (
@@ -141,7 +202,7 @@ export default function AdminPresensiGuruPage() {
               Monitoring Presensi Dewan Guru &amp; PTK
             </h1>
             <Badge variant="navy" className="text-xs">
-              Live Monitoring
+              Live Database
             </Badge>
           </div>
           <p className="text-sm text-slate-500 mt-1">
@@ -150,6 +211,27 @@ export default function AdminPresensiGuruPage() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Tanggal Picker */}
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="date"
+              value={selectedTanggal}
+              onChange={(e) => setSelectedTanggal(e.target.value)}
+              className="h-9 w-38 text-xs bg-white border-border"
+            />
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            disabled={loading}
+            className="gap-1.5 border-border bg-white text-xs hover:bg-slate-50"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Segarkan
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -157,12 +239,13 @@ export default function AdminPresensiGuruPage() {
             className="border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5 text-xs font-medium cursor-pointer shadow-2xs"
           >
             <Printer size={15} />
-            Cetak Rekap Resmi
+            Cetak Rekap
           </Button>
 
           <Button
             size="sm"
             onClick={handleExportExcel}
+            disabled={loading || presensiGuruList.length === 0}
             className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
           >
             <FileSpreadsheet size={15} />
@@ -172,91 +255,103 @@ export default function AdminPresensiGuruPage() {
       </div>
 
       {/* KPI Metric Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Total PTK */}
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-5 md:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Total PTK Terdaftar
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-mono text-3xl font-bold text-navy-950">
-                {totalPTK}
-                <span className="text-sm font-normal text-slate-500 ml-1">orang</span>
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="border-border bg-white p-5 animate-pulse">
+              <div className="h-3.5 w-24 rounded bg-slate-200" />
+              <div className="mt-4 h-8 w-16 rounded bg-slate-200" />
+              <div className="mt-3 h-3 w-36 rounded bg-slate-200" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Total PTK */}
+          <Card className="border border-border bg-white shadow-xs">
+            <div className="p-5 md:p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Total PTK Terdaftar
               </p>
-              <Badge variant="outline" className="text-[11px] font-medium bg-slate-50">
-                38 Guru + 4 TU
-              </Badge>
+              <div className="mt-2 flex items-baseline justify-between">
+                <p className="font-mono text-3xl font-bold text-navy-950">
+                  {totalPTK || 0}
+                  <span className="text-sm font-normal text-slate-500 ml-1">orang</span>
+                </p>
+                <Badge variant="outline" className="text-[11px] font-medium bg-slate-50">
+                  Data Master
+                </Badge>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {totalTercatat} personil telah check-in hari ini
+              </p>
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              {totalTercatat} personil telah tercatat hari ini
-            </p>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Card 2: Hadir Tepat Waktu */}
-        <Card className="border border-emerald-200 bg-emerald-50/50 shadow-xs">
-          <div className="p-5 md:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
-              Hadir Tepat Waktu
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-mono text-3xl font-bold text-emerald-900">
-                {tepatWaktuCount}
-                <span className="text-sm font-normal text-emerald-700 ml-1">guru</span>
+          {/* Card 2: Hadir Tepat Waktu */}
+          <Card className="border border-emerald-200 bg-emerald-50/50 shadow-xs">
+            <div className="p-5 md:p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
+                Hadir Tepat Waktu
               </p>
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-semibold">
-                {hadirPersen}% Disiplin
-              </Badge>
+              <div className="mt-2 flex items-baseline justify-between">
+                <p className="font-mono text-3xl font-bold text-emerald-900">
+                  {tepatWaktuCount}
+                  <span className="text-sm font-normal text-emerald-700 ml-1">guru</span>
+                </p>
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-semibold">
+                  {hadirPersen}% Disiplin
+                </Badge>
+              </div>
+              <p className="mt-2 text-[11px] text-emerald-700">
+                Presensi sebelum batas jam 07.15 WIB
+              </p>
             </div>
-            <p className="mt-2 text-[11px] text-emerald-700">
-              Presensi sebelum batas jam 07.00 WIB
-            </p>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Card 3: Terlambat */}
-        <Card className="border border-amber-200 bg-amber-50/50 shadow-xs">
-          <div className="p-5 md:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">
-              Terlambat Hadir
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-mono text-3xl font-bold text-amber-900">
-                {terlambatCount}
-                <span className="text-sm font-normal text-amber-700 ml-1">orang</span>
+          {/* Card 3: Terlambat */}
+          <Card className="border border-amber-200 bg-amber-50/50 shadow-xs">
+            <div className="p-5 md:p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">
+                Terlambat Hadir
               </p>
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[11px] font-semibold">
-                Toleransi 15m
-              </Badge>
+              <div className="mt-2 flex items-baseline justify-between">
+                <p className="font-mono text-3xl font-bold text-amber-900">
+                  {terlambatCount}
+                  <span className="text-sm font-normal text-amber-700 ml-1">orang</span>
+                </p>
+                <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[11px] font-semibold">
+                  Check-in telat
+                </Badge>
+              </div>
+              <p className="mt-2 text-[11px] text-amber-700">
+                Check-in di atas jam 07.15 WIB
+              </p>
             </div>
-            <p className="mt-2 text-[11px] text-amber-700">
-              Check-in di atas jam 07.00 WIB
-            </p>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Card 4: Dinas Luar / Cuti */}
-        <Card className="border border-sky-200 bg-sky-50/50 shadow-xs">
-          <div className="p-5 md:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-sky-800">
-              Tugas Dinas &amp; Cuti
-            </p>
-            <div className="mt-2 flex items-baseline justify-between">
-              <p className="font-mono text-3xl font-bold text-sky-900">
-                {dinasCount + sakitCutiCount}
-                <span className="text-sm font-normal text-sky-700 ml-1">orang</span>
+          {/* Card 4: Dinas Luar / Cuti */}
+          <Card className="border border-sky-200 bg-sky-50/50 shadow-xs">
+            <div className="p-5 md:p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-sky-800">
+                Tugas Dinas &amp; Sakit
               </p>
-              <Badge className="bg-sky-100 text-sky-800 border-sky-300 text-[11px] font-semibold">
-                {dinasCount} Dinas / {sakitCutiCount} Cuti
-              </Badge>
+              <div className="mt-2 flex items-baseline justify-between">
+                <p className="font-mono text-3xl font-bold text-sky-900">
+                  {dinasCount + sakitCutiCount}
+                  <span className="text-sm font-normal text-sky-700 ml-1">orang</span>
+                </p>
+                <Badge className="bg-sky-100 text-sky-800 border-sky-300 text-[11px] font-semibold">
+                  {dinasCount} Dinas / {sakitCutiCount} Izin/Sakit
+                </Badge>
+              </div>
+              <p className="mt-2 text-[11px] text-sky-700">
+                Disertai surat tugas atau permohonan
+              </p>
             </div>
-            <p className="mt-2 text-[11px] text-sky-700">
-              Disertai surat tugas / dispensasi resmi
-            </p>
-          </div>
-        </Card>
-      </div>
+          </Card>
+        </div>
+      )}
 
       {/* Filter and View Controls */}
       <Card className="border border-border bg-white shadow-xs">
@@ -270,7 +365,7 @@ export default function AdminPresensiGuruPage() {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama guru, NIP, atau mata pelajaran..."
+              placeholder="Cari nama guru, NIP, atau jabatan..."
               className="h-9.5 pl-10 text-xs bg-slate-50/70 border-border"
             />
             {searchQuery && (
@@ -353,46 +448,73 @@ export default function AdminPresensiGuruPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dataTampil.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                    <TableCell className="py-3.5">
-                      <p className="font-semibold text-xs text-navy-950">{item.nama}</p>
-                      <p className="font-mono text-[11px] text-muted-foreground">NIP. {item.nip}</p>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-600 max-w-[200px]">
-                      {item.jabatan}
-                    </TableCell>
-                    <TableCell className="text-center font-mono text-xs font-semibold text-navy-900">
-                      {item.jamMasuk}
-                    </TableCell>
-                    <TableCell className="text-center font-mono text-xs text-slate-600">
-                      {item.jamPulang || <span className="text-slate-400 italic">Belum Pulang</span>}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getStatusBadge(item.status)}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-600 max-w-[200px]">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <MapPin size={13} className="text-slate-400 shrink-0" />
-                        <span className="truncate">{item.lokasi}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-600 max-w-[240px]">
-                      {item.keterangan ? (
-                        <span className="italic text-slate-700 bg-slate-50 px-2 py-1 rounded border border-slate-200 block truncate">
-                          &quot;{item.keterangan}&quot;
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-                {dataTampil.length === 0 && (
+                {loading ? (
+                  [...Array(5)].map((_, i) => (
+                    <TableRow key={i} className="animate-pulse">
+                      <TableCell>
+                        <div className="h-4 w-40 rounded bg-slate-200" />
+                        <div className="mt-1 h-3 w-28 rounded bg-slate-200" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-3 w-32 rounded bg-slate-200" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="mx-auto h-4 w-12 rounded bg-slate-200" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="mx-auto h-4 w-12 rounded bg-slate-200" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="mx-auto h-5 w-20 rounded bg-slate-200" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-3 w-28 rounded bg-slate-200" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-3 w-32 rounded bg-slate-200" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : dataTampil.length > 0 ? (
+                  dataTampil.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                      <TableCell className="py-3.5">
+                        <p className="font-semibold text-xs text-navy-950">{item.nama}</p>
+                        <p className="font-mono text-[11px] text-muted-foreground">NIP. {item.nip}</p>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600 max-w-[200px]">
+                        {item.jabatan}
+                      </TableCell>
+                      <TableCell className="text-center font-mono text-xs font-semibold text-navy-900">
+                        {item.jamMasuk}
+                      </TableCell>
+                      <TableCell className="text-center font-mono text-xs text-slate-600">
+                        {item.jamPulang || <span className="text-slate-400 italic">Belum Pulang</span>}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getStatusBadge(item.status)}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600 max-w-[200px]">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <MapPin size={13} className="text-slate-400 shrink-0" />
+                          <span className="truncate">{item.lokasi}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600 max-w-[240px]">
+                        {item.keterangan ? (
+                          <span className="italic text-slate-700 bg-slate-50 px-2 py-1 rounded border border-slate-200 block truncate">
+                            &quot;{item.keterangan}&quot;
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="py-12 text-center text-xs text-muted-foreground">
-                      Tidak ada data guru atau tenaga kependidikan yang sesuai dengan filter.
+                      Tidak ada data presensi guru terdata pada tanggal {selectedTanggal}.
                     </TableCell>
                   </TableRow>
                 )}
@@ -400,56 +522,66 @@ export default function AdminPresensiGuruPage() {
             </Table>
           </div>
         ) : (
-          /* Content View: Card Mode (Desktop 2-column or 3-column responsive grid) */
+          /* Content View: Card Mode */
           <div className="p-4 md:p-6 border-t border-border">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dataTampil.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-border bg-white p-5 shadow-xs hover:border-navy-300 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="font-bold text-sm text-navy-950">{item.nama}</h4>
-                      <p className="font-mono text-[11px] text-muted-foreground">NIP. {item.nip}</p>
-                    </div>
-                    {getStatusBadge(item.status)}
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="rounded-xl border border-border bg-white p-5 animate-pulse space-y-3">
+                    <div className="h-4 w-32 rounded bg-slate-200" />
+                    <div className="h-3 w-48 rounded bg-slate-200" />
+                    <div className="h-6 w-full rounded bg-slate-200" />
                   </div>
-
-                  <p className="text-xs text-slate-600 mt-2 font-medium bg-slate-50 px-2.5 py-1.5 rounded border border-slate-100">
-                    {item.jabatan}
-                  </p>
-
-                  <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-[11px] text-slate-400 block">Jam Masuk</span>
-                      <span className="font-mono font-bold text-navy-900">{item.jamMasuk}</span>
+                ))}
+              </div>
+            ) : dataTampil.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dataTampil.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-border bg-white p-5 shadow-xs hover:border-navy-300 hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-navy-950">{item.nama}</h4>
+                        <p className="font-mono text-[11px] text-muted-foreground">NIP. {item.nip}</p>
+                      </div>
+                      {getStatusBadge(item.status)}
                     </div>
-                    <div>
-                      <span className="text-[11px] text-slate-400 block">Jam Pulang</span>
-                      <span className="font-mono font-bold text-slate-600">
-                        {item.jamPulang || <span className="text-slate-400 font-normal italic">Belum Pulang</span>}
-                      </span>
+
+                    <p className="text-xs text-slate-600 mt-2 font-medium bg-slate-50 px-2.5 py-1.5 rounded border border-slate-100">
+                      {item.jabatan}
+                    </p>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">Jam Masuk</span>
+                        <span className="font-mono font-bold text-navy-900">{item.jamMasuk}</span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">Jam Pulang</span>
+                        <span className="font-mono font-bold text-slate-600">
+                          {item.jamPulang || <span className="text-slate-400 font-normal italic">Belum Pulang</span>}
+                        </span>
+                      </div>
                     </div>
+
+                    <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <MapPin size={12} className="text-slate-400 shrink-0" />
+                      <span className="truncate">{item.lokasi}</span>
+                    </div>
+
+                    {item.keterangan && (
+                      <div className="mt-2 text-[11px] text-slate-600 italic bg-amber-50/60 border border-amber-200/60 p-2 rounded">
+                        &quot;{item.keterangan}&quot;
+                      </div>
+                    )}
                   </div>
-
-                  <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
-                    <MapPin size={12} className="text-slate-400 shrink-0" />
-                    <span className="truncate">{item.lokasi}</span>
-                  </div>
-
-                  {item.keterangan && (
-                    <div className="mt-2 text-[11px] text-slate-600 italic bg-amber-50/60 border border-amber-200/60 p-2 rounded">
-                      &quot;{item.keterangan}&quot;
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {dataTampil.length === 0 && (
+                ))}
+              </div>
+            ) : (
               <p className="py-12 text-center text-xs text-muted-foreground">
-                Tidak ada data guru atau tenaga kependidikan yang sesuai dengan filter.
+                Tidak ada data presensi guru terdata pada tanggal {selectedTanggal}.
               </p>
             )}
           </div>
@@ -498,10 +630,10 @@ export default function AdminPresensiGuruPage() {
                   DINAS PENDIDIKAN CABANG DINAS WILAYAH I
                 </h4>
                 <h2 className="text-lg font-black tracking-wide text-slate-950 uppercase mt-1">
-                  SMA NEGERI 3 CONTOH KOTA BOGOR
+                  SMA NEGERI CONTOH
                 </h2>
                 <p className="text-[11px] text-slate-600 mt-0.5">
-                  Jl. Pendidikan No. 45 Telp. (0251) 8321000 Fax. 8321001 Email: info@sman3contoh.sch.id
+                  Jl. Pendidikan No. 45 Telp. (0251) 8321000 Fax. 8321001 Email: info@sekolah.sch.id
                 </p>
               </div>
 
@@ -510,7 +642,7 @@ export default function AdminPresensiGuruPage() {
                   DAFTAR HADIR HARIAN DEWAN GURU &amp; TENAGA KEPENDIDIKAN (PTK)
                 </h3>
                 <p className="text-xs text-slate-600">
-                  Hari: Kamis · Tanggal: 24 Juli 2026 · Tahun Ajaran 2026/2027
+                  Tanggal: {selectedTanggal} · Tahun Ajaran Berjalan
                 </p>
               </div>
 
@@ -542,7 +674,7 @@ export default function AdminPresensiGuruPage() {
                       <th className="border border-slate-400 p-2 w-8">No</th>
                       <th className="border border-slate-400 p-2">Nama Pendidik / Tenaga Kependidikan</th>
                       <th className="border border-slate-400 p-2 w-36">NIP</th>
-                      <th className="border border-slate-400 p-2">Tugas / Mata Pelajaran</th>
+                      <th className="border border-slate-400 p-2">Tugas / Jabatan</th>
                       <th className="border border-slate-400 p-2 w-16">Datang</th>
                       <th className="border border-slate-400 p-2 w-16">Pulang</th>
                       <th className="border border-slate-400 p-2 w-20">Status</th>
@@ -587,17 +719,17 @@ export default function AdminPresensiGuruPage() {
                   <div className="h-16 flex items-center justify-center">
                     <span className="text-[10px] text-slate-400 italic">( Tanda Tangan Digital Terverifikasi )</span>
                   </div>
-                  <p className="font-bold underline text-slate-950">Dra. Hj. Siti Aminah, M.Pd</p>
-                  <p className="text-[10px] text-slate-500 font-mono">NIP. 19710315 199802 2 001</p>
+                  <p className="font-bold underline text-slate-950">Petugas Kepegawaian</p>
+                  <p className="text-[10px] text-slate-500 font-mono">NIP. -</p>
                 </div>
                 <div>
                   <p>Mengetahui,</p>
-                  <p className="font-semibold text-slate-900">Kepala SMA Negeri 3 Contoh</p>
+                  <p className="font-semibold text-slate-900">Kepala Sekolah</p>
                   <div className="h-14 flex items-center justify-center">
                     <span className="text-[10px] text-slate-400 italic">( Tanda Tangan &amp; Stempel Resmi )</span>
                   </div>
-                  <p className="font-bold underline text-slate-950">Drs. Hendra Wijaya, M.Pd</p>
-                  <p className="text-[10px] text-slate-500 font-mono">NIP. 19680512 199403 1 004</p>
+                  <p className="font-bold underline text-slate-950">Pimpinan Lembaga</p>
+                  <p className="text-[10px] text-slate-500 font-mono">NIP. -</p>
                 </div>
               </div>
             </div>
