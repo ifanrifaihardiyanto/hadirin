@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Receipt,
   Search,
@@ -20,16 +20,23 @@ import {
   QrCode,
   Banknote,
   Send,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useStore, type TagihanSPP } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export default function AdminSPPPage() {
-  const { daftarTagihanSPP, bayarTagihanSPP, tambahTagihanSPP, daftarSiswaInduk, tahunAjaranAktif, semesterAktif } = useStore();
+  const { tahunAjaranAktif, semesterAktif } = useStore();
+  const [sppList, setSppList] = useState<TagihanSPP[]>([]);
+  const [siswaList, setSiswaList] = useState<{ id: number; nama: string; nisn: string; kelas: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [filterBulan, setFilterBulan] = useState("SEMUA");
@@ -57,9 +64,56 @@ export default function AdminSPPPage() {
   const bulanOptions = ["Juli 2026", "Agustus 2026", "September 2026", "Oktober 2026", "November 2026", "Desember 2026"];
   const kelasOptions = ["X IPA 1", "X IPA 2", "XI IPA 1", "XI IPA 2", "XII IPA 1", "XII IPS 1"];
 
+  const fetchSPP = async () => {
+    setLoading(true);
+    try {
+      const [resSPP, resSiswa] = await Promise.all([
+        api.getSPPList().catch(() => ({ data: [] })),
+        api.getSiswaList().catch(() => ({ data: [] })),
+      ]);
+
+      const siswas = (resSiswa?.data || []).map((s: any) => ({
+        id: s.id,
+        nama: s.nama,
+        nisn: s.nisn || s.nis || "-",
+        kelas: s.kelas?.nama || "X IPA 1",
+      }));
+      setSiswaList(siswas);
+      if (siswas.length > 0 && !formTambah.siswaId) {
+        setFormTambah((prev) => ({ ...prev, siswaId: String(siswas[0].id) }));
+      }
+
+      if (resSPP?.data) {
+        const mapped: TagihanSPP[] = resSPP.data.map((t: any) => ({
+          id: String(t.id),
+          noKwitansi: t.no_kwitansi || `INV-${t.id}`,
+          siswaId: String(t.siswa_id),
+          siswaNama: t.siswa?.nama || "Siswa",
+          nisn: t.siswa?.nisn || t.siswa?.nis || "-",
+          kelas: t.siswa?.kelas?.nama || "X IPA 1",
+          bulan: t.bulan || "Juli 2026",
+          nominal: Number(t.nominal || 350000),
+          status: (t.status || "BELUM_BAYAR") as any,
+          tanggalBayar: t.tanggal_bayar,
+          metodeBayar: t.metode_bayar,
+          catatan: t.catatan || "SPP Reguler",
+        }));
+        setSppList(mapped);
+      }
+    } catch (err: any) {
+      console.warn("Gagal memuat SPP:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSPP();
+  }, []);
+
   // Filtered List
   const filteredList = useMemo(() => {
-    return daftarTagihanSPP.filter((t) => {
+    return sppList.filter((t) => {
       const matchSearch =
         t.siswaNama.toLowerCase().includes(search.toLowerCase()) ||
         t.nisn.includes(search) ||
@@ -69,7 +123,7 @@ export default function AdminSPPPage() {
       const matchStatus = filterStatus === "SEMUA" || t.status === filterStatus;
       return matchSearch && matchBulan && matchKelas && matchStatus;
     });
-  }, [daftarTagihanSPP, search, filterBulan, filterKelas, filterStatus]);
+  }, [sppList, search, filterBulan, filterKelas, filterStatus]);
 
   // Statistics
   const totalNominalTagihan = filteredList.reduce((acc, curr) => acc + curr.nominal, 0);
@@ -82,31 +136,70 @@ export default function AdminSPPPage() {
   const totalSiswaLunas = filteredList.filter((t) => t.status === "LUNAS").length;
   const persentaseLunas = totalNominalTagihan > 0 ? Math.round((totalPemasukanLunas / totalNominalTagihan) * 100) : 0;
 
-  function handleKonfirmasiBayar() {
+  async function handleKonfirmasiBayar() {
     if (!selectedTagihan) return;
-    bayarTagihanSPP(selectedTagihan.id, metodeBayar, catatanBayar);
-    setOpenModalBayar(false);
-    setSelectedTagihan(null);
-    setCatatanBayar("");
+    setSubmitting(true);
+    try {
+      await api.bayarSPP(selectedTagihan.id, {
+        metode_bayar: metodeBayar,
+        catatan: catatanBayar,
+      });
+      setSppList((prev) =>
+        prev.map((t) =>
+          t.id === selectedTagihan.id
+            ? {
+                ...t,
+                status: "LUNAS",
+                metodeBayar,
+                catatan: catatanBayar,
+                tanggalBayar: new Date().toLocaleDateString("id-ID"),
+              }
+            : t
+        )
+      );
+      setOpenModalBayar(false);
+      setSelectedTagihan(null);
+      setCatatanBayar("");
+    } catch (err: any) {
+      alert("Gagal memproses pembayaran: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleTambahTagihan(e: React.FormEvent) {
+  async function handleTambahTagihan(e: React.FormEvent) {
     e.preventDefault();
-    const siswa = daftarSiswaInduk.find((s) => s.id === formTambah.siswaId) || daftarSiswaInduk[0];
+    const siswa = siswaList.find((s) => String(s.id) === String(formTambah.siswaId)) || siswaList[0];
     if (!siswa) return;
 
-    tambahTagihanSPP({
-      siswaId: siswa.id,
-      siswaNama: siswa.nama,
-      nisn: siswa.nisn,
-      kelas: siswa.kelas,
-      bulan: formTambah.bulan,
-      nominal: Number(formTambah.nominal),
-      status: "BELUM_BAYAR",
-      catatan: formTambah.catatan,
-    });
+    setSubmitting(true);
+    try {
+      const res = await api.createSPPTagihan({
+        siswa_id: Number(siswa.id),
+        bulan: formTambah.bulan,
+        nominal: Number(formTambah.nominal),
+      });
 
-    setOpenModalTambah(false);
+      const newTagihan: TagihanSPP = {
+        id: String(res?.data?.id || Date.now()),
+        noKwitansi: res?.data?.no_kwitansi || `INV-${Date.now()}`,
+        siswaId: String(siswa.id),
+        siswaNama: siswa.nama,
+        nisn: siswa.nisn,
+        kelas: siswa.kelas,
+        bulan: formTambah.bulan,
+        nominal: Number(formTambah.nominal),
+        status: "BELUM_BAYAR",
+        catatan: formTambah.catatan,
+      };
+
+      setSppList((prev) => [newTagihan, ...prev]);
+      setOpenModalTambah(false);
+    } catch (err: any) {
+      alert("Gagal membuat tagihan SPP: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -129,9 +222,19 @@ export default function AdminSPPPage() {
 
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchSPP}
+            disabled={loading}
+            className="text-xs h-9 gap-1.5"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
             size="sm"
             onClick={() => setOpenModalTambah(true)}
-            className="gap-2 bg-navy-900 text-white hover:bg-navy-800 text-xs cursor-pointer shadow-xs"
+            className="gap-2 bg-navy-900 text-white hover:bg-navy-800 text-xs cursor-pointer shadow-xs h-9"
           >
             <Plus size={14} />
             Buat Tagihan SPP
@@ -141,67 +244,84 @@ export default function AdminSPPPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Pemasukan SPP Lunas</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-                <TrendingUp size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-xl font-bold font-mono text-emerald-600">
-              Rp {totalPemasukanLunas.toLocaleString("id-ID")}
-            </div>
-            <div className="mt-1 text-[11px] text-slate-500">{totalSiswaLunas} dari {filteredList.length} tagihan lunas</div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-8 w-8 rounded-xl" />
+                </div>
+                <Skeleton className="h-7 w-36" />
+                <Skeleton className="h-3.5 w-24" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Pemasukan SPP Lunas</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <TrendingUp size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-xl font-bold font-mono text-emerald-600">
+                  Rp {totalPemasukanLunas.toLocaleString("id-ID")}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">{totalSiswaLunas} dari {filteredList.length} tagihan lunas</div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Tunggakan Belum Lunas</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-rose-700">
-                <AlertCircle size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-xl font-bold font-mono text-rose-600">
-              Rp {totalTunggakan.toLocaleString("id-ID")}
-            </div>
-            <div className="mt-1 text-[11px] text-slate-500">
-              {filteredList.filter((t) => t.status !== "LUNAS").length} siswa menunggak
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Tunggakan Belum Lunas</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-rose-700">
+                    <AlertCircle size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-xl font-bold font-mono text-rose-600">
+                  Rp {totalTunggakan.toLocaleString("id-ID")}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  {filteredList.filter((t) => t.status !== "LUNAS").length} siswa menunggak
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Persentase Kelunasan</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-700">
-                <DollarSign size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">
-              {persentaseLunas}%
-            </div>
-            <div className="mt-1 text-[11px] text-slate-500">Target ketertiban 95%</div>
-          </CardContent>
-        </Card>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Persentase Kelunasan</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-700">
+                    <DollarSign size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-bold font-mono text-navy-950">
+                  {persentaseLunas}%
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">Target ketertiban 95%</div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Total Nilai Tagihan</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
-                <Receipt size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-xl font-bold font-mono text-navy-950">
-              Rp {totalNominalTagihan.toLocaleString("id-ID")}
-            </div>
-            <div className="mt-1 text-[11px] text-slate-500">{filteredList.length} transaksi tercatat</div>
-          </CardContent>
-        </Card>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Total Nilai Tagihan</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
+                    <Receipt size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-xl font-bold font-mono text-navy-950">
+                  Rp {totalNominalTagihan.toLocaleString("id-ID")}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">{filteredList.length} transaksi tercatat</div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Main Table Card */}
@@ -277,7 +397,23 @@ export default function AdminSPPPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredList.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-3.5"><Skeleton className="h-5 w-24 rounded" /></td>
+                      <td className="px-5 py-3.5 space-y-1.5">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-20" />
+                      </td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-24 font-mono" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                      <td className="px-5 py-3.5 text-right"><Skeleton className="h-7 w-16 ml-auto rounded-lg" /></td>
+                    </tr>
+                  ))
+                ) : filteredList.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-10 text-center text-slate-400">
                       Tidak ada tagihan SPP yang cocok dengan filter pencarian.
@@ -597,7 +733,7 @@ export default function AdminSPPPage() {
                   className="h-9 w-full rounded-xl border border-input bg-white px-3 text-xs text-slate-700 outline-none"
                 >
                   <option value="">-- Pilih Siswa --</option>
-                  {daftarSiswaInduk.map((s) => (
+                  {siswaList.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.nama} ({s.kelas} - {s.nisn})
                     </option>
