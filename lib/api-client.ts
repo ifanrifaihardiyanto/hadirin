@@ -38,6 +38,13 @@ async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): P
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    // Auto-clear invalid token on 401 to stop infinite retry loops
+    if (res.status === 401) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_user");
+      }
+    }
     throw new Error(data.message || data.error || `Request failed with status ${res.status}`);
   }
 

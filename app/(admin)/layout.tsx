@@ -1,3 +1,4 @@
+import { StoreProvider } from "@/lib/store";
 import AdminNavShell from "@/components/AdminNavShell";
 import DashboardHeader from "@/components/DashboardHeader";
 
@@ -7,6 +8,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
+    <StoreProvider>
     <div className="flex min-h-screen w-full bg-slate-50/60">
       <AdminNavShell />
       <div className="flex flex-1 flex-col min-w-0">
@@ -16,5 +18,6 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+    </StoreProvider>
   );
 }
