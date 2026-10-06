@@ -216,7 +216,7 @@ export const api = {
     return fetchApi("/presensi-guru/today");
   },
 
-  async clockInGuru(payload?: { lokasi?: string; keterangan?: string }) {
+  async clockInGuru(payload?: { lokasi?: string; keterangan?: string; latitude?: number; longitude?: number }) {
     return fetchApi("/presensi-guru/clock-in", {
       method: "POST",
       body: JSON.stringify(payload || {}),

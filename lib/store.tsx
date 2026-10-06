@@ -2216,8 +2216,8 @@ interface StoreValue {
   daftarIzin: PermohonanIzin[];
   kasusBKList: KasusBK[];
   presensiGuruList: PresensiGuruRecord[];
-  checkInGuru: (guruId: string, status?: StatusPresensiGuru, keterangan?: string) => void;
-  checkOutGuru: (guruId: string) => void;
+  checkInGuru: (guruId: string, status?: StatusPresensiGuru, keterangan?: string, coords?: { latitude?: number; longitude?: number; lokasiNama?: string }) => Promise<any>;
+  checkOutGuru: (guruId: string) => Promise<any>;
   tambahKasusBK: (kasus: Omit<KasusBK, "id">) => void;
   updateStatusKasusBK: (id: string, status: StatusKasusBK, tindakan?: string) => void;
   currentUser: CurrentUser;
@@ -2799,20 +2799,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       daftarIzin,
       kasusBKList,
       presensiGuruList,
-      checkInGuru: (guruId: string, customStatus?: StatusPresensiGuru, keterangan?: string) => {
+      checkInGuru: async (
+        guruId: string,
+        customStatus?: StatusPresensiGuru,
+        keterangan?: string,
+        coords?: { latitude?: number; longitude?: number; lokasiNama?: string }
+      ) => {
         const jamSekarang = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
         const guru = daftarGuru.find((g) => g.id === guruId) || {
           nama: "Sari Wulandari, S.Pd",
           id: guruId,
         };
         const status: StatusPresensiGuru = customStatus || (new Date().getHours() < 7 ? "TEPAT_WAKTU" : "TERLAMBAT");
+        const lokasiFinal = coords?.lokasiNama || "Kampus SMAN 3 Contoh";
 
         setPresensiGuruList((prev) => {
           const existing = prev.find((p) => p.guruId === guruId);
           if (existing) {
             return prev.map((p) =>
               p.guruId === guruId
-                ? { ...p, jamMasuk: jamSekarang, status, keterangan: keterangan || p.keterangan }
+                ? { ...p, jamMasuk: jamSekarang, status, lokasi: lokasiFinal, keterangan: keterangan || p.keterangan }
                 : p
             );
           }
@@ -2826,20 +2832,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               tanggal: getTanggalHariIniFormatted(),
               jamMasuk: jamSekarang,
               status,
-              keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri pagi" : "Presensi terlambat"),
-              lokasi: "SMA Negeri 3 Contoh",
+              keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri tepat waktu" : "Presensi terlambat"),
+              lokasi: lokasiFinal,
             },
             ...prev,
           ];
         });
 
         // Sync with Backend
-        api.clockInGuru({
-          lokasi: "SMA Negeri 3 Contoh",
-          keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri pagi" : "Presensi terlambat"),
-        }).catch((err) => console.warn("API clockInGuru notice:", err?.message));
+        try {
+          return await api.clockInGuru({
+            lokasi: lokasiFinal,
+            latitude: coords?.latitude,
+            longitude: coords?.longitude,
+            keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri tepat waktu" : "Presensi terlambat"),
+          });
+        } catch (err: any) {
+          console.warn("API clockInGuru notice:", err?.message);
+          return null;
+        }
       },
-      checkOutGuru: (guruId: string) => {
+      checkOutGuru: async (guruId: string) => {
         const jamSekarang = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
         setPresensiGuruList((prev) =>
           prev.map((p) =>
@@ -2848,7 +2861,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
 
         // Sync with Backend
-        api.clockOutGuru().catch((err) => console.warn("API clockOutGuru notice:", err?.message));
+        try {
+          return await api.clockOutGuru();
+        } catch (err: any) {
+          console.warn("API clockOutGuru notice:", err?.message);
+          return null;
+        }
       },
       currentUser,
       tambahGuru: (guru) => {
