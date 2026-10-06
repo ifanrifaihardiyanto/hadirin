@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { buatSiswa, type Siswa } from "./mock-data";
+import { usePathname } from "next/navigation";
 import { api, getToken } from "./api-client";
 import { getTanggalHariIniFormatted } from "./utils";
 
@@ -2362,6 +2363,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUser>(USER_GURU_DEFAULT);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
+  const pathname = usePathname();
 
   useEffect(() => {
     try {
@@ -2376,6 +2378,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function loadDataFromBackend() {
+      // Jangan fetch data jika sedang di halaman login / register / onboarding / root marketing
+      if (pathname === "/login" || pathname === "/onboarding" || pathname === "/") return;
+
       const token = getToken();
       if (!token) return;
 
@@ -2786,8 +2791,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     loadDataFromBackend();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname]);
 
   const value = useMemo<StoreValue>(
     () => ({

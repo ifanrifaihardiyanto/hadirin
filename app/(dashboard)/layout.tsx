@@ -1,4 +1,3 @@
-import { StoreProvider } from "@/lib/store";
 import NavShell from "@/components/NavShell";
 import DashboardHeader from "@/components/DashboardHeader";
 
@@ -8,7 +7,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <StoreProvider>
+    
     <div className="flex min-h-screen w-full bg-slate-50/60">
       <NavShell />
       <div className="flex flex-1 flex-col min-w-0">
@@ -18,6 +17,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
-    </StoreProvider>
+    
   );
 }
