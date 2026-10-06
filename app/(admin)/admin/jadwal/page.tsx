@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import {
   useStore,
@@ -24,11 +25,13 @@ import {
   type SlotWaktu,
   type JadwalEntry,
 } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -41,14 +44,27 @@ function labelSlot(s: SlotWaktu) {
   return `${s.mulai}–${s.selesai}`;
 }
 
+interface GuruItem {
+  id: string;
+  nama: string;
+  email: string;
+  telepon: string;
+  mapel: string[];
+}
+
 export default function AdminJadwalPage() {
-  const { daftarGuru, daftarKelas, jadwal, tambahJadwal, hapusJadwal } = useStore();
+  const [guruList, setGuruList] = useState<GuruItem[]>([]);
+  const [kelasList, setKelasList] = useState<{ id: number; nama: string }[]>([]);
+  const [mapelList, setMapelList] = useState<{ id: number; nama: string }[]>([]);
+  const [jadwalList, setJadwalList] = useState<JadwalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [guruAktifId, setGuruAktifId] = useState<string>(() => daftarGuru[0]?.id ?? "g1");
-  const guruAktif = daftarGuru.find((g) => g.id === guruAktifId) ?? daftarGuru[0];
+  const [guruAktifId, setGuruAktifId] = useState<string>("");
+  const guruAktif = guruList.find((g) => g.id === guruAktifId) ?? guruList[0];
 
-  const [mapel, setMapel] = useState<string>(() => guruAktif?.mapel[0] ?? "Matematika");
-  const [kelas, setKelas] = useState<string>(() => daftarKelas[0]?.nama ?? "X IPA 1");
+  const [mapel, setMapel] = useState<string>("Matematika");
+  const [kelas, setKelas] = useState<string>("X IPA 1");
   const [hari, setHari] = useState<string>(HARI[0]);
   const [slotIndex, setSlotIndex] = useState<number>(0);
   const [pesanError, setPesanError] = useState<string | null>(null);
@@ -57,14 +73,88 @@ export default function AdminJadwalPage() {
   // Konfirmasi Hapus Jadwal Modal State
   const [jadwalAkanDihapus, setJadwalAkanDihapus] = useState<JadwalEntry | null>(null);
 
-  function konfirmasiHapus() {
+  const fetchJadwalData = async () => {
+    setLoading(true);
+    try {
+      const [resGuru, resKelas, resMapel, resJadwal] = await Promise.all([
+        api.getGuruList().catch(() => ({ data: [] })),
+        api.getKelasList().catch(() => ({ data: [] })),
+        api.getMapelList().catch(() => ({ data: [] })),
+        api.getJadwalList().catch(() => ({ data: [] })),
+      ]);
+
+      const gurus: GuruItem[] = (resGuru?.data || []).map((g: any) => ({
+        id: String(g.id),
+        nama: g.nama,
+        email: g.email || "",
+        telepon: g.telepon || "",
+        mapel: Array.isArray(g.mata_pelajarans) && g.mata_pelajarans.length > 0
+          ? g.mata_pelajarans.map((m: any) => m.nama)
+          : g.jabatan
+          ? [g.jabatan]
+          : ["Guru Pengampu"],
+      }));
+      setGuruList(gurus);
+
+      if (gurus.length > 0 && !guruAktifId) {
+        setGuruAktifId(gurus[0].id);
+        if (gurus[0].mapel[0]) setMapel(gurus[0].mapel[0]);
+      }
+
+      const kelases = (resKelas?.data || []).map((k: any) => ({
+        id: k.id,
+        nama: k.nama,
+      }));
+      setKelasList(kelases);
+      if (kelases.length > 0 && !kelas) setKelas(kelases[0].nama);
+
+      const mapels = (resMapel?.data || []).map((m: any) => ({
+        id: m.id,
+        nama: m.nama,
+      }));
+      setMapelList(mapels);
+
+      const jadwals: JadwalEntry[] = (resJadwal?.data || []).map((j: any) => {
+        const jamMulai = j.jam_mulai ? j.jam_mulai.substring(0, 5) : "07:30";
+        const jamSelesai = j.jam_selesai ? j.jam_selesai.substring(0, 5) : "09:00";
+        const foundSlot = SLOT_WAKTU.findIndex((s) => s.mulai === jamMulai);
+        return {
+          id: String(j.id),
+          guruId: String(j.guru_id),
+          hari: j.hari,
+          jamMulai,
+          jamSelesai,
+          kelas: j.kelas?.nama || "X IPA 1",
+          mapel: j.mapel?.nama || "Mapel",
+        };
+      });
+      setJadwalList(jadwals);
+    } catch (err: any) {
+      console.warn("Gagal memuat data jadwal:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJadwalData();
+  }, []);
+
+  async function konfirmasiHapus() {
     if (!jadwalAkanDihapus) return;
     const mapelHapus = jadwalAkanDihapus.mapel;
     const kelasHapus = jadwalAkanDihapus.kelas;
-    hapusJadwal(jadwalAkanDihapus.id);
-    setJadwalAkanDihapus(null);
-    setPesanSukses(`Jadwal ${mapelHapus} (${kelasHapus}) berhasil dihapus.`);
-    setTimeout(() => setPesanSukses(null), 3000);
+    const targetId = jadwalAkanDihapus.id;
+
+    try {
+      await api.deleteJadwal(targetId);
+      setJadwalList((prev) => prev.filter((j) => String(j.id) !== String(targetId)));
+      setJadwalAkanDihapus(null);
+      setPesanSukses(`Jadwal ${mapelHapus} (${kelasHapus}) berhasil dihapus.`);
+      setTimeout(() => setPesanSukses(null), 3000);
+    } catch (err: any) {
+      setPesanError("Gagal menghapus jadwal: " + (err?.message || "Terjadi kesalahan"));
+    }
   }
 
   // Search & Combobox Dropdown State
@@ -82,37 +172,37 @@ export default function AdminJadwalPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const currentIndex = daftarGuru.findIndex((g) => g.id === (guruAktif?.id ?? ""));
+  const currentIndex = guruList.findIndex((g) => g.id === (guruAktif?.id ?? ""));
 
   function keGuruSebelumnya() {
-    if (daftarGuru.length === 0) return;
-    const prevIdx = (currentIndex - 1 + daftarGuru.length) % daftarGuru.length;
-    gantiGuruAktif(daftarGuru[prevIdx].id);
+    if (guruList.length === 0) return;
+    const prevIdx = (currentIndex - 1 + guruList.length) % guruList.length;
+    gantiGuruAktif(guruList[prevIdx].id);
   }
 
   function keGuruBerikutnya() {
-    if (daftarGuru.length === 0) return;
-    const nextIdx = (currentIndex + 1) % daftarGuru.length;
-    gantiGuruAktif(daftarGuru[nextIdx].id);
+    if (guruList.length === 0) return;
+    const nextIdx = (currentIndex + 1) % guruList.length;
+    gantiGuruAktif(guruList[nextIdx].id);
   }
 
   const guruTersaring = useMemo(() => {
-    if (!cariGuru.trim()) return daftarGuru;
+    if (!cariGuru.trim()) return guruList;
     const q = cariGuru.toLowerCase();
-    return daftarGuru.filter(
+    return guruList.filter(
       (g) =>
         g.nama.toLowerCase().includes(q) ||
         g.mapel.some((m) => m.toLowerCase().includes(q))
     );
-  }, [daftarGuru, cariGuru]);
+  }, [guruList, cariGuru]);
 
   const jadwalGuruAktif = useMemo(
-    () => jadwal.filter((j) => j.guruId === (guruAktif?.id ?? "")),
-    [jadwal, guruAktif]
+    () => jadwalList.filter((j) => String(j.guruId) === String(guruAktif?.id ?? "")),
+    [jadwalList, guruAktif]
   );
 
   function jamMingguGuru(id: string) {
-    return jadwal.filter((j) => j.guruId === id).length * JAM_PER_SLOT;
+    return jadwalList.filter((j) => String(j.guruId) === String(id)).length * JAM_PER_SLOT;
   }
 
   const jamMinggu = jamMingguGuru(guruAktif?.id ?? "");
@@ -121,7 +211,7 @@ export default function AdminJadwalPage() {
 
   function gantiGuruAktif(id: string) {
     setGuruAktifId(id);
-    const g = daftarGuru.find((x) => x.id === id);
+    const g = guruList.find((x) => x.id === id);
     if (g) {
       setMapel(g.mapel[0] ?? "");
     }
@@ -134,12 +224,12 @@ export default function AdminJadwalPage() {
     setPesanError(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!guruAktif || !mapel || !kelas) return;
 
     const slot = SLOT_WAKTU[slotIndex];
-    const bentrok = cekBentrok(jadwal, {
+    const bentrok = cekBentrok(jadwalList, {
       guruId: guruAktif.id,
       kelas,
       hari,
@@ -151,18 +241,40 @@ export default function AdminJadwalPage() {
       return;
     }
 
-    tambahJadwal({
-      guruId: guruAktif.id,
-      mapel,
-      kelas,
-      hari,
-      jamMulai: slot.mulai,
-      jamSelesai: slot.selesai,
-    });
+    setSubmitting(true);
+    try {
+      const targetKelas = kelasList.find((k) => k.nama === kelas);
+      const targetMapel = mapelList.find((m) => m.nama === mapel);
 
-    setPesanError(null);
-    setPesanSukses(`Jadwal ${mapel} (${kelas}) berhasil ditambahkan!`);
-    setTimeout(() => setPesanSukses(null), 3000);
+      const res = await api.createJadwal({
+        guru_id: Number(guruAktif.id),
+        kelas_id: targetKelas?.id,
+        mapel_id: targetMapel?.id,
+        hari,
+        jam_mulai: slot.mulai,
+        jam_selesai: slot.selesai,
+        ruangan: `R. ${kelas}`,
+      });
+
+      const newEntry: JadwalEntry = {
+        id: String(res?.data?.id || Date.now()),
+        guruId: String(guruAktif.id),
+        mapel,
+        kelas,
+        hari,
+        jamMulai: slot.mulai,
+        jamSelesai: slot.selesai,
+      };
+
+      setJadwalList((prev) => [...prev, newEntry]);
+      setPesanError(null);
+      setPesanSukses(`Jadwal ${mapel} (${kelas}) berhasil ditambahkan!`);
+      setTimeout(() => setPesanSukses(null), 3000);
+    } catch (err: any) {
+      setPesanError("Gagal menambahkan jadwal: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function unduhXLSX() {
@@ -228,13 +340,25 @@ export default function AdminJadwalPage() {
   return (
     <div className="w-full space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
-          Penjadwalan Mengajar
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Kelola bagan jadwal pelajaran per guru secara terstruktur dan terintegrasi
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
+            Penjadwalan Mengajar
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Kelola bagan jadwal pelajaran per guru secara terstruktur dan terintegrasi
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchJadwalData}
+          disabled={loading}
+          className="text-xs h-9 gap-1.5 self-start sm:self-auto"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Selector Toolbar - User-friendly Combobox for Long Teacher Lists */}
@@ -345,7 +469,7 @@ export default function AdminJadwalPage() {
                   </div>
 
                   <div className="mt-2 border-t border-border pt-2 px-1 text-[11px] text-muted-foreground flex justify-between items-center">
-                    <span>Menampilkan {guruTersaring.length} dari {daftarGuru.length} guru</span>
+                    <span>Menampilkan {guruTersaring.length} dari {guruList.length} guru</span>
                     {cariGuru && (
                       <button
                         type="button"
@@ -373,7 +497,7 @@ export default function AdminJadwalPage() {
                 <ChevronLeft size={14} />
               </Button>
               <span className="text-[11px] text-muted-foreground px-1 font-mono font-medium">
-                {currentIndex + 1} / {daftarGuru.length}
+                {currentIndex + 1} / {guruList.length}
               </span>
               <Button
                 type="button"
@@ -391,7 +515,7 @@ export default function AdminJadwalPage() {
           {/* Quick Info / Export Button Group */}
           <div className="flex items-center gap-2 shrink-0 border-t lg:border-t-0 pt-2 lg:pt-0 border-border">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              Total <strong className="text-navy-950 font-bold">{daftarGuru.length}</strong> guru terdaftar
+              Total <strong className="text-navy-950 font-bold">{guruList.length}</strong> guru terdaftar
             </span>
             <div className="h-4 w-px bg-border hidden sm:block" />
             <Button
@@ -416,7 +540,18 @@ export default function AdminJadwalPage() {
         </div>
       </div>
 
-      {guruAktif && (
+      {loading ? (
+        <div className="space-y-6">
+          <Card className="border-none bg-slate-900 text-white p-6 space-y-4">
+            <Skeleton className="h-5 w-28 bg-slate-800" />
+            <Skeleton className="h-7 w-60 bg-slate-800" />
+            <Skeleton className="h-2 w-full bg-slate-800" />
+          </Card>
+          <Card className="p-6 border border-border bg-white shadow-xs">
+            <Skeleton className="h-72 w-full" />
+          </Card>
+        </div>
+      ) : guruAktif ? (
         <>
           {/* Card Progres Target Guru Aktif */}
           <Card className="border-none bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-md">
@@ -596,7 +731,7 @@ export default function AdminJadwalPage() {
                       onChange={(e) => setKelas(e.target.value)}
                       className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus:border-navy-600"
                     >
-                      {daftarKelas.map((k) => (
+                      {kelasList.map((k) => (
                         <option key={k.id} value={k.nama}>
                           {k.nama}
                         </option>
@@ -640,17 +775,18 @@ export default function AdminJadwalPage() {
                 <div className="flex justify-end pt-2 border-t border-border">
                   <Button
                     type="submit"
+                    disabled={submitting}
                     className="gap-2 bg-navy-900 text-white hover:bg-navy-800"
                   >
                     <CalendarPlus size={16} />
-                    Tambahkan ke Jadwal
+                    {submitting ? "Menyimpan..." : "Tambahkan ke Jadwal"}
                   </Button>
                 </div>
               </form>
             </CardContent>
           </Card>
         </>
-      )}
+      ) : null}
 
       {/* Modal Konfirmasi Hapus Jadwal */}
       <Dialog

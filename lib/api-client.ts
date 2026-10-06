@@ -151,6 +151,19 @@ export const api = {
     return fetchApi(`/jadwal${qs ? `?${qs}` : ""}`);
   },
 
+  async createJadwal(payload: any) {
+    return fetchApi("/jadwal", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteJadwal(id: string | number) {
+    return fetchApi(`/jadwal/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   async getJadwalHariIni() {
     return fetchApi<{
       success: boolean;
