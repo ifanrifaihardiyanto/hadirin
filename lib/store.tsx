@@ -2414,25 +2414,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
           // Update state SETELAH backend berhasil menyimpan ke database Supabase
           const jamRes = res?.data?.jam_masuk ? `${res.data.jam_masuk.substring(0, 5)} WIB` : jamSekarang;
+          const entryId = res?.data?.id ? String(res.data.id) : String(guruId);
           setPresensiGuruList((prev) => {
-            const existing = prev.find((p) => p.guruId === guruId);
+            const existing = prev.find(
+              (p) => String(p.id) === String(entryId) || String(p.guruId) === String(guruId)
+            );
             if (existing) {
               return prev.map((p) =>
-                p.guruId === guruId
-                  ? { ...p, jamMasuk: jamRes, status, lokasi: lokasiFinal, keterangan: keterangan || p.keterangan }
+                String(p.id) === String(entryId) || String(p.guruId) === String(guruId)
+                  ? { ...p, id: entryId, jamMasuk: jamRes, status: res?.data?.status || status, lokasi: lokasiFinal, keterangan: keterangan || p.keterangan }
                   : p
               );
             }
             return [
               {
-                id: res?.data?.id ? String(res.data.id) : `pg-${Date.now()}`,
-                guruId,
+                id: entryId,
+                guruId: String(guruId),
                 nama: guru.nama,
                 nip: "19850412 200902 2 003",
                 jabatan: "Guru Pengajar",
                 tanggal: getTanggalHariIniFormatted(),
                 jamMasuk: jamRes,
-                status,
+                status: res?.data?.status || status,
                 keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri tepat waktu" : "Presensi terlambat"),
                 lokasi: lokasiFinal,
               },
@@ -2480,8 +2483,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               lokasi: p.lokasi || "SMAN 3 Contoh",
             };
             setPresensiGuruList((prev) => {
-              const exists = prev.some((item) => item.guruId === entry.guruId);
-              return exists ? prev.map((item) => (item.guruId === entry.guruId ? entry : item)) : [entry, ...prev];
+              // Cocokkan berdasarkan ID database atau guruId agar TIDAK TERDUPLIKASI
+              const exists = prev.some(
+                (item) => String(item.id) === String(entry.id) || String(item.guruId) === String(entry.guruId) || item.tanggal === entry.tanggal
+              );
+              return exists
+                ? prev.map((item) =>
+                    String(item.id) === String(entry.id) || String(item.guruId) === String(entry.guruId) || item.tanggal === entry.tanggal
+                      ? entry
+                      : item
+                  )
+                : [entry, ...prev];
             });
           }
         } catch (err) {
