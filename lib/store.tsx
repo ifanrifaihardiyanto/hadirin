@@ -2468,7 +2468,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const p = res.data;
             const entry: PresensiGuruRecord = {
               id: String(p.id),
-              guruId: String(p.guru_id || currentUser.id || "g1"),
+              guruId: String(p.guru_id || "g1"),
               nama: p.guru?.nama || currentUser.nama || "Sari Wulandari, S.Pd",
               nip: p.guru?.nip || "198503152010012015",
               jabatan: p.guru?.jabatan || "Wali Kelas & Guru Matematika",

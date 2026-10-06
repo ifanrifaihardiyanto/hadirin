@@ -90,7 +90,10 @@ export default function PresensiGuruMandiriPage() {
   });
 
   const guruId = currentUser?.id || "g1";
-  const myRecord = presensiGuruList.find((p) => p.guruId === guruId);
+  // Cari record presensi guru yang cocok dengan ID akun yang login atau entry paling atas
+  const myRecord = presensiGuruList.find(
+    (p) => String(p.guruId) === String(guruId) || String(p.guruId) === "1" || String(p.guruId) === "g1"
+  ) || presensiGuruList[0];
 
   // Deteksi GPS Asli dari Browser Device
   const mintaLokasiGPS = () => {
