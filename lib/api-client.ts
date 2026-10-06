@@ -334,6 +334,12 @@ export const api = {
     });
   },
 
+  async deleteMateri(id: string | number) {
+    return fetchApi(`/materi/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   // Tugas (Fase 3)
   async getTugasList(params?: { kelas_id?: string | number; mapel_id?: string | number }) {
     const query = new URLSearchParams();
@@ -347,6 +353,12 @@ export const api = {
     return fetchApi("/tugas", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteTugas(id: string | number) {
+    return fetchApi(`/tugas/${id}`, {
+      method: "DELETE",
     });
   },
 

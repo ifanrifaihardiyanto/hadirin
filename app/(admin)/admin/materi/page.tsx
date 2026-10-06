@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   BookOpen,
   Search,
@@ -11,50 +11,109 @@ import {
   File,
   Download,
   Trash2,
-  Calendar,
-  Layers,
   X,
+  RefreshCw,
   ExternalLink,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useStore, type MateriAjar } from "@/lib/store";
-import { cn } from "@/lib/utils";
+import { api } from "@/lib/api-client";
+
+interface MateriItem {
+  id: number;
+  judul: string;
+  deskripsi?: string;
+  tipe: "PDF" | "VIDEO" | "SLIDE" | "DOKUMEN";
+  file_url: string;
+  ukuran_file: string;
+  tanggal_upload: string;
+  guru?: {
+    id: number;
+    nama: string;
+  };
+  mapel?: {
+    id: number;
+    nama: string;
+  };
+  kelas?: {
+    id: number;
+    nama: string;
+  };
+}
 
 export default function AdminMateriPage() {
-  const { daftarMateri, tambahMateri, hapusMateri, daftarMapel, tahunAjaranAktif, semesterAktif } = useStore();
+  const [daftarMateri, setDaftarMateri] = useState<MateriItem[]>([]);
+  const [kelasList, setKelasList] = useState<Array<{ id: number; nama: string }>>([]);
+  const [mapelList, setMapelList] = useState<Array<{ id: number; nama: string }>>([]);
+  const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [filterKelas, setFilterKelas] = useState("SEMUA");
   const [filterMapel, setFilterMapel] = useState("SEMUA");
   const [filterTipe, setFilterTipe] = useState("SEMUA");
   const [openModal, setOpenModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form State
   const [formMateri, setFormMateri] = useState({
     judul: "",
-    mapel: "Matematika Wajib",
-    kelas: "X IPA 1",
-    guruNama: "Sari Wulandari, S.Pd",
-    tipe: "PDF" as const,
-    fileUrl: "#",
-    ukuranFile: "2.5 MB",
-    tanggalUpload: new Date().toISOString().split("T")[0],
+    mapel_id: "",
+    kelas_id: "",
+    tipe: "PDF" as "PDF" | "VIDEO" | "SLIDE" | "DOKUMEN",
+    file_url: "https://storage.hadirin.sch.id/modul-pembelajaran.pdf",
+    ukuran_file: "2.4 MB",
+    deskripsi: "",
   });
 
-  const kelasOptions = ["X IPA 1", "X IPA 2", "XI IPA 1", "XI IPA 2", "XII IPA 1", "XII IPS 1"];
   const tipeOptions = ["PDF", "VIDEO", "SLIDE", "DOKUMEN"];
+
+  // Fetch initial data
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [materiRes, kelasRes, mapelRes] = await Promise.allSettled([
+        api.getMateriList(),
+        api.getKelasList(),
+        api.getMapelList(),
+      ]);
+
+      if (kelasRes.status === "fulfilled" && kelasRes.value?.data) {
+        setKelasList(kelasRes.value.data);
+      }
+      if (mapelRes.status === "fulfilled" && mapelRes.value?.data) {
+        setMapelList(mapelRes.value.data);
+      }
+      if (materiRes.status === "fulfilled" && materiRes.value?.data) {
+        setDaftarMateri(materiRes.value.data);
+      } else {
+        setDaftarMateri([]);
+      }
+    } catch (err) {
+      console.error("Gagal memuat materi ajar:", err);
+      setDaftarMateri([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // Filtered List
   const filteredList = useMemo(() => {
     return daftarMateri.filter((m) => {
+      const guruNama = m.guru?.nama || "";
+      const mapelNama = m.mapel?.nama || "";
+      const kelasNama = m.kelas?.nama || "";
+
       const matchSearch =
         m.judul.toLowerCase().includes(search.toLowerCase()) ||
-        m.guruNama.toLowerCase().includes(search.toLowerCase());
-      const matchKelas = filterKelas === "SEMUA" || m.kelas === filterKelas;
-      const matchMapel = filterMapel === "SEMUA" || m.mapel === filterMapel;
+        guruNama.toLowerCase().includes(search.toLowerCase());
+      const matchKelas = filterKelas === "SEMUA" || kelasNama === filterKelas;
+      const matchMapel = filterMapel === "SEMUA" || mapelNama === filterMapel;
       const matchTipe = filterTipe === "SEMUA" || m.tipe === filterTipe;
       return matchSearch && matchKelas && matchMapel && matchTipe;
     });
@@ -66,22 +125,54 @@ export default function AdminMateriPage() {
   const totalVideo = daftarMateri.filter((m) => m.tipe === "VIDEO").length;
   const totalSlide = daftarMateri.filter((m) => m.tipe === "SLIDE").length;
 
-  function handleSubmitTambah(e: React.FormEvent) {
+  async function handleSubmitTambah(e: React.FormEvent) {
     e.preventDefault();
-    if (!formMateri.judul) return;
+    if (!formMateri.judul || !formMateri.mapel_id) {
+      alert("Harap lengkapi judul dan pilih mata pelajaran.");
+      return;
+    }
 
-    tambahMateri(formMateri);
-    setOpenModal(false);
-    setFormMateri({
-      judul: "",
-      mapel: "Matematika Wajib",
-      kelas: "X IPA 1",
-      guruNama: "Sari Wulandari, S.Pd",
-      tipe: "PDF",
-      fileUrl: "#",
-      ukuranFile: "2.5 MB",
-      tanggalUpload: new Date().toISOString().split("T")[0],
-    });
+    setSubmitting(true);
+    try {
+      await api.uploadMateri({
+        judul: formMateri.judul,
+        mapel_id: Number(formMateri.mapel_id),
+        kelas_id: formMateri.kelas_id ? Number(formMateri.kelas_id) : null,
+        tipe: formMateri.tipe,
+        file_url: formMateri.file_url,
+        ukuran_file: formMateri.ukuran_file,
+        deskripsi: formMateri.deskripsi || null,
+      });
+
+      setOpenModal(false);
+      setFormMateri({
+        judul: "",
+        mapel_id: "",
+        kelas_id: "",
+        tipe: "PDF",
+        file_url: "https://storage.hadirin.sch.id/modul-pembelajaran.pdf",
+        ukuran_file: "2.4 MB",
+        deskripsi: "",
+      });
+      await fetchData();
+    } catch (err) {
+      console.error("Gagal mengunggah materi:", err);
+      alert("Gagal mengunggah materi ajar. Periksa kembali form.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteMateri(id: number, judul: string) {
+    if (confirm(`Apakah Anda yakin ingin menghapus materi "${judul}"?`)) {
+      try {
+        await api.deleteMateri(id);
+        await fetchData();
+      } catch (err) {
+        console.error("Gagal menghapus materi:", err);
+        alert("Gagal menghapus materi.");
+      }
+    }
   }
 
   function getIconTipe(tipe: string) {
@@ -111,74 +202,106 @@ export default function AdminMateriPage() {
             </h1>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Perpustakaan digital bahan ajar: modul PDF, presentasi PPT, dan media pembelajaran ({tahunAjaranAktif} - {semesterAktif})
+            Perpustakaan digital bahan ajar: modul PDF, presentasi PPT, dan video pembelajaran langsung tersambung ke Supabase.
           </p>
         </div>
 
-        <Button
-          size="sm"
-          onClick={() => setOpenModal(true)}
-          className="gap-2 bg-navy-900 text-white hover:bg-navy-800 text-xs cursor-pointer shadow-xs"
-        >
-          <Plus size={14} />
-          Upload Materi Baru
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            disabled={loading}
+            className="gap-1.5 border-border bg-white text-xs hover:bg-slate-50"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Segarkan
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => {
+              if (mapelList.length > 0 && !formMateri.mapel_id) {
+                setFormMateri((prev) => ({ ...prev, mapel_id: String(mapelList[0].id) }));
+              }
+              if (kelasList.length > 0 && !formMateri.kelas_id) {
+                setFormMateri((prev) => ({ ...prev, kelas_id: String(kelasList[0].id) }));
+              }
+              setOpenModal(true);
+            }}
+            className="gap-2 bg-navy-900 text-white hover:bg-navy-800 text-xs cursor-pointer shadow-xs"
+          >
+            <Plus size={14} />
+            Upload Materi Baru
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Total Bahan Ajar</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
-                <BookOpen size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalMateri}</div>
-            <div className="mt-1 text-[11px] text-emerald-600 font-medium">● Siap Diakses Siswa</div>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="border-border bg-white p-4 animate-pulse">
+              <div className="h-4 w-24 rounded bg-slate-200" />
+              <div className="mt-3 h-7 w-12 rounded bg-slate-200" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Total Bahan Ajar</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
+                  <BookOpen size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalMateri}</div>
+              <div className="mt-1 text-[11px] text-emerald-600 font-medium">● Siap Diakses Siswa</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Modul PDF</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-rose-700">
-                <FileText size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalPdf}</div>
-            <div className="mt-1 text-[11px] text-slate-500">E-Book &amp; Handout</div>
-          </CardContent>
-        </Card>
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Modul PDF</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-rose-700">
+                  <FileText size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalPdf}</div>
+              <div className="mt-1 text-[11px] text-slate-500">E-Book &amp; Handout</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Slide Presentasi</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-700">
-                <Presentation size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalSlide}</div>
-            <div className="mt-1 text-[11px] text-slate-500">PowerPoint &amp; Canva</div>
-          </CardContent>
-        </Card>
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Slide Presentasi</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-700">
+                  <Presentation size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalSlide}</div>
+              <div className="mt-1 text-[11px] text-slate-500">PowerPoint &amp; Canva</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Video Pembelajaran</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-700">
-                <Video size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalVideo}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Animasi &amp; Rekaman KBM</div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Video Pembelajaran</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-700">
+                  <Video size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalVideo}</div>
+              <div className="mt-1 text-[11px] text-slate-500">Animasi &amp; Rekaman KBM</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Main Table Card */}
       <Card className="border-border bg-white shadow-md rounded-2xl overflow-hidden">
@@ -201,9 +324,9 @@ export default function AdminMateriPage() {
                 className="h-9 rounded-xl border border-input bg-white px-3 text-xs text-slate-700 outline-none shadow-2xs"
               >
                 <option value="SEMUA">Semua Kelas</option>
-                {kelasOptions.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
+                {kelasList.map((k) => (
+                  <option key={k.id} value={k.nama}>
+                    {k.nama}
                   </option>
                 ))}
               </select>
@@ -214,7 +337,7 @@ export default function AdminMateriPage() {
                 className="h-9 rounded-xl border border-input bg-white px-3 text-xs text-slate-700 outline-none shadow-2xs"
               >
                 <option value="SEMUA">Semua Mapel</option>
-                {daftarMapel.map((m) => (
+                {mapelList.map((m) => (
                   <option key={m.id} value={m.nama}>
                     {m.nama}
                   </option>
@@ -252,7 +375,33 @@ export default function AdminMateriPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredList.length === 0 ? (
+                {loading ? (
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-48 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-12 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-28 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-16 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-12 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-20 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="h-4 w-12 ml-auto rounded bg-slate-200" />
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredList.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-slate-400">
                       Tidak ada materi ajar yang cocok dengan filter pencarian.
@@ -268,7 +417,9 @@ export default function AdminMateriPage() {
                           </span>
                           <div>
                             <div className="font-bold text-navy-950 text-sm leading-snug">{m.judul}</div>
-                            <div className="text-[11px] text-slate-400">ID: {m.id}</div>
+                            {m.deskripsi && (
+                              <div className="text-[11px] text-slate-500 line-clamp-1">{m.deskripsi}</div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -280,35 +431,38 @@ export default function AdminMateriPage() {
                       </td>
 
                       <td className="px-5 py-3.5">
-                        <div className="font-semibold text-navy-900">{m.mapel}</div>
-                        <div className="text-[11px] text-slate-500">{m.guruNama}</div>
+                        <div className="font-semibold text-navy-900">{m.mapel?.nama || "Mapel Umum"}</div>
+                        <div className="text-[11px] text-slate-500">{m.guru?.nama || "Guru Pengampu"}</div>
                       </td>
 
                       <td className="px-5 py-3.5 font-medium text-slate-700">
-                        {m.kelas}
+                        {m.kelas?.nama || "Semua Kelas"}
                       </td>
 
                       <td className="px-5 py-3.5 font-mono text-[11px] text-slate-600">
-                        {m.ukuranFile}
+                        {m.ukuran_file || "1.5 MB"}
                       </td>
 
                       <td className="px-5 py-3.5 font-mono text-[11px] text-slate-500">
-                        {m.tanggalUpload}
+                        {m.tanggal_upload || "-"}
                       </td>
 
                       <td className="px-5 py-3.5 text-right space-x-1">
-                        <button
-                          type="button"
-                          onClick={() => alert("Mengunduh materi: " + m.judul)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-navy-900 hover:bg-slate-100 transition-colors"
-                          title="Download Materi"
-                        >
-                          <Download size={15} />
-                        </button>
+                        {m.file_url && (
+                          <a
+                            href={m.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block p-1.5 rounded-lg text-slate-500 hover:text-navy-900 hover:bg-slate-100 transition-colors"
+                            title="Unduh / Buka Materi"
+                          >
+                            <ExternalLink size={15} />
+                          </a>
+                        )}
 
                         <button
                           type="button"
-                          onClick={() => hapusMateri(m.id)}
+                          onClick={() => handleDeleteMateri(m.id, m.judul)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                           title="Hapus Materi"
                         >
@@ -352,14 +506,16 @@ export default function AdminMateriPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">Mata Pelajaran</label>
+                  <label className="font-semibold text-slate-700">Mata Pelajaran *</label>
                   <select
-                    value={formMateri.mapel}
-                    onChange={(e) => setFormMateri({ ...formMateri, mapel: e.target.value })}
+                    required
+                    value={formMateri.mapel_id}
+                    onChange={(e) => setFormMateri({ ...formMateri, mapel_id: e.target.value })}
                     className="h-9 w-full rounded-xl border border-input bg-white px-3 text-xs text-slate-700 outline-none"
                   >
-                    {daftarMapel.map((m) => (
-                      <option key={m.id} value={m.nama}>
+                    <option value="">Pilih Mata Pelajaran</option>
+                    {mapelList.map((m) => (
+                      <option key={m.id} value={m.id}>
                         {m.nama}
                       </option>
                     ))}
@@ -367,15 +523,16 @@ export default function AdminMateriPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">Kelas</label>
+                  <label className="font-semibold text-slate-700">Kelas Target</label>
                   <select
-                    value={formMateri.kelas}
-                    onChange={(e) => setFormMateri({ ...formMateri, kelas: e.target.value })}
+                    value={formMateri.kelas_id}
+                    onChange={(e) => setFormMateri({ ...formMateri, kelas_id: e.target.value })}
                     className="h-9 w-full rounded-xl border border-input bg-white px-3 text-xs text-slate-700 outline-none"
                   >
-                    {kelasOptions.map((k) => (
-                      <option key={k} value={k}>
-                        {k}
+                    <option value="">Semua Kelas (Umum)</option>
+                    {kelasList.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.nama}
                       </option>
                     ))}
                   </select>
@@ -399,22 +556,36 @@ export default function AdminMateriPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">Guru Pengampu</label>
+                  <label className="font-semibold text-slate-700">Ukuran Berkas File</label>
                   <Input
-                    value={formMateri.guruNama}
-                    onChange={(e) => setFormMateri({ ...formMateri, guruNama: e.target.value })}
+                    value={formMateri.ukuran_file}
+                    onChange={(e) => setFormMateri({ ...formMateri, ukuran_file: e.target.value })}
+                    placeholder="Contoh: 3.5 MB"
                     className="h-9 text-xs rounded-xl"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Pilih Berkas File (Simulasi)</label>
-                <div className="border border-dashed border-slate-300 rounded-xl p-4 text-center bg-slate-50 text-slate-500 cursor-pointer hover:bg-slate-100">
-                  <FileText size={24} className="mx-auto text-slate-400 mb-1" />
-                  <p className="font-medium text-xs">Klik untuk memilih file PDF / PPT / MP4</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Maksimum ukuran file: 25 MB</p>
-                </div>
+                <label className="font-semibold text-slate-700">URL Berkas Digital / File Link *</label>
+                <Input
+                  required
+                  value={formMateri.file_url}
+                  onChange={(e) => setFormMateri({ ...formMateri, file_url: e.target.value })}
+                  placeholder="https://storage.hadirin.sch.id/modul.pdf"
+                  className="h-9 text-xs rounded-xl font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">Deskripsi Singkat (Opsional)</label>
+                <textarea
+                  rows={2}
+                  value={formMateri.deskripsi}
+                  onChange={(e) => setFormMateri({ ...formMateri, deskripsi: e.target.value })}
+                  placeholder="Petunjuk pengerjaan atau materi pengantar..."
+                  className="w-full rounded-xl border border-input bg-white p-2.5 text-xs text-slate-700 outline-none resize-none"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
@@ -430,9 +601,10 @@ export default function AdminMateriPage() {
                 <Button
                   type="submit"
                   size="sm"
+                  disabled={submitting}
                   className="bg-navy-900 text-white hover:bg-navy-800 rounded-xl text-xs shadow-xs"
                 >
-                  Simpan &amp; Bagikan ke Kelas
+                  {submitting ? "Mengunggah..." : "Simpan & Bagikan ke Kelas"}
                 </Button>
               </div>
             </form>
