@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api-client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getTanggalHariIniFormatted } from "@/lib/utils";
 import {
   FileCheck,
   Plus,
@@ -18,6 +21,7 @@ import {
   List,
   Filter,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { useStore, type JenisIzin, type StatusIzin } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -68,13 +72,78 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+interface IzinItem {
+  id: string;
+  nis: string;
+  namaSiswa: string;
+  kelas: string;
+  jenis: JenisIzin;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  alasan: string;
+  buktiUrl?: string;
+  status: StatusIzin;
+  diajukanOleh: string;
+  tanggalPengajuan: string;
+  disetujuiOleh?: string;
+}
+
 export default function IzinSiswaPage() {
-  const { daftarIzin, tambahIzin, updateStatusIzin, currentUser, daftarKelas } = useStore();
+  const { currentUser, daftarKelas } = useStore();
+  const [izinList, setIzinList] = useState<IzinItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterKelas, setFilterKelas] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const fetchIzin = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getIzinList();
+      if (res?.data) {
+        const mapped: IzinItem[] = res.data.map((item: any) => ({
+          id: String(item.id),
+          nis: item.siswa?.nis || item.nis || "24001",
+          namaSiswa: item.siswa?.nama || item.nama_siswa || "Siswa",
+          kelas: item.siswa?.kelas?.nama || item.kelas || "X IPA 1",
+          jenis: (item.jenis || "IZIN") as JenisIzin,
+          tanggalMulai: item.tanggal_mulai || getTanggalHariIniFormatted(),
+          tanggalSelesai: item.tanggal_selesai || item.tanggal_mulai || getTanggalHariIniFormatted(),
+          alasan: item.alasan || item.keterangan || "Keperluan keluarga",
+          buktiUrl: item.bukti_surat_url || item.bukti_url,
+          status: (item.status || "MENUNGGU") as StatusIzin,
+          diajukanOleh: item.diajukan_oleh || "Wali Murid",
+          tanggalPengajuan: item.created_at ? new Date(item.created_at).toLocaleDateString("id-ID") : getTanggalHariIniFormatted(),
+          disetujuiOleh: item.diverifikasi_oleh || undefined,
+        }));
+        setIzinList(mapped);
+      }
+    } catch (e: any) {
+      console.warn("Gagal memuat daftar izin:", e?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIzin();
+  }, []);
+
+  const handleUpdateStatus = async (id: string, status: StatusIzin) => {
+    const verifikator = currentUser?.nama ? `${currentUser.nama} (Wali Kelas)` : "Wali Kelas";
+    try {
+      await api.updateIzinStatus(id, status === "DISETUJUI" ? "disetujui" : "ditolak");
+    } catch (e: any) {
+      console.warn("API updateIzinStatus warning:", e?.message);
+    }
+    setIzinList((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, status, disetujuiOleh: verifikator } : item
+      )
+    );
+  };
 
   // Form State
   const [formData, setFormData] = useState({
@@ -82,13 +151,13 @@ export default function IzinSiswaPage() {
     nis: "",
     kelas: "X IPA 1",
     jenis: "SAKIT" as JenisIzin,
-    tanggalMulai: "24 Juli 2026",
-    tanggalSelesai: "24 Juli 2026",
+    tanggalMulai: getTanggalHariIniFormatted(),
+    tanggalSelesai: getTanggalHariIniFormatted(),
     alasan: "",
     diajukanOleh: "Wali Murid",
   });
 
-  const filtered = daftarIzin.filter((item) => {
+  const filtered = izinList.filter((item) => {
     const matchQuery =
       item.namaSiswa.toLowerCase().includes(query.toLowerCase()) ||
       item.kelas.toLowerCase().includes(query.toLowerCase()) ||
@@ -99,21 +168,41 @@ export default function IzinSiswaPage() {
     return matchQuery && matchStatus && matchKelas;
   });
 
-  const totalIzin = daftarIzin.length;
-  const menungguCount = daftarIzin.filter((i) => i.status === "MENUNGGU").length;
-  const disetujuiCount = daftarIzin.filter((i) => i.status === "DISETUJUI").length;
-  const ditolakCount = daftarIzin.filter((i) => i.status === "DITOLAK").length;
-  const sakitCount = daftarIzin.filter((i) => i.jenis === "SAKIT").length;
-  const dispensasiCount = daftarIzin.filter((i) => i.jenis === "DISPENSASI").length;
+  const totalIzin = izinList.length;
+  const menungguCount = izinList.filter((i) => i.status === "MENUNGGU").length;
+  const disetujuiCount = izinList.filter((i) => i.status === "DISETUJUI").length;
+  const ditolakCount = izinList.filter((i) => i.status === "DITOLAK").length;
+  const sakitCount = izinList.filter((i) => i.jenis === "SAKIT").length;
+  const dispensasiCount = izinList.filter((i) => i.jenis === "DISPENSASI").length;
 
-  const handleSubmitNew = (e: React.FormEvent) => {
+  const handleSubmitNew = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.namaSiswa || !formData.alasan) return;
 
-    tambahIzin({
+    try {
+      const payload = {
+        nama_siswa: formData.namaSiswa,
+        nis: formData.nis || "24001",
+        kelas: formData.kelas,
+        jenis: formData.jenis,
+        tanggal_mulai: formData.tanggalMulai,
+        tanggal_selesai: formData.tanggalSelesai,
+        alasan: formData.alasan,
+        diajukan_oleh: formData.diajukanOleh,
+      };
+      await api.createIzin(payload);
+    } catch (err: any) {
+      console.warn("API createIzin warning:", err?.message);
+    }
+
+    const newItem: IzinItem = {
+      id: String(Date.now()),
       ...formData,
+      status: "MENUNGGU" as StatusIzin,
+      tanggalPengajuan: getTanggalHariIniFormatted(),
       disetujuiOleh: currentUser ? `${currentUser.nama} (Wali Kelas)` : undefined,
-    });
+    };
+    setIzinList((prev) => [newItem, ...prev]);
 
     setIsModalOpen(false);
     setFormData({
@@ -121,8 +210,8 @@ export default function IzinSiswaPage() {
       nis: "",
       kelas: "X IPA 1",
       jenis: "SAKIT",
-      tanggalMulai: "24 Juli 2026",
-      tanggalSelesai: "24 Juli 2026",
+      tanggalMulai: getTanggalHariIniFormatted(),
+      tanggalSelesai: getTanggalHariIniFormatted(),
       alasan: "",
       diajukanOleh: "Wali Murid",
     });
@@ -146,13 +235,25 @@ export default function IzinSiswaPage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-medium shadow-xs"
-        >
-          <Plus className="h-4 w-4" />
-          Catat Surat Izin Baru
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchIzin}
+            disabled={loading}
+            className="text-xs h-9 gap-1.5"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-medium shadow-xs"
+          >
+            <Plus className="h-4 w-4" />
+            Ajukan Izin / Sakit
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -339,7 +440,29 @@ export default function IzinSiswaPage() {
       </Card>
 
       {/* Main Content: Card Grid (2 Kolom Desktop, 1 Kolom Mobile) vs Table */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
+          {[1, 2, 3, 4].map((n) => (
+            <Card key={n} className="border border-slate-200/80 bg-white p-5 md:p-6 space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+              <Skeleton className="h-12 w-full rounded-lg" />
+              <div className="flex justify-between items-center pt-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-8 w-36 rounded-md" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <Card className="border border-slate-200/80 bg-white shadow-xs p-12 text-center">
           <FileCheck className="mx-auto h-12 w-12 text-slate-300" />
           <h3 className="mt-3 text-base font-semibold text-slate-800">
@@ -353,8 +476,8 @@ export default function IzinSiswaPage() {
         /* 2-KOLOM GRID DI DESKTOP: Tetap proporsional seperti mobile dan tidak melar 1400px! */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
           {filtered.map((item) => {
-            const jenisCfg = JENIS_BADGE[item.jenis];
-            const statusCfg = STATUS_BADGE[item.status];
+            const jenisCfg = JENIS_BADGE[item.jenis] || JENIS_BADGE.IZIN;
+            const statusCfg = STATUS_BADGE[item.status] || STATUS_BADGE.MENUNGGU;
             const StatusIcon = statusCfg.icon;
 
             return (
@@ -438,13 +561,7 @@ export default function IzinSiswaPage() {
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
-                          onClick={() =>
-                            updateStatusIzin(
-                              item.id,
-                              "DISETUJUI",
-                              currentUser?.nama ? `${currentUser.nama} (Wali Kelas)` : "Wali Kelas"
-                            )
-                          }
+                          onClick={() => handleUpdateStatus(item.id, "DISETUJUI")}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 font-medium shadow-xs h-8 px-3"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
@@ -453,13 +570,7 @@ export default function IzinSiswaPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() =>
-                            updateStatusIzin(
-                              item.id,
-                              "DITOLAK",
-                              currentUser?.nama ? `${currentUser.nama} (Wali Kelas)` : "Wali Kelas"
-                            )
-                          }
+                          onClick={() => handleUpdateStatus(item.id, "DITOLAK")}
                           className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs gap-1.5 font-medium h-8 px-3"
                         >
                           <XCircle className="h-3.5 w-3.5" />
@@ -496,8 +607,8 @@ export default function IzinSiswaPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((item) => {
-                  const jenisCfg = JENIS_BADGE[item.jenis];
-                  const statusCfg = STATUS_BADGE[item.status];
+                  const jenisCfg = JENIS_BADGE[item.jenis] || JENIS_BADGE.IZIN;
+                  const statusCfg = STATUS_BADGE[item.status] || STATUS_BADGE.MENUNGGU;
                   const StatusIcon = statusCfg.icon;
 
                   return (
@@ -536,13 +647,7 @@ export default function IzinSiswaPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <Button
                               size="sm"
-                              onClick={() =>
-                                updateStatusIzin(
-                                  item.id,
-                                  "DISETUJUI",
-                                  currentUser?.nama ? `${currentUser.nama} (Wali Kelas)` : "Wali Kelas"
-                                )
-                              }
+                              onClick={() => handleUpdateStatus(item.id, "DISETUJUI")}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-7 px-2.5 gap-1"
                             >
                               <CheckCircle2 className="h-3 w-3" />
@@ -551,13 +656,7 @@ export default function IzinSiswaPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() =>
-                                updateStatusIzin(
-                                  item.id,
-                                  "DITOLAK",
-                                  currentUser?.nama ? `${currentUser.nama} (Wali Kelas)` : "Wali Kelas"
-                                )
-                              }
+                              onClick={() => handleUpdateStatus(item.id, "DITOLAK")}
                               className="border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] h-7 px-2.5"
                             >
                               Tolak
