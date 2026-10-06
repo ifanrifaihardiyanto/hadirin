@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   HeartHandshake,
   ShieldAlert,
@@ -18,11 +18,15 @@ import {
   UserX,
   Send,
   BadgeAlert,
+  RefreshCw,
 } from "lucide-react";
 import { useStore, type KasusBK, type StatusKasusBK, type KategoriBK } from "@/lib/store";
+import { api } from "@/lib/api-client";
+import { getTanggalHariIniFormatted } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const KATEGORI_CONFIG: Record<
   KategoriBK,
@@ -73,7 +77,12 @@ const STATUS_CONFIG: Record<
 };
 
 export default function AdminBKPage() {
-  const { kasusBKList, tambahKasusBK, updateStatusKasusBK, daftarKelas, daftarGuru } = useStore();
+  const [bkList, setBkList] = useState<KasusBK[]>([]);
+  const [siswaList, setSiswaList] = useState<{ id: number; nama: string; nis: string; kelas?: string }[]>([]);
+  const [kelasList, setKelasList] = useState<{ id: number; nama: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
   const [search, setSearch] = useState("");
   const [filterKategori, setFilterKategori] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -94,7 +103,71 @@ export default function AdminBKPage() {
     waliKelas: "Sari Wulandari, S.Pd",
   });
 
-  const filtered = kasusBKList.filter((k) => {
+  const fetchBK = async () => {
+    setLoading(true);
+    try {
+      const [resBK, resSiswa, resKelas] = await Promise.all([
+        api.getKasusBKList().catch(() => ({ data: [] })),
+        api.getSiswaList().catch(() => ({ data: [] })),
+        api.getKelasList().catch(() => ({ data: [] })),
+      ]);
+
+      const siswas = (resSiswa?.data || []).map((s: any) => ({
+        id: s.id,
+        nama: s.nama,
+        nis: s.nis || "",
+        kelas: s.kelas?.nama || "",
+      }));
+      setSiswaList(siswas);
+
+      const kelases = (resKelas?.data || []).map((k: any) => ({
+        id: k.id,
+        nama: k.nama,
+      }));
+      setKelasList(kelases);
+
+      if (resBK?.data) {
+        const mapped: KasusBK[] = resBK.data.map((k: any) => ({
+          id: String(k.id),
+          namaSiswa: k.siswa?.nama || "Siswa",
+          nis: k.siswa?.nis || "24001",
+          kelas: k.siswa?.kelas?.nama || "X IPA 1",
+          kategori: (k.kategori || "ABSENSI_TINGGI") as KategoriBK,
+          poin: Number(k.poin || 0),
+          deskripsi: k.deskripsi || "-",
+          tindakan: k.tindakan || "-",
+          status: (k.status || "DALAM_PEMBINAAN") as StatusKasusBK,
+          guruBK: k.guru_b_k?.nama || "Dra. Endang Rahayu, M.Pd (Koord. BK)",
+          waliKelas: k.siswa?.kelas?.wali_guru?.nama || "Wali Kelas",
+          tanggalKasus: k.tanggal_kasus || getTanggalHariIniFormatted(),
+          nomorSuratPanggilan: k.nomor_surat_panggilan,
+          jadwalPanggilanOrtu: k.jadwal_panggilan_ortu,
+        }));
+        setBkList(mapped);
+      }
+    } catch (err: any) {
+      console.warn("Gagal memuat catatan BK:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBK();
+  }, []);
+
+  const handleUpdateStatus = async (id: string, newStatus: StatusKasusBK, tindakan: string) => {
+    try {
+      await api.updateKasusBKStatus(id, { status: newStatus, tindakan });
+      setBkList((prev) =>
+        prev.map((k) => (k.id === id ? { ...k, status: newStatus, tindakan } : k))
+      );
+    } catch (err: any) {
+      alert("Gagal memperbarui status: " + (err?.message || "Terjadi kesalahan"));
+    }
+  };
+
+  const filtered = bkList.filter((k) => {
     const matchSearch =
       k.namaSiswa.toLowerCase().includes(search.toLowerCase()) ||
       k.nis.includes(search) ||
@@ -105,41 +178,71 @@ export default function AdminBKPage() {
     return matchSearch && matchKat && matchStat;
   });
 
-  const totalKasus = kasusBKList.length;
-  const panggilanOrtuCount = kasusBKList.filter((k) => k.status === "PANGGILAN_ORTU").length;
-  const dalamPembinaanCount = kasusBKList.filter((k) => k.status === "DALAM_PEMBINAAN").length;
-  const prestasiCount = kasusBKList.filter((k) => k.kategori === "PRESTASI").length;
+  const totalKasus = bkList.length;
+  const panggilanOrtuCount = bkList.filter((k) => k.status === "PANGGILAN_ORTU").length;
+  const dalamPembinaanCount = bkList.filter((k) => k.status === "DALAM_PEMBINAAN").length;
+  const prestasiCount = bkList.filter((k) => k.kategori === "PRESTASI").length;
 
-  const handleSubmitNew = (e: React.FormEvent) => {
+  const handleSubmitNew = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.namaSiswa || !formData.deskripsi) return;
 
-    tambahKasusBK({
-      ...formData,
-      tanggalKasus: "24 Juli 2026",
-      nomorSuratPanggilan:
+    setSubmitting(true);
+    try {
+      const matchedSiswa = siswaList.find(
+        (s) =>
+          s.nama.toLowerCase() === formData.namaSiswa.toLowerCase() ||
+          s.nis === formData.nis
+      );
+
+      const suratNomor =
         formData.status === "PANGGILAN_ORTU"
           ? `421.3/0${Math.floor(100 + Math.random() * 900)}/SMA.03/BK/VII/2026`
-          : undefined,
-      jadwalPanggilanOrtu:
+          : undefined;
+      const jadwalOrtu =
         formData.status === "PANGGILAN_ORTU"
           ? "Senin, 28 Juli 2026 pukul 09.00 WIB di Ruang BK"
-          : undefined,
-    });
+          : undefined;
 
-    setIsModalOpen(false);
-    setFormData({
-      namaSiswa: "",
-      nis: "",
-      kelas: "X IPA 1",
-      kategori: "ABSENSI_TINGGI",
-      poin: -10,
-      deskripsi: "",
-      tindakan: "",
-      status: "DALAM_PEMBINAAN",
-      guruBK: "Dra. Endang Rahayu, M.Pd (Koord. BK)",
-      waliKelas: "Sari Wulandari, S.Pd",
-    });
+      const payload = {
+        siswa_id: matchedSiswa?.id || siswaList[0]?.id || 1,
+        kategori: formData.kategori,
+        poin: formData.poin,
+        deskripsi: formData.deskripsi,
+        tindakan: formData.tindakan || undefined,
+        status: formData.status,
+        nomor_surat_panggilan: suratNomor,
+        jadwal_panggilan_ortu: jadwalOrtu,
+      };
+
+      const res = await api.createKasusBK(payload);
+      const newEntry: KasusBK = {
+        id: String(res?.data?.id || Date.now()),
+        ...formData,
+        tanggalKasus: getTanggalHariIniFormatted(),
+        nomorSuratPanggilan: suratNomor,
+        jadwalPanggilanOrtu: jadwalOrtu,
+      };
+
+      setBkList((prev) => [newEntry, ...prev]);
+      setIsModalOpen(false);
+      setFormData({
+        namaSiswa: "",
+        nis: "",
+        kelas: "X IPA 1",
+        kategori: "ABSENSI_TINGGI",
+        poin: -10,
+        deskripsi: "",
+        tindakan: "",
+        status: "DALAM_PEMBINAAN",
+        guruBK: "Dra. Endang Rahayu, M.Pd (Koord. BK)",
+        waliKelas: "Sari Wulandari, S.Pd",
+      });
+    } catch (err: any) {
+      alert("Gagal menyimpan catatan BK: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -160,13 +263,25 @@ export default function AdminBKPage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-medium shadow-xs"
-        >
-          <Plus className="h-4 w-4" />
-          Catat Kasus / Pembinaan Baru
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchBK}
+            disabled={loading}
+            className="text-xs h-9 gap-1.5"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-medium shadow-xs text-xs h-9"
+          >
+            <Plus className="h-4 w-4" />
+            Catat Kasus / Pembinaan Baru
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -182,7 +297,7 @@ export default function AdminBKPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="font-display text-3xl font-bold tracking-tight text-navy-950">
-              {totalKasus}
+              {loading ? <Skeleton className="h-8 w-16" /> : totalKasus}
             </div>
             <p className="mt-1 text-xs text-slate-500">Siswa tercatat semester ini</p>
           </CardContent>
@@ -199,7 +314,7 @@ export default function AdminBKPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="font-display text-3xl font-bold tracking-tight text-rose-900">
-              {panggilanOrtuCount}
+              {loading ? <Skeleton className="h-8 w-16" /> : panggilanOrtuCount}
             </div>
             <p className="mt-1 text-xs text-rose-700 font-medium">Perlu surat resmi &amp; mediasi</p>
           </CardContent>
@@ -216,7 +331,7 @@ export default function AdminBKPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="font-display text-3xl font-bold tracking-tight text-amber-700">
-              {dalamPembinaanCount}
+              {loading ? <Skeleton className="h-8 w-16" /> : dalamPembinaanCount}
             </div>
             <p className="mt-1 text-xs text-slate-500">Konseling berkala aktif</p>
           </CardContent>
@@ -233,7 +348,7 @@ export default function AdminBKPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="font-display text-3xl font-bold tracking-tight text-emerald-700">
-              {prestasiCount}
+              {loading ? <Skeleton className="h-8 w-16" /> : prestasiCount}
             </div>
             <p className="mt-1 text-xs text-emerald-600 font-medium">Poin penghargaan karakter</p>
           </CardContent>
@@ -286,7 +401,22 @@ export default function AdminBKPage() {
 
       {/* Kasus List Cards */}
       <div className="space-y-4">
-        {filtered.length === 0 ? (
+        {loading ? (
+          [1, 2, 3].map((n) => (
+            <Card key={n} className="border border-slate-200/80 bg-white p-6 space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-5 w-24 rounded-full" />
+              </div>
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <div className="flex justify-between items-center pt-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-8 w-32 rounded-md" />
+              </div>
+            </Card>
+          ))
+        ) : filtered.length === 0 ? (
           <Card className="border border-slate-200/80 bg-white shadow-xs p-10 text-center">
             <HeartHandshake className="mx-auto h-12 w-12 text-slate-300" />
             <h3 className="mt-3 text-base font-semibold text-slate-800">
@@ -298,8 +428,8 @@ export default function AdminBKPage() {
           </Card>
         ) : (
           filtered.map((k) => {
-            const katCfg = KATEGORI_CONFIG[k.kategori];
-            const statCfg = STATUS_CONFIG[k.status];
+            const katCfg = KATEGORI_CONFIG[k.kategori] || KATEGORI_CONFIG.ABSENSI_TINGGI;
+            const statCfg = STATUS_CONFIG[k.status] || STATUS_CONFIG.DALAM_PEMBINAAN;
             const StatIcon = statCfg.icon;
             const isNegative = k.poin < 0;
 
@@ -388,7 +518,7 @@ export default function AdminBKPage() {
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            updateStatusKasusBK(
+                            handleUpdateStatus(
                               k.id,
                               "SELESAI",
                               "Siswa telah menyelesaikan konseling dan berkomitmen memperbaiki absensi."
@@ -469,7 +599,7 @@ export default function AdminBKPage() {
                     onChange={(e) => setFormData({ ...formData, kelas: e.target.value })}
                     className="w-full p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    {daftarKelas.map((k) => (
+                    {kelasList.map((k) => (
                       <option key={k.id} value={k.nama}>
                         {k.nama}
                       </option>
@@ -565,9 +695,10 @@ export default function AdminBKPage() {
                 <Button
                   type="submit"
                   size="sm"
+                  disabled={submitting}
                   className="bg-navy-900 hover:bg-navy-800 text-white font-medium shadow-xs"
                 >
-                  Simpan Catatan BK
+                  {submitting ? "Menyimpan..." : "Simpan Catatan BK"}
                 </Button>
               </div>
             </form>
