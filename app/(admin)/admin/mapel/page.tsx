@@ -1,29 +1,34 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   BookOpen,
   Search,
   Plus,
-  Printer,
   Trash2,
   Clock,
   Award,
   Layers,
-  Sparkles,
   BookOpenCheck,
-  CheckCircle2,
+  RefreshCw,
   X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useStore, type MataPelajaran } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export default function AdminMapelPage() {
-  const { daftarMapel, tambahMapel, hapusMapel, tahunAjaranAktif, semesterAktif } = useStore();
+  const { tahunAjaranAktif, semesterAktif } = useStore();
+
+  const [mapelList, setMapelList] = useState<MataPelajaran[]>([]);
+  const [guruList, setGuruList] = useState<{ id: number; nama: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [filterKelompok, setFilterKelompok] = useState("SEMUA");
@@ -36,16 +41,52 @@ export default function AdminMapelPage() {
     kelompok: "A (Wajib)" as const,
     tingkat: "Semua Tingkat" as const,
     bebanJam: 3,
-    guruPengampu: "Sari Wulandari, S.Pd",
+    guruId: "",
     status: "AKTIF" as const,
   });
 
   const kelompokOptions = ["A (Wajib)", "B (Umum)", "C (Peminatan)", "Muatan Lokal"];
   const tingkatOptions = ["Semua Tingkat", "Kelas X", "Kelas XI", "Kelas XII"];
 
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [resMapel, resGuru] = await Promise.all([
+        api.getMapelList().catch(() => ({ data: [] })),
+        api.getGuruList().catch(() => ({ data: [] })),
+      ]);
+
+      if (resGuru?.data) {
+        setGuruList(resGuru.data.map((g: any) => ({ id: g.id, nama: g.nama })));
+      }
+
+      if (resMapel?.data) {
+        const mapped: MataPelajaran[] = resMapel.data.map((m: any) => ({
+          id: String(m.id),
+          kode: m.kode || `MP-${m.id}`,
+          nama: m.nama,
+          kelompok: (m.kelompok || "A (Wajib)") as any,
+          tingkat: (m.tingkat || "Semua Tingkat") as any,
+          bebanJam: Number(m.beban_jam || 2),
+          guruPengampu: m.guru?.nama || "Belum Ditentukan",
+          status: (m.status || "AKTIF") as any,
+        }));
+        setMapelList(mapped);
+      }
+    } catch (err: any) {
+      console.warn("Gagal memuat mata pelajaran:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   // Filtered List
   const filteredList = useMemo(() => {
-    return daftarMapel.filter((m) => {
+    return mapelList.filter((m) => {
       const matchSearch =
         m.nama.toLowerCase().includes(search.toLowerCase()) ||
         m.kode.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,29 +94,72 @@ export default function AdminMapelPage() {
       const matchKelompok = filterKelompok === "SEMUA" || m.kelompok === filterKelompok;
       return matchSearch && matchKelompok;
     });
-  }, [daftarMapel, search, filterKelompok]);
+  }, [mapelList, search, filterKelompok]);
 
   // Statistics
-  const totalMapel = daftarMapel.length;
-  const totalWajib = daftarMapel.filter((m) => m.kelompok === "A (Wajib)" || m.kelompok === "B (Umum)").length;
-  const totalPeminatan = daftarMapel.filter((m) => m.kelompok === "C (Peminatan)").length;
-  const totalBebanJP = daftarMapel.reduce((acc, curr) => acc + curr.bebanJam, 0);
+  const totalMapel = mapelList.length;
+  const totalWajib = mapelList.filter((m) => m.kelompok === "A (Wajib)" || m.kelompok === "B (Umum)").length;
+  const totalPeminatan = mapelList.filter((m) => m.kelompok === "C (Peminatan)").length;
+  const totalBebanJP = mapelList.reduce((acc, curr) => acc + curr.bebanJam, 0);
 
-  function handleSubmitTambah(e: React.FormEvent) {
+  async function handleSubmitTambah(e: React.FormEvent) {
     e.preventDefault();
     if (!formMapel.nama || !formMapel.kode) return;
 
-    tambahMapel(formMapel);
-    setOpenModal(false);
-    setFormMapel({
-      kode: "",
-      nama: "",
-      kelompok: "A (Wajib)",
-      tingkat: "Semua Tingkat",
-      bebanJam: 3,
-      guruPengampu: "Sari Wulandari, S.Pd",
-      status: "AKTIF",
-    });
+    setSubmitting(true);
+    try {
+      const payload = {
+        kode: formMapel.kode,
+        nama: formMapel.nama,
+        kelompok: formMapel.kelompok,
+        tingkat: formMapel.tingkat,
+        beban_jam: Number(formMapel.bebanJam),
+        guru_id: formMapel.guruId ? Number(formMapel.guruId) : null,
+        status: formMapel.status,
+      };
+
+      const res = await api.createMapel(payload);
+      const newId = String(res?.data?.id || Date.now());
+      const guruObj = guruList.find((g) => String(g.id) === String(formMapel.guruId));
+
+      const newMapel: MataPelajaran = {
+        id: newId,
+        kode: formMapel.kode,
+        nama: formMapel.nama,
+        kelompok: formMapel.kelompok,
+        tingkat: formMapel.tingkat,
+        bebanJam: Number(formMapel.bebanJam),
+        guruPengampu: guruObj?.nama || "Belum Ditentukan",
+        status: formMapel.status,
+      };
+
+      setMapelList((prev) => [newMapel, ...prev]);
+      setOpenModal(false);
+      setFormMapel({
+        kode: "",
+        nama: "",
+        kelompok: "A (Wajib)",
+        tingkat: "Semua Tingkat",
+        bebanJam: 3,
+        guruId: "",
+        status: "AKTIF",
+      });
+    } catch (err: any) {
+      alert("Gagal menambahkan mata pelajaran: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleHapusMapel(id: string) {
+    if (!confirm("Apakah Anda yakin ingin menghapus mata pelajaran ini?")) return;
+
+    try {
+      await api.deleteMapel(id);
+      setMapelList((prev) => prev.filter((m) => m.id !== id));
+    } catch (err: any) {
+      alert("Gagal menghapus mata pelajaran: " + (err?.message || "Terjadi kesalahan"));
+    }
   }
 
   return (
@@ -98,9 +182,19 @@ export default function AdminMapelPage() {
 
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            disabled={loading}
+            className="text-xs h-9 gap-1.5"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
             size="sm"
             onClick={() => setOpenModal(true)}
-            className="gap-2 bg-navy-900 text-white hover:bg-navy-800 text-xs cursor-pointer shadow-xs"
+            className="gap-2 bg-navy-900 text-white hover:bg-navy-800 text-xs cursor-pointer shadow-xs h-9"
           >
             <Plus size={14} />
             Tambah Mapel Baru
@@ -110,57 +204,74 @@ export default function AdminMapelPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Total Mata Pelajaran</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
-                <BookOpen size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalMapel}</div>
-            <div className="mt-1 text-[11px] text-emerald-600 font-medium">● Seluruh Jenjang</div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-8 rounded-xl" />
+                </div>
+                <Skeleton className="h-7 w-16" />
+                <Skeleton className="h-3.5 w-28" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Total Mata Pelajaran</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
+                    <BookOpen size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalMapel}</div>
+                <div className="mt-1 text-[11px] text-emerald-600 font-medium">● Seluruh Jenjang</div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Mapel Wajib / Umum</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-800">
-                <Award size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalWajib}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Kelompok A &amp; B</div>
-          </CardContent>
-        </Card>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Mapel Wajib / Umum</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-800">
+                    <Award size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalWajib}</div>
+                <div className="mt-1 text-[11px] text-slate-500">Kelompok A &amp; B</div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Mapel Peminatan</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-purple-50 text-purple-900">
-                <Layers size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalPeminatan}</div>
-            <div className="mt-1 text-[11px] text-slate-500">IPA, IPS &amp; Bahasa</div>
-          </CardContent>
-        </Card>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Mapel Peminatan</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-purple-50 text-purple-900">
+                    <Layers size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalPeminatan}</div>
+                <div className="mt-1 text-[11px] text-slate-500">IPA, IPS &amp; Bahasa</div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Total Beban JP / Minggu</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-900">
-                <Clock size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalBebanJP} JP</div>
-            <div className="mt-1 text-[11px] text-slate-500">Jam Pelajaran Aktif</div>
-          </CardContent>
-        </Card>
+            <Card className="border-border bg-white shadow-2xs">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">Total Beban JP / Minggu</span>
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-900">
+                    <Clock size={16} />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalBebanJP} JP</div>
+                <div className="mt-1 text-[11px] text-slate-500">Jam Pelajaran Aktif</div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Main Table Card */}
@@ -210,7 +321,23 @@ export default function AdminMapelPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredList.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-3.5"><Skeleton className="h-5 w-16 rounded" /></td>
+                      <td className="px-5 py-3.5 space-y-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-16" />
+                      </td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-28" /></td>
+                      <td className="px-5 py-3.5"><Skeleton className="h-5 w-14 rounded-full" /></td>
+                      <td className="px-5 py-3.5 text-right"><Skeleton className="h-7 w-7 ml-auto rounded-lg" /></td>
+                    </tr>
+                  ))
+                ) : filteredList.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-10 text-center text-slate-400">
                       Tidak ada mata pelajaran yang cocok dengan filter pencarian.
@@ -267,7 +394,7 @@ export default function AdminMapelPage() {
                       <td className="px-5 py-3.5 text-right">
                         <button
                           type="button"
-                          onClick={() => hapusMapel(m.id)}
+                          onClick={() => handleHapusMapel(m.id)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                           title="Hapus Mapel"
                         >
@@ -368,12 +495,18 @@ export default function AdminMapelPage() {
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700">Guru Pengampu Utama</label>
-                <Input
-                  value={formMapel.guruPengampu}
-                  onChange={(e) => setFormMapel({ ...formMapel, guruPengampu: e.target.value })}
-                  placeholder="Nama Guru Pengajar"
-                  className="h-9 text-xs rounded-xl"
-                />
+                <select
+                  value={formMapel.guruId}
+                  onChange={(e) => setFormMapel({ ...formMapel, guruId: e.target.value })}
+                  className="h-9 w-full rounded-xl border border-input bg-white px-3 text-xs text-slate-700 outline-none"
+                >
+                  <option value="">-- Pilih Guru Pengampu (Opsional) --</option>
+                  {guruList.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.nama}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
@@ -389,9 +522,10 @@ export default function AdminMapelPage() {
                 <Button
                   type="submit"
                   size="sm"
+                  disabled={submitting}
                   className="bg-navy-900 text-white hover:bg-navy-800 rounded-xl text-xs shadow-xs"
                 >
-                  Simpan Mata Pelajaran
+                  {submitting ? "Menyimpan..." : "Simpan Mata Pelajaran"}
                 </Button>
               </div>
             </form>

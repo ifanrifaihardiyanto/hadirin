@@ -141,6 +141,12 @@ export const api = {
     });
   },
 
+  async deleteMapel(id: string | number) {
+    return fetchApi(`/mapel/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   // Jadwal & Absensi (Fase 2)
   async getJadwalList(params?: { hari?: string; kelas_id?: string | number; guru_id?: string | number }) {
     const query = new URLSearchParams();
