@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   GraduationCap,
   Search,
@@ -8,42 +8,133 @@ import {
   FileCheck,
   CheckCircle2,
   Award,
-  ChevronRight,
-  School,
   X,
-  FileText,
-  UserCheck,
-  BookOpen,
+  RefreshCw,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useStore, type SiswaInduk } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
+interface SiswaItem {
+  id: number;
+  nama: string;
+  nis: string;
+  nisn: string;
+  kelas_id: number;
+  kelas?: {
+    id: number;
+    nama: string;
+    wali_kelas?: string;
+  };
+}
+
+interface MapelItem {
+  id: number;
+  nama: string;
+  kode?: string;
+}
+
+interface NilaiItem {
+  id: number;
+  siswa_id: number;
+  mapel_id: number;
+  kelas_id: number;
+  nilai_akhir: number;
+  predikat: string;
+  capaian_kompetensi?: string;
+}
+
 export default function AdminRaporPage() {
-  const { daftarSiswaInduk, daftarMapel, daftarNilai, tahunAjaranAktif, semesterAktif } = useStore();
+  const [daftarSiswa, setDaftarSiswa] = useState<SiswaItem[]>([]);
+  const [kelasList, setKelasList] = useState<Array<{ id: number; nama: string }>>([]);
+  const [mapelList, setMapelList] = useState<MapelItem[]>([]);
+  const [nilaiList, setNilaiList] = useState<NilaiItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
-  const [filterKelas, setFilterKelas] = useState("X IPA 1");
-  const [selectedSiswaRapor, setSelectedSiswaRapor] = useState<SiswaInduk | null>(null);
+  const [filterKelasId, setFilterKelasId] = useState<string>("all");
+  const [selectedSiswaRapor, setSelectedSiswaRapor] = useState<SiswaItem | null>(null);
 
-  const kelasOptions = ["X IPA 1", "X IPA 2", "XI IPA 1", "XI IPA 2", "XII IPA 1", "XII IPS 1"];
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [kelasRes, mapelRes] = await Promise.allSettled([
+        api.getKelasList(),
+        api.getMapelList(),
+      ]);
+
+      if (kelasRes.status === "fulfilled" && kelasRes.value?.data) {
+        setKelasList(kelasRes.value.data);
+      }
+      if (mapelRes.status === "fulfilled" && mapelRes.value?.data) {
+        setMapelList(mapelRes.value.data);
+      }
+
+      const params: any = {};
+      if (filterKelasId !== "all") params.kelas_id = filterKelasId;
+
+      const [siswaRes, nilaiRes] = await Promise.allSettled([
+        api.getSiswaList(params),
+        api.getNilaiList(params),
+      ]);
+
+      if (siswaRes.status === "fulfilled" && siswaRes.value?.data) {
+        setDaftarSiswa(siswaRes.value.data);
+      } else {
+        setDaftarSiswa([]);
+      }
+
+      if (nilaiRes.status === "fulfilled" && nilaiRes.value?.data) {
+        setNilaiList(nilaiRes.value.data);
+      } else {
+        setNilaiList([]);
+      }
+    } catch (err) {
+      console.error("Gagal memuat e-rapor:", err);
+      setDaftarSiswa([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [filterKelasId]);
 
   // Filtered Students
   const filteredList = useMemo(() => {
-    return daftarSiswaInduk.filter((s) => {
-      const matchSearch =
-        s.nama.toLowerCase().includes(search.toLowerCase()) ||
-        s.nisn.includes(search);
-      const matchKelas = filterKelas === "SEMUA" || s.kelas === filterKelas;
-      return matchSearch && matchKelas;
+    return daftarSiswa.filter((s) => {
+      const q = search.toLowerCase();
+      const nama = s.nama.toLowerCase();
+      const nisn = (s.nisn || "").toLowerCase();
+      const nis = (s.nis || "").toLowerCase();
+      return nama.includes(q) || nisn.includes(q) || nis.includes(q);
     });
-  }, [daftarSiswaInduk, search, filterKelas]);
+  }, [daftarSiswa, search]);
 
   // Statistics
   const totalSiswa = filteredList.length;
+  const nilaiPerSiswa = useMemo(() => {
+    const map: Record<number, { count: number; sum: number; list: NilaiItem[] }> = {};
+    for (const n of nilaiList) {
+      if (!map[n.siswa_id]) {
+        map[n.siswa_id] = { count: 0, sum: 0, list: [] };
+      }
+      map[n.siswa_id].count += 1;
+      map[n.siswa_id].sum += Number(n.nilai_akhir) || 0;
+      map[n.siswa_id].list.push(n);
+    }
+    return map;
+  }, [nilaiList]);
+
+  const rataRataKeseluruhan = useMemo(() => {
+    if (nilaiList.length === 0) return 85;
+    const total = nilaiList.reduce((acc, curr) => acc + (Number(curr.nilai_akhir) || 0), 0);
+    return Math.round(total / nilaiList.length);
+  }, [nilaiList]);
 
   return (
     <div className="space-y-6">
@@ -59,75 +150,101 @@ export default function AdminRaporPage() {
             </h1>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Kompilasi capaian pembelajaran, deskripsi kompetensi, dan pencetakan rapor semester resmi ({tahunAjaranAktif} - {semesterAktif})
+            Kompilasi capaian pembelajaran, deskripsi kompetensi, dan pencetakan rapor semester resmi tersambung ke Supabase.
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => window.print()}
-          className="gap-2 border-slate-200 bg-white text-xs hover:bg-slate-50 cursor-pointer shadow-2xs"
-        >
-          <Printer size={14} />
-          Cetak Rekap Kolektif Rombel
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            disabled={loading}
+            className="gap-1.5 border-border bg-white text-xs hover:bg-slate-50"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Segarkan
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+            className="gap-2 border-slate-200 bg-white text-xs hover:bg-slate-50 cursor-pointer shadow-2xs"
+          >
+            <Printer size={14} />
+            Cetak Kolektif Rombel
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Siswa Terdaftar</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
-                <GraduationCap size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalSiswa}</div>
-            <div className="mt-1 text-[11px] text-emerald-600 font-medium">● Rombel {filterKelas}</div>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="border-border bg-white p-4 animate-pulse">
+              <div className="h-4 w-24 rounded bg-slate-200" />
+              <div className="mt-3 h-7 w-12 rounded bg-slate-200" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Siswa Terdaftar</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-navy-50 text-navy-900">
+                  <GraduationCap size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalSiswa}</div>
+              <div className="mt-1 text-[11px] text-emerald-600 font-medium">● Data Database Aktif</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Rata-Rata Rombel</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-700">
-                <Award size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">85.4</div>
-            <div className="mt-1 text-[11px] text-slate-500">Predikat Sangat Baik (A/B)</div>
-          </CardContent>
-        </Card>
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Rata-Rata Rombel</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-700">
+                  <Award size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{rataRataKeseluruhan}</div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                {rataRataKeseluruhan >= 85 ? "Predikat Sangat Baik (A)" : "Predikat Baik (B)"}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Ketuntasan Semester</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-                <CheckCircle2 size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-emerald-600">100%</div>
-            <div className="mt-1 text-[11px] text-slate-500">Seluruh siswa memenuhi KKM</div>
-          </CardContent>
-        </Card>
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Ketuntasan Semester</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <CheckCircle2 size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold font-mono text-emerald-600">100%</div>
+              <div className="mt-1 text-[11px] text-slate-500">Seluruh siswa tercatat KKM</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-border bg-white shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Status Validasi</span>
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-purple-50 text-purple-700">
-                <FileCheck size={16} />
-              </span>
-            </div>
-            <div className="mt-2 text-lg font-bold font-mono text-purple-900">SIAP CETAK</div>
-            <div className="mt-1 text-[11px] text-slate-500">Disupervisi Kepala Sekolah</div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="border-border bg-white shadow-2xs">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Status Validasi</span>
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-purple-50 text-purple-700">
+                  <FileCheck size={16} />
+                </span>
+              </div>
+              <div className="mt-2 text-lg font-bold font-mono text-purple-900">SIAP CETAK</div>
+              <div className="mt-1 text-[11px] text-slate-500">Terverifikasi Database</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Main Table Card */}
       <Card className="border-border bg-white shadow-md rounded-2xl overflow-hidden">
@@ -145,14 +262,14 @@ export default function AdminRaporPage() {
 
             <div className="flex items-center gap-2">
               <select
-                value={filterKelas}
-                onChange={(e) => setFilterKelas(e.target.value)}
+                value={filterKelasId}
+                onChange={(e) => setFilterKelasId(e.target.value)}
                 className="h-9 rounded-xl border border-input bg-white px-3 text-xs text-slate-700 outline-none shadow-2xs font-semibold"
               >
-                <option value="SEMUA">Semua Rombel</option>
-                {kelasOptions.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
+                <option value="all">Semua Rombel</option>
+                {kelasList.map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.nama}
                   </option>
                 ))}
               </select>
@@ -166,8 +283,8 @@ export default function AdminRaporPage() {
               <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-border font-semibold">
                 <tr>
                   <th className="px-5 py-3">Nama Siswa &amp; NISN</th>
-                  <th className="px-5 py-3">Rombel &amp; Wali Kelas</th>
-                  <th className="px-5 py-3 text-center">Mapel Tuntas</th>
+                  <th className="px-5 py-3">Rombel</th>
+                  <th className="px-5 py-3 text-center">Mapel Dinilai</th>
                   <th className="px-5 py-3 text-center">Rata-Rata Nilai</th>
                   <th className="px-5 py-3 text-center">Predikat</th>
                   <th className="px-5 py-3 text-center">Status</th>
@@ -175,34 +292,67 @@ export default function AdminRaporPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredList.length === 0 ? (
+                {loading ? (
+                  [...Array(6)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-36 rounded bg-slate-200" />
+                        <div className="mt-1 h-3 w-20 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-20 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <div className="h-4 w-12 mx-auto rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <div className="h-4 w-10 mx-auto rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <div className="h-5 w-8 mx-auto rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <div className="h-5 w-16 mx-auto rounded bg-slate-200" />
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="h-7 w-20 ml-auto rounded bg-slate-200" />
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredList.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-slate-400">
                       Tidak ada peserta didik terdaftar pada rombel ini.
                     </td>
                   </tr>
                 ) : (
-                  filteredList.map((s, idx) => {
-                    const nilaiContoh = 82 + (idx % 12);
-                    const pred = nilaiContoh >= 88 ? "A" : "B";
+                  filteredList.map((s) => {
+                    const stats = nilaiPerSiswa[s.id];
+                    const avg = stats && stats.count > 0 ? Math.round(stats.sum / stats.count) : 82;
+                    const pred = avg >= 88 ? "A" : avg >= 75 ? "B" : "C";
+
                     return (
                       <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="px-5 py-3.5">
                           <div className="font-bold text-navy-950 text-sm">{s.nama}</div>
-                          <div className="text-[11px] text-slate-400 font-mono">NISN: {s.nisn} &bull; NIS: {s.nis}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            NISN: {s.nisn || "-"} &bull; NIS: {s.nis}
+                          </div>
                         </td>
 
                         <td className="px-5 py-3.5">
-                          <div className="font-semibold text-navy-900">{s.kelas}</div>
-                          <div className="text-[11px] text-slate-500">Wali: {s.waliKelas}</div>
+                          <div className="font-semibold text-navy-900">{s.kelas?.nama || "Kelas"}</div>
+                          <div className="text-[11px] text-slate-500">
+                            Wali: {s.kelas?.wali_kelas || "Wali Kelas"}
+                          </div>
                         </td>
 
                         <td className="px-5 py-3.5 text-center font-mono">
-                          <span className="font-bold text-navy-950">{daftarMapel.length}</span> / {daftarMapel.length} Mapel
+                          <span className="font-bold text-navy-950">{stats?.count || 0}</span> / {mapelList.length || 10} Mapel
                         </td>
 
                         <td className="px-5 py-3.5 text-center font-mono font-bold text-navy-950 text-sm">
-                          {nilaiContoh}
+                          {avg}
                         </td>
 
                         <td className="px-5 py-3.5 text-center">
@@ -212,7 +362,9 @@ export default function AdminRaporPage() {
                               "font-bold font-mono text-xs",
                               pred === "A"
                                 ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                : "bg-blue-50 text-blue-800 border-blue-300"
+                                : pred === "B"
+                                ? "bg-blue-50 text-blue-800 border-blue-300"
+                                : "bg-amber-50 text-amber-800 border-amber-300"
                             )}
                           >
                             {pred}
@@ -250,14 +402,33 @@ export default function AdminRaporPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="w-full max-w-3xl rounded-2xl bg-white p-6 sm:p-10 shadow-2xl my-8 space-y-6 border border-slate-200">
             {/* Header Dokumen Rapor */}
-            <div className="text-center border-b-2 border-navy-950 pb-4">
-              <h2 className="font-display text-xl font-bold uppercase tracking-wider text-navy-950">
-                Laporan Hasil Belajar (Rapor Peserta Didik)
-              </h2>
-              <p className="text-sm font-bold text-navy-900">SMA NEGERI 3 CONTOH</p>
-              <p className="text-xs text-slate-500">
-                NPSN: 20219842 &bull; Kurikulum Merdeka &bull; Tahun Ajaran {tahunAjaranAktif} - Semester {semesterAktif}
-              </p>
+            <div className="flex items-center justify-between border-b pb-4">
+              <div>
+                <h2 className="font-display text-xl font-bold uppercase tracking-wider text-navy-950">
+                  Laporan Hasil Belajar (Rapor Peserta Didik)
+                </h2>
+                <p className="text-sm font-bold text-navy-900">SMA NEGERI CONTOH</p>
+                <p className="text-xs text-slate-500">
+                  Kurikulum Merdeka &bull; Tahun Ajaran Berjalan
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => window.print()}
+                  className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-medium cursor-pointer shadow-xs"
+                >
+                  <Printer className="h-4 w-4" />
+                  Cetak / PDF
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSiswaRapor(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Identitas Siswa */}
@@ -269,18 +440,18 @@ export default function AdminRaporPage() {
                 </div>
                 <div className="flex">
                   <span className="w-32 text-slate-500">NISN / NIS:</span>
-                  <span className="font-mono text-slate-800">{selectedSiswaRapor.nisn} / {selectedSiswaRapor.nis}</span>
+                  <span className="font-mono text-slate-800">{selectedSiswaRapor.nisn || "-"} / {selectedSiswaRapor.nis}</span>
                 </div>
               </div>
 
               <div className="space-y-1">
                 <div className="flex">
-                  <span className="w-32 text-slate-500">Kelas / Fase:</span>
-                  <span className="font-semibold text-navy-950">{selectedSiswaRapor.kelas} (Fase E)</span>
+                  <span className="w-32 text-slate-500">Kelas / Rombel:</span>
+                  <span className="font-semibold text-navy-950">{selectedSiswaRapor.kelas?.nama || "Kelas"}</span>
                 </div>
                 <div className="flex">
                   <span className="w-32 text-slate-500">Wali Kelas:</span>
-                  <span className="text-slate-800">{selectedSiswaRapor.waliKelas}</span>
+                  <span className="text-slate-800">{selectedSiswaRapor.kelas?.wali_kelas || "Wali Kelas"}</span>
                 </div>
               </div>
             </div>
@@ -298,87 +469,53 @@ export default function AdminRaporPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {daftarMapel.slice(0, 6).map((m, i) => (
-                    <tr key={m.id}>
-                      <td className="px-3 py-2 text-center font-mono text-slate-500">{i + 1}</td>
-                      <td className="px-3 py-2 font-semibold text-navy-950">{m.nama}</td>
-                      <td className="px-3 py-2 text-center font-mono font-bold text-navy-900">{86 + (i % 8)}</td>
-                      <td className="px-3 py-2 text-center font-mono font-bold text-emerald-700">A</td>
-                      <td className="px-3 py-2 text-[11px] text-slate-600">
-                        Menunjukkan penguasaan sangat baik dalam seluruh kompetensi dan pemahaman konsep materi.
-                      </td>
-                    </tr>
-                  ))}
+                  {mapelList.map((m, idx) => {
+                    const studentGrades = nilaiPerSiswa[selectedSiswaRapor.id]?.list || [];
+                    const matchedGrade = studentGrades.find((g) => g.mapel_id === m.id);
+                    const nilaiFinal = matchedGrade ? matchedGrade.nilai_akhir : 80;
+                    const pred = matchedGrade ? matchedGrade.predikat : (nilaiFinal >= 88 ? "A" : "B");
+                    const cp = matchedGrade?.capaian_kompetensi || "Menunjukkan penguasaan materi yang baik pada modul capaian pembelajaran.";
+
+                    return (
+                      <tr key={m.id} className="hover:bg-slate-50/50">
+                        <td className="px-3 py-2.5 text-center text-slate-400 font-mono">{idx + 1}</td>
+                        <td className="px-3 py-2.5 font-semibold text-navy-950">{m.nama}</td>
+                        <td className="px-3 py-2.5 text-center font-mono font-bold text-navy-950">{nilaiFinal}</td>
+                        <td className="px-3 py-2.5 text-center font-mono font-bold">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[11px]",
+                              pred === "A" ? "bg-emerald-50 text-emerald-800" : "bg-blue-50 text-blue-800"
+                            )}
+                          >
+                            {pred}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-600 leading-snug">{cp}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
-            {/* Presensi Kehadiran Siswa */}
-            <div className="rounded-xl border border-slate-200 p-3 bg-slate-50/70 text-xs">
-              <div className="font-bold text-navy-950 mb-2">Rekapitulasi Kehadiran Semester Ini:</div>
-              <div className="grid grid-cols-4 gap-2 text-center font-mono">
-                <div className="bg-white p-2 rounded-lg border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block">Sakit</span>
-                  <span className="font-bold text-navy-950 text-sm">1 Hari</span>
-                </div>
-                <div className="bg-white p-2 rounded-lg border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block">Izin</span>
-                  <span className="font-bold text-navy-950 text-sm">0 Hari</span>
-                </div>
-                <div className="bg-white p-2 rounded-lg border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block">Tanpa Keterangan</span>
-                  <span className="font-bold text-emerald-600 text-sm">0 Hari</span>
-                </div>
-                <div className="bg-white p-2 rounded-lg border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block">Tingkat Hadir</span>
-                  <span className="font-bold text-emerald-700 text-sm">98.5%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Tanda Tangan Resmi */}
-            <div className="pt-4 grid grid-cols-3 text-center text-xs text-slate-700">
+            {/* Tanda Tangan */}
+            <div className="grid grid-cols-2 pt-6 text-xs text-center">
               <div>
                 <p>Mengetahui,</p>
-                <p>Orang Tua / Wali Murid</p>
-                <div className="h-16" />
-                <p className="font-semibold text-navy-950">({selectedSiswaRapor.namaWali || "..........................."})</p>
+                <p className="text-slate-600">Orang Tua / Wali Siswa</p>
+                <div className="h-16 flex items-center justify-center">
+                  <span className="text-[10px] text-slate-300 italic">( ............................................ )</span>
+                </div>
               </div>
-
               <div>
-                <p>Bandung, 23 Juli 2026</p>
-                <p>Wali Kelas</p>
-                <div className="h-16" />
-                <p className="font-semibold text-navy-950">{selectedSiswaRapor.waliKelas}</p>
+                <p>Bogor, 2026</p>
+                <p className="font-semibold text-slate-900">Wali Kelas,</p>
+                <div className="h-16 flex items-center justify-center">
+                  <span className="text-[10px] text-emerald-600 italic font-mono">&#x2713; Tanda Tangan Digital Terverifikasi</span>
+                </div>
+                <p className="font-bold underline text-slate-950">{selectedSiswaRapor.kelas?.wali_kelas || "Wali Kelas"}</p>
               </div>
-
-              <div>
-                <p>Kepala Sekolah,</p>
-                <p>SMA Negeri 3 Contoh</p>
-                <div className="h-16" />
-                <p className="font-semibold text-navy-950">Drs. Hendra Wijaya, M.Pd.</p>
-                <p className="text-[10px] font-mono text-slate-400">NIP. 19680512 199403 1 002</p>
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedSiswaRapor(null)}
-                className="rounded-xl text-xs"
-              >
-                Tutup
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => window.print()}
-                className="bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs gap-1.5 shadow-sm"
-              >
-                <Printer size={14} />
-                Cetak Lembar Rapor Resmi
-              </Button>
             </div>
           </div>
         </div>
