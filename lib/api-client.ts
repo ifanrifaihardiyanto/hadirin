@@ -586,6 +586,19 @@ export const api = {
     });
   },
 
+  async updateCBTUjian(id: string | number, payload: any) {
+    return fetchApi(`/cbt/ujian/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteCBTUjian(id: string | number) {
+    return fetchApi(`/cbt/ujian/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   async regenerateCBTToken(id: string | number) {
     return fetchApi<{ success: boolean; token: string }>(`/cbt/ujian/${id}/token`, {
       method: "PATCH",
