@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
+  Loader2,
   Clock,
   CheckCircle2,
   Calendar,
@@ -364,7 +365,12 @@ export default function PresensiGuruMandiriPage() {
                 disabled={isSubmittingCheckIn || Boolean(myRecord?.jamMasuk && myRecord.jamMasuk !== "-")}
                 className="h-14 bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/40 text-white font-bold text-sm rounded-xl gap-2 shadow-sm transition-all cursor-pointer"
               >
-                {myRecord?.jamMasuk && myRecord.jamMasuk !== "-" ? (
+                {isSubmittingCheckIn ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-white" />
+                    Menyimpan Presensi ke Database...
+                  </>
+                ) : myRecord?.jamMasuk && myRecord.jamMasuk !== "-" ? (
                   <>
                     <Check size={18} />
                     Sudah Check-In ({myRecord.jamMasuk})
@@ -372,7 +378,7 @@ export default function PresensiGuruMandiriPage() {
                 ) : (
                   <>
                     <LogIn size={18} />
-                    {isSubmittingCheckIn ? "Memproses Check-In..." : "Check-In Kedatangan"}
+                    Check-In Kedatangan
                   </>
                 )}
               </Button>
@@ -384,7 +390,12 @@ export default function PresensiGuruMandiriPage() {
                 variant="outline"
                 className="h-14 border-white/20 bg-white/5 hover:bg-white/15 text-white disabled:bg-white/5 disabled:text-white/30 font-bold text-sm rounded-xl gap-2 backdrop-blur-xs transition-all cursor-pointer"
               >
-                {myRecord?.jamPulang ? (
+                {isSubmittingCheckOut ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-white" />
+                    Menyimpan Jam Pulang...
+                  </>
+                ) : myRecord?.jamPulang ? (
                   <>
                     <Check size={18} />
                     Sudah Check-Out ({myRecord.jamPulang})
@@ -392,7 +403,7 @@ export default function PresensiGuruMandiriPage() {
                 ) : (
                   <>
                     <LogOut size={18} />
-                    {isSubmittingCheckOut ? "Memproses Check-Out..." : "Check-Out Kepulangan (15.00+)"}
+                    Check-Out Kepulangan (15.00+)
                   </>
                 )}
               </Button>

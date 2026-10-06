@@ -2404,59 +2404,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const status: StatusPresensiGuru = customStatus || (new Date().getHours() < 7 ? "TEPAT_WAKTU" : "TERLAMBAT");
         const lokasiFinal = coords?.lokasiNama || "Kampus SMAN 3 Contoh";
 
-        setPresensiGuruList((prev) => {
-          const existing = prev.find((p) => p.guruId === guruId);
-          if (existing) {
-            return prev.map((p) =>
-              p.guruId === guruId
-                ? { ...p, jamMasuk: jamSekarang, status, lokasi: lokasiFinal, keterangan: keterangan || p.keterangan }
-                : p
-            );
-          }
-          return [
-            {
-              id: `pg-${Date.now()}`,
-              guruId,
-              nama: guru.nama,
-              nip: "19850412 200902 2 003",
-              jabatan: "Guru Pengajar",
-              tanggal: getTanggalHariIniFormatted(),
-              jamMasuk: jamSekarang,
-              status,
-              keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri tepat waktu" : "Presensi terlambat"),
-              lokasi: lokasiFinal,
-            },
-            ...prev,
-          ];
-        });
-
-        // Sync with Backend
         try {
-          return await api.clockInGuru({
+          const res = await api.clockInGuru({
             lokasi: lokasiFinal,
             latitude: coords?.latitude,
             longitude: coords?.longitude,
             keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri tepat waktu" : "Presensi terlambat"),
           });
+
+          // Update state SETELAH backend berhasil menyimpan ke database Supabase
+          const jamRes = res?.data?.jam_masuk ? `${res.data.jam_masuk.substring(0, 5)} WIB` : jamSekarang;
+          setPresensiGuruList((prev) => {
+            const existing = prev.find((p) => p.guruId === guruId);
+            if (existing) {
+              return prev.map((p) =>
+                p.guruId === guruId
+                  ? { ...p, jamMasuk: jamRes, status, lokasi: lokasiFinal, keterangan: keterangan || p.keterangan }
+                  : p
+              );
+            }
+            return [
+              {
+                id: res?.data?.id ? String(res.data.id) : `pg-${Date.now()}`,
+                guruId,
+                nama: guru.nama,
+                nip: "19850412 200902 2 003",
+                jabatan: "Guru Pengajar",
+                tanggal: getTanggalHariIniFormatted(),
+                jamMasuk: jamRes,
+                status,
+                keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri tepat waktu" : "Presensi terlambat"),
+                lokasi: lokasiFinal,
+              },
+              ...prev,
+            ];
+          });
+          return res;
         } catch (err: any) {
           console.warn("API clockInGuru notice:", err?.message);
-          return null;
+          throw err;
         }
       },
       checkOutGuru: async (guruId: string) => {
         const jamSekarang = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
-        setPresensiGuruList((prev) =>
-          prev.map((p) =>
-            p.guruId === guruId ? { ...p, jamPulang: jamSekarang } : p
-          )
-        );
-
-        // Sync with Backend
         try {
-          return await api.clockOutGuru();
+          const res = await api.clockOutGuru();
+          const jamRes = res?.data?.jam_pulang ? `${res.data.jam_pulang.substring(0, 5)} WIB` : jamSekarang;
+          setPresensiGuruList((prev) =>
+            prev.map((p) =>
+              p.guruId === guruId ? { ...p, jamPulang: jamRes } : p
+            )
+          );
+          return res;
         } catch (err: any) {
           console.warn("API clockOutGuru notice:", err?.message);
-          return null;
+          throw err;
         }
       },
       refreshPresensiGuruToday: async () => {
