@@ -10,6 +10,7 @@ import {
 } from "react";
 import { buatSiswa, type Siswa } from "./mock-data";
 import { api, getToken } from "./api-client";
+import { getTanggalHariIniFormatted } from "./utils";
 
 export interface Guru {
   id: string;
@@ -1730,7 +1731,8 @@ export function cekBentrok(
   return null;
 }
 
-export const HARI_INI = "Kamis";
+const _daysIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+export const HARI_INI = typeof window !== "undefined" ? _daysIndo[new Date().getDay()] : "Selasa";
 export const CURRENT_GURU_ID = "g1";
 
 export const daftarKelasAwal: Kelas[] = [
@@ -1880,70 +1882,7 @@ const daftarJurnalAwal: JurnalEntry[] = [
   },
 ];
 
-export const daftarPresensiGuruAwal: PresensiGuruRecord[] = [
-  {
-    id: "pg-1",
-    guruId: "g1",
-    nama: "Sari Wulandari, S.Pd",
-    nip: "19850412 200902 2 003",
-    jabatan: "Guru Matematika / Wali Kelas X IPA 1",
-    tanggal: "Kamis, 24 Juli 2026",
-    jamMasuk: "06.42 WIB",
-    jamPulang: "15.30 WIB",
-    status: "TEPAT_WAKTU",
-    keterangan: "Hadir sebelum apel pagi guru",
-    lokasi: "Gerbang Utama SMA Negeri 3 Contoh",
-  },
-  {
-    id: "pg-2",
-    guruId: "g2",
-    nama: "Budi Santoso, S.Pd",
-    nip: "19820719 200801 1 005",
-    jabatan: "Guru Fisika / Wali Kelas X IPA 2",
-    tanggal: "Kamis, 24 Juli 2026",
-    jamMasuk: "06.50 WIB",
-    status: "TEPAT_WAKTU",
-    keterangan: "Piket KBM Lab Fisika",
-    lokasi: "Gedung B - SMA Negeri 3 Contoh",
-  },
-  {
-    id: "pg-3",
-    guruId: "g3",
-    nama: "Rina Marlina, M.Pd",
-    nip: "19881105 201202 2 004",
-    jabatan: "Guru Bahasa Inggris / Pembina OSIS",
-    tanggal: "Kamis, 24 Juli 2026",
-    jamMasuk: "07.18 WIB",
-    status: "TERLAMBAT",
-    keterangan: "Kendala lalu lintas jalur tol Ciawi-Bogor",
-    lokasi: "Gerbang Utama SMA Negeri 3 Contoh",
-  },
-  {
-    id: "pg-4",
-    guruId: "g4",
-    nama: "Agus Prabowo, S.Pd",
-    nip: "19790321 200501 1 002",
-    jabatan: "Guru Biologi",
-    tanggal: "Kamis, 24 Juli 2026",
-    jamMasuk: "-",
-    status: "IZIN_DINAS",
-    keterangan: "Narasumber Workshop Kurikulum Merdeka di BBGP Jawa Barat (Surat Tugas No. 800/142/Disdik)",
-    lokasi: "BBGP Jawa Barat, Bandung",
-  },
-  {
-    id: "pg-5",
-    guruId: "g5",
-    nama: "Dewi Kusuma, S.Pd",
-    nip: "19910214 201503 2 006",
-    jabatan: "Guru Sejarah",
-    tanggal: "Kamis, 24 Juli 2026",
-    jamMasuk: "06.45 WIB",
-    jamPulang: "15.35 WIB",
-    status: "TEPAT_WAKTU",
-    keterangan: "Hadir mengajar sesi pagi",
-    lokasi: "Kampus SMA Negeri 3 Contoh",
-  },
-];
+export const daftarPresensiGuruAwal: PresensiGuruRecord[] = [];
 
 export const daftarKasusBKAwal: KasusBK[] = [
   {
@@ -2806,7 +2745,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               nama: p.guru?.nama || currentUser.nama || "Sari Wulandari, S.Pd",
               nip: p.guru?.nip || "198503152010012015",
               jabatan: p.guru?.jabatan || "Wali Kelas & Guru Matematika",
-              tanggal: p.tanggal || "Kamis, 24 Juli 2026",
+              tanggal: p.tanggal || getTanggalHariIniFormatted(),
               jamMasuk: p.jam_masuk ? `${p.jam_masuk.substring(0, 5)} WIB` : "06:45 WIB",
               jamPulang: p.jam_pulang ? `${p.jam_pulang.substring(0, 5)} WIB` : undefined,
               status: p.status || "TEPAT_WAKTU",
@@ -2828,7 +2767,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             hari: "Kamis",
             jamMulai: jur.jam_mulai ? jur.jam_mulai.substring(0, 5) : "07:00",
             jamSelesai: jur.jam_selesai ? jur.jam_selesai.substring(0, 5) : "08:30",
-            tanggal: jur.tanggal || "Kamis, 24 Juli 2026",
+            tanggal: jur.tanggal || getTanggalHariIniFormatted(),
             materiPokok: jur.materi_pokok,
             tujuanPembelajaran: jur.tujuan_pembelajaran || "Tercapainya capaian pembelajaran",
             catatanKejadian: jur.catatan_kejadian || "KBM kondusif",
@@ -2884,7 +2823,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               nama: guru.nama,
               nip: "19850412 200902 2 003",
               jabatan: "Guru Pengajar",
-              tanggal: "Kamis, 24 Juli 2026",
+              tanggal: getTanggalHariIniFormatted(),
               jamMasuk: jamSekarang,
               status,
               keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri pagi" : "Presensi terlambat"),

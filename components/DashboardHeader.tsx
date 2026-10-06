@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { HARI_INI, useStore } from "@/lib/store";
 import { profilGuru, profilKepsek } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
+import { cn, getTanggalHariIniFormatted } from "@/lib/utils";
 
 interface DashboardHeaderProps {
   role?: "guru" | "admin" | "tu" | "kepsek";
@@ -138,7 +138,7 @@ export default function DashboardHeader({ role = "guru" }: DashboardHeaderProps)
         {/* Date Today */}
         <div className="hidden lg:flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs">
           <Calendar size={13} className="text-slate-500" />
-          <span>Hari {HARI_INI}, 23 Juli 2026</span>
+          <span>{getTanggalHariIniFormatted()}</span>
         </div>
 
         {/* Notification Bell */}

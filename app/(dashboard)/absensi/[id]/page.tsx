@@ -17,6 +17,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { useStore, type Ketercapaian } from "@/lib/store";
+import { getTanggalHariIniFormatted } from "@/lib/utils";
 import { type StatusKey, type Siswa } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -144,7 +145,7 @@ export default function AbsensiPage() {
       hari: jadwalItem.hari,
       jamMulai: jadwalItem.jamMulai,
       jamSelesai: jadwalItem.jamSelesai,
-      tanggal: `${jadwalItem.hari}, 24 Juli 2026`,
+      tanggal: getTanggalHariIniFormatted(),
       materiPokok: materiPokok || `Materi Pokok ${jadwalItem.mapel}`,
       tujuanPembelajaran: tujuanPembelajaran || "Mencapai tujuan capaian pembelajaran (TP)",
       catatanKejadian: catatan || "KBM berjalan tertib dan lancar.",

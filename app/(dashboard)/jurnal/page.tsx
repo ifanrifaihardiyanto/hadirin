@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useStore, type Ketercapaian, type JurnalEntry } from "@/lib/store";
+import { getTanggalHariIniFormatted } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -546,7 +547,7 @@ export default function JurnalMengajarPage() {
                   <p className="text-slate-600">NIP. 19680315 199412 1 002</p>
                 </div>
                 <div>
-                  <p>Bogor, 24 Juli 2026</p>
+                  <p>Bogor, {getTanggalHariIniFormatted()}</p>
                   <p className="font-semibold">Guru Mata Pelajaran</p>
                   <div className="h-20" />
                   <p className="font-bold underline">

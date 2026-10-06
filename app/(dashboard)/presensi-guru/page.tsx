@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useStore, type StatusPresensiGuru } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { getTanggalHariIniFormatted } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -134,7 +135,7 @@ export default function PresensiGuruMandiriPage() {
               </div>
               <p className="mt-2 text-xs sm:text-sm text-navy-200 flex items-center justify-center gap-1.5 font-medium">
                 <Calendar size={14} className="text-navy-300" />
-                Kamis, 24 Juli 2026 · Batas Masuk: 07.00 WIB
+                {getTanggalHariIniFormatted()} · Batas Masuk: 07.00 WIB
               </p>
             </div>
 
@@ -143,13 +144,13 @@ export default function PresensiGuruMandiriPage() {
               <Button
                 type="button"
                 onClick={handleCheckIn}
-                disabled={sudahCheckIn || (myRecord && myRecord.jamMasuk !== "-")}
+                disabled={Boolean(myRecord?.jamMasuk && myRecord.jamMasuk !== "-")}
                 className="h-14 bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/40 text-white font-bold text-sm rounded-xl gap-2 shadow-sm transition-all cursor-pointer"
               >
-                {sudahCheckIn || (myRecord && myRecord.jamMasuk !== "-") ? (
+                {myRecord?.jamMasuk && myRecord.jamMasuk !== "-" ? (
                   <>
                     <Check size={18} />
-                    Sudah Check-In ({myRecord?.jamMasuk || "06.42 WIB"})
+                    Sudah Check-In ({myRecord.jamMasuk})
                   </>
                 ) : (
                   <>
@@ -162,14 +163,14 @@ export default function PresensiGuruMandiriPage() {
               <Button
                 type="button"
                 onClick={handleCheckOut}
-                disabled={sudahCheckOut || (myRecord && !!myRecord.jamPulang)}
+                disabled={!myRecord?.jamMasuk || myRecord.jamMasuk === "-" || Boolean(myRecord?.jamPulang)}
                 variant="outline"
                 className="h-14 border-white/20 bg-white/5 hover:bg-white/15 text-white disabled:bg-white/5 disabled:text-white/30 font-bold text-sm rounded-xl gap-2 backdrop-blur-xs transition-all cursor-pointer"
               >
-                {sudahCheckOut || (myRecord && myRecord.jamPulang) ? (
+                {myRecord?.jamPulang ? (
                   <>
                     <Check size={18} />
-                    Sudah Check-Out ({myRecord?.jamPulang || "15.30 WIB"})
+                    Sudah Check-Out ({myRecord.jamPulang})
                   </>
                 ) : (
                   <>
@@ -197,16 +198,16 @@ export default function PresensiGuruMandiriPage() {
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Status Kehadiran:</span>
-                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold gap-1">
+                <Badge className={myRecord?.status === "TERLAMBAT" ? "bg-amber-50 text-amber-700 border-amber-200 text-xs font-bold gap-1" : "bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold gap-1"}>
                   <CheckCircle2 size={13} />
-                  Tepat Waktu
+                  {myRecord?.status ? (myRecord.status === "TERLAMBAT" ? "Terlambat" : myRecord.status === "IZIN_DINAS" ? "Izin Dinas" : "Tepat Waktu") : "Belum Presensi"}
                 </Badge>
               </div>
 
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">Jam Datang:</span>
                 <span className="font-mono font-bold text-navy-950">
-                  {myRecord?.jamMasuk || "06.42 WIB"}
+                  {myRecord?.jamMasuk || "-"}
                 </span>
               </div>
 
@@ -283,61 +284,38 @@ export default function PresensiGuruMandiriPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {[
-                  {
-                    hari: "Kamis, 24 Juli 2026 (Hari Ini)",
-                    masuk: "06.42 WIB",
-                    pulang: "15.30 WIB",
-                    status: "TEPAT_WAKTU",
-                    ket: "Hadir sebelum apel pagi guru",
-                    lokasi: "Gerbang Utama Kampus SMAN 3",
-                  },
-                  {
-                    hari: "Rabu, 23 Juli 2026",
-                    masuk: "06.40 WIB",
-                    pulang: "15.35 WIB",
-                    status: "TEPAT_WAKTU",
-                    ket: "Piket KBM Lab Komputer",
-                    lokasi: "Kampus SMAN 3 Contoh",
-                  },
-                  {
-                    hari: "Selasa, 22 Juli 2026",
-                    masuk: "06.50 WIB",
-                    pulang: "15.30 WIB",
-                    status: "TEPAT_WAKTU",
-                    ket: "Tepat waktu",
-                    lokasi: "Kampus SMAN 3 Contoh",
-                  },
-                  {
-                    hari: "Senin, 21 Juli 2026",
-                    masuk: "07.12 WIB",
-                    pulang: "15.30 WIB",
-                    status: "TERLAMBAT",
-                    ket: "Macet perbaikan jalan Tol Jagorawi",
-                    lokasi: "Kampus SMAN 3 Contoh",
-                  },
-                ].map((r, i) => (
-                  <tr key={i} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-5 font-bold text-navy-950">{r.hari}</td>
-                    <td className="py-3 px-4 font-mono font-bold text-emerald-700">{r.masuk}</td>
-                    <td className="py-3 px-4 font-mono font-medium text-slate-700">{r.pulang}</td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                          r.status === "TEPAT_WAKTU"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
-                        }`}
-                      >
-                        {r.status === "TEPAT_WAKTU" ? "Tepat Waktu" : "Terlambat"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 font-medium">{r.lokasi}</td>
-                    <td className="py-3 px-5 text-slate-600 italic">
-                      &quot;{r.ket}&quot;
+                {presensiGuruList.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-slate-500 italic">
+                      Belum ada data riwayat presensi yang tercatat. Silakan lakukan Check-In.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  presensiGuruList.map((r, i) => (
+                    <tr key={r.id || i} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3 px-5 font-bold text-navy-950">{r.tanggal}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-emerald-700">{r.jamMasuk}</td>
+                      <td className="py-3 px-4 font-mono font-medium text-slate-700">{r.jamPulang || "-"}</td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            r.status === "TEPAT_WAKTU"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : r.status === "TERLAMBAT"
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-sky-50 text-sky-700 border-sky-200"
+                          }`}
+                        >
+                          {r.status === "TEPAT_WAKTU" ? "Tepat Waktu" : r.status === "TERLAMBAT" ? "Terlambat" : "Izin Dinas"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 font-medium">{r.lokasi || "Sekolah"}</td>
+                      <td className="py-3 px-5 text-slate-600 italic">
+                        &quot;{r.keterangan || "-"}&quot;
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
