@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BookOpen,
   Calendar,
@@ -14,11 +14,14 @@ import {
   Users,
   Award,
   Filter,
+  RefreshCw,
 } from "lucide-react";
-import { useStore, type Ketercapaian, type JurnalEntry } from "@/lib/store";
+import { type Ketercapaian, type JurnalEntry } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/lib/api-client";
 
 const KETERCAPAIAN_BADGE: Record<
   Ketercapaian,
@@ -42,13 +45,67 @@ const KETERCAPAIAN_BADGE: Record<
 };
 
 export default function AdminJurnalSupervisiPage() {
-  const { jurnalList, daftarGuru, daftarKelas } = useStore();
+  const [jurnalList, setJurnalList] = useState<JurnalEntry[]>([]);
+  const [guruList, setGuruList] = useState<{ id: string; nama: string }[]>([]);
+  const [kelasList, setKelasList] = useState<{ id: string; nama: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
   const [selectedGuru, setSelectedGuru] = useState<string>("ALL");
   const [selectedKelas, setSelectedKelas] = useState<string>("ALL");
   const [selectedKetercapaian, setSelectedKetercapaian] = useState<string>("ALL");
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [selectedJurnal, setSelectedJurnal] = useState<JurnalEntry | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [resJurnal, resGuru, resKelas] = await Promise.all([
+        api.getJurnalList().catch(() => ({ data: [] })),
+        api.getGuruList().catch(() => ({ data: [] })),
+        api.getKelasList().catch(() => ({ data: [] })),
+      ]);
+
+      if (resGuru?.data) {
+        setGuruList(resGuru.data.map((g: any) => ({ id: String(g.id), nama: g.nama })));
+      }
+      if (resKelas?.data) {
+        setKelasList(resKelas.data.map((k: any) => ({ id: String(k.id), nama: k.nama })));
+      }
+      if (resJurnal?.data) {
+        const mapped: JurnalEntry[] = resJurnal.data.map((j: any) => ({
+          id: String(j.id),
+          jadwalId: String(j.jadwal_id || ""),
+          guruId: String(j.guru_id || ""),
+          guruNama: j.guru?.nama || "Guru",
+          kelas: j.kelas?.nama || "Kelas",
+          mapel: j.mapel?.nama || "Mata Pelajaran",
+          hari: j.hari || "-",
+          jamMulai: j.jam_mulai ? j.jam_mulai.substring(0, 5) : "07:00",
+          jamSelesai: j.jam_selesai ? j.jam_selesai.substring(0, 5) : "08:30",
+          tanggal: j.tanggal || "-",
+          materiPokok: j.materi_pokok || "-",
+          tujuanPembelajaran: j.tujuan_pembelajaran || "",
+          catatanKejadian: j.catatan_kejadian || "",
+          ketercapaian: (j.ketercapaian || "TERCAPAI") as Ketercapaian,
+          hadir: Number(j.hadir || 0),
+          sakit: Number(j.sakit || 0),
+          izin: Number(j.izin || 0),
+          alpha: Number(j.alpha || 0),
+          totalSiswa: Number(j.total_siswa || 0),
+        }));
+        setJurnalList(mapped);
+      }
+    } catch (err: any) {
+      console.warn("Gagal memuat jurnal supervisi:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filtered = jurnalList.filter((j) => {
     const matchSearch =
@@ -63,9 +120,9 @@ export default function AdminJurnalSupervisiPage() {
     return matchSearch && matchGuru && matchKelas && matchKetercapaian;
   });
 
-  const totalSesi = jurnalList.length;
-  const tercapaiCount = jurnalList.filter((j) => j.ketercapaian === "TERCAPAI").length;
-  const penguatanCount = jurnalList.filter((j) => j.ketercapaian === "PENGUATAN").length;
+  const totalSesi = filtered.length;
+  const tercapaiCount = filtered.filter((j) => j.ketercapaian === "TERCAPAI").length;
+  const penguatanCount = filtered.filter((j) => j.ketercapaian === "PENGUATAN").length;
 
   return (
     <div className="w-full space-y-6">
@@ -85,89 +142,119 @@ export default function AdminJurnalSupervisiPage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => setIsPrintModalOpen(true)}
-          variant="outline"
-          className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-        >
-          <Printer className="h-4 w-4 text-slate-500" />
-          Cetak Rekap Supervisi
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={fetchData}
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs h-9"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-slate-500 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => setIsPrintModalOpen(true)}
+            variant="outline"
+            size="sm"
+            className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs h-9"
+          >
+            <Printer className="h-4 w-4 text-slate-500" />
+            Cetak Rekap Supervisi
+          </Button>
+        </div>
       </div>
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border border-slate-200/80 bg-white shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Total Jurnal Masuk
-            </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-50 text-navy-700">
-              <BookOpen className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="font-display text-3xl font-bold tracking-tight text-navy-950">
-              {totalSesi}
-            </div>
-            <p className="mt-1 text-xs text-slate-500">Sesi KBM terdokumentasi rapi</p>
-          </CardContent>
-        </Card>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border border-slate-200/80 bg-white shadow-xs">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-9 w-9 rounded-lg" />
+              </CardHeader>
+              <CardContent className="pt-0 space-y-2">
+                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-3.5 w-32" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border border-slate-200/80 bg-white shadow-xs">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Total Jurnal Masuk
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-50 text-navy-700">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="font-display text-3xl font-bold tracking-tight text-navy-950">
+                  {totalSesi}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Sesi KBM terdokumentasi rapi</p>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-slate-200/80 bg-white shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Kepatuhan Administrasi
-            </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-              <Award className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="font-display text-3xl font-bold tracking-tight text-emerald-700">
-              98.2%
-            </div>
-            <p className="mt-1 text-xs text-slate-500">Guru rutin mengisi agenda KBM</p>
-          </CardContent>
-        </Card>
+            <Card className="border border-slate-200/80 bg-white shadow-xs">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Kepatuhan Administrasi
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <Award className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="font-display text-3xl font-bold tracking-tight text-emerald-700">
+                  98.2%
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Guru rutin mengisi agenda KBM</p>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-slate-200/80 bg-white shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Target CP Tercapai
-            </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="font-display text-3xl font-bold tracking-tight text-blue-700">
-              {tercapaiCount} <span className="text-xs font-normal text-slate-500">sesi</span>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              {totalSesi > 0
-                ? `${Math.round((tercapaiCount / totalSesi) * 100)}% materi tuntas`
-                : "0%"}
-            </p>
-          </CardContent>
-        </Card>
+            <Card className="border border-slate-200/80 bg-white shadow-xs">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Target CP Tercapai
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="font-display text-3xl font-bold tracking-tight text-blue-700">
+                  {tercapaiCount} <span className="text-xs font-normal text-slate-500">sesi</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {totalSesi > 0
+                    ? `${Math.round((tercapaiCount / totalSesi) * 100)}% materi tuntas`
+                    : "0%"}
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-slate-200/80 bg-white shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Catatan Remidial
-            </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="font-display text-3xl font-bold tracking-tight text-amber-700">
-              {penguatanCount} <span className="text-xs font-normal text-slate-500">sesi</span>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">Perlu pendampingan belajar</p>
-          </CardContent>
-        </Card>
+            <Card className="border border-slate-200/80 bg-white shadow-xs">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Catatan Remidial
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="font-display text-3xl font-bold tracking-tight text-amber-700">
+                  {penguatanCount} <span className="text-xs font-normal text-slate-500">sesi</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Perlu pendampingan belajar</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Multi Filters & Search */}
@@ -191,8 +278,8 @@ export default function AdminJurnalSupervisiPage() {
                 onChange={(e) => setSelectedGuru(e.target.value)}
                 className="px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="ALL">Semua Guru ({daftarGuru.length})</option>
-                {daftarGuru.map((g) => (
+                <option value="ALL">Semua Guru ({guruList.length})</option>
+                {guruList.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.nama}
                   </option>
@@ -205,7 +292,7 @@ export default function AdminJurnalSupervisiPage() {
                 className="px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="ALL">Semua Kelas</option>
-                {daftarKelas.map((k) => (
+                {kelasList.map((k) => (
                   <option key={k.id} value={k.nama}>
                     {k.nama}
                   </option>
@@ -243,7 +330,37 @@ export default function AdminJurnalSupervisiPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
-              {filtered.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="p-3.5 space-y-1.5">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-3 w-16" />
+                    </td>
+                    <td className="p-3.5 space-y-1.5">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-20" />
+                    </td>
+                    <td className="p-3.5 space-y-1.5">
+                      <Skeleton className="h-5 w-16 rounded" />
+                      <Skeleton className="h-3 w-24" />
+                    </td>
+                    <td className="p-3.5 space-y-1.5">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-48" />
+                    </td>
+                    <td className="p-3.5">
+                      <Skeleton className="h-6 w-24 rounded-full" />
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <Skeleton className="h-4 w-12 mx-auto" />
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <Skeleton className="h-7 w-16 ml-auto rounded" />
+                    </td>
+                  </tr>
+                ))
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-400">
                     Tidak ada agenda jurnal yang sesuai dengan kriteria filter.
@@ -462,7 +579,7 @@ export default function AdminJurnalSupervisiPage() {
               <div className="grid grid-cols-3 gap-3 text-xs bg-slate-50 p-3 rounded border border-slate-200">
                 <div>
                   <span className="text-slate-500 block">Total Guru Aktif:</span>
-                  <span className="font-bold text-slate-900">{daftarGuru.length} Orang Guru</span>
+                  <span className="font-bold text-slate-900">{guruList.length} Orang Guru</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Sesi KBM Terdata:</span>
