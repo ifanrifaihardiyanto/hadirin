@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
+  Loader2,
   ArrowLeft,
   CheckCircle2,
   Search,
@@ -90,6 +91,7 @@ export default function AbsensiPage() {
   const [catatan, setCatatan] = useState("KBM berjalan kondusif, seluruh kelompok menyelesaikan LKPD tepat waktu.");
   const [stamped, setStamped] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filtered = useMemo(() => {
     return siswa.filter((s) => {
@@ -132,36 +134,44 @@ export default function AbsensiPage() {
     setQuery("");
   }
 
-  function handleSimpan() {
-    simpanAbsensi(id, siswa);
+  async function handleSimpan() {
+    setIsSaving(true);
+    try {
+      // 1. Simpan ke local state store
+      simpanAbsensi(id, siswa);
 
-    const guru = daftarGuru.find((g) => g.id === (jadwalItem.guruId || currentUser?.id));
-    simpanJurnal({
-      jadwalId: id,
-      guruId: jadwalItem.guruId || currentUser?.id || "g1",
-      guruNama: guru?.nama || currentUser?.nama || "Sari Wulandari, S.Pd",
-      kelas: jadwalItem.kelas,
-      mapel: jadwalItem.mapel,
-      hari: jadwalItem.hari,
-      jamMulai: jadwalItem.jamMulai,
-      jamSelesai: jadwalItem.jamSelesai,
-      tanggal: getTanggalHariIniFormatted(),
-      materiPokok: materiPokok || `Materi Pokok ${jadwalItem.mapel}`,
-      tujuanPembelajaran: tujuanPembelajaran || "Mencapai tujuan capaian pembelajaran (TP)",
-      catatanKejadian: catatan || "KBM berjalan tertib dan lancar.",
-      ketercapaian: ketercapaian,
-      hadir: ringkasan.H,
-      sakit: ringkasan.S,
-      izin: ringkasan.I,
-      alpha: ringkasan.A,
-      totalSiswa: totalSiswa,
-    });
+      const guru = daftarGuru.find((g) => g.id === (jadwalItem.guruId || currentUser?.id));
+      simpanJurnal({
+        jadwalId: id,
+        guruId: jadwalItem.guruId || currentUser?.id || "1",
+        guruNama: guru?.nama || currentUser?.nama || "Sari Wulandari, S.Pd",
+        kelas: jadwalItem.kelas,
+        mapel: jadwalItem.mapel,
+        hari: jadwalItem.hari,
+        jamMulai: jadwalItem.jamMulai,
+        jamSelesai: jadwalItem.jamSelesai,
+        tanggal: getTanggalHariIniFormatted(),
+        materiPokok: materiPokok || `Materi Pokok ${jadwalItem.mapel}`,
+        tujuanPembelajaran: tujuanPembelajaran || "Mencapai tujuan capaian pembelajaran (TP)",
+        catatanKejadian: catatan || "KBM berjalan tertib dan lancar.",
+        ketercapaian: ketercapaian,
+        hadir: ringkasan.H,
+        sakit: ringkasan.S,
+        izin: ringkasan.I,
+        alpha: ringkasan.A,
+        totalSiswa: totalSiswa,
+      });
 
-    setSaved(true);
-    setTimeout(() => {
-      setSaved(false);
-      router.push("/jurnal");
-    }, 1200);
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+        router.push("/jurnal");
+      }, 1200);
+    } catch (e: any) {
+      console.warn("Gagal simpan absensi/jurnal:", e?.message);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
