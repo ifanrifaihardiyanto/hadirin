@@ -65,7 +65,7 @@ interface NotificationModal {
 }
 
 export default function PresensiGuruMandiriPage() {
-  const { presensiGuruList, checkInGuru, checkOutGuru, currentUser } = useStore();
+  const { presensiGuruList, checkInGuru, checkOutGuru, refreshPresensiGuruToday, currentUser } = useStore();
   const [jamSekarang, setJamSekarang] = useState("07.00.00");
   const [isDinasModalOpen, setIsDinasModalOpen] = useState(false);
   const [dinasKeterangan, setDinasKeterangan] = useState("");
@@ -138,6 +138,8 @@ export default function PresensiGuruMandiriPage() {
 
   useEffect(() => {
     mintaLokasiGPS();
+    // ON-DEMAND FETCH: Hanya panggil 1 API presensi hari ini untuk halaman ini saja!
+    refreshPresensiGuruToday();
   }, []);
 
   useEffect(() => {

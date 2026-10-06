@@ -2219,6 +2219,7 @@ interface StoreValue {
   presensiGuruList: PresensiGuruRecord[];
   checkInGuru: (guruId: string, status?: StatusPresensiGuru, keterangan?: string, coords?: { latitude?: number; longitude?: number; lokasiNama?: string }) => Promise<any>;
   checkOutGuru: (guruId: string) => Promise<any>;
+  refreshPresensiGuruToday: () => Promise<void>;
   tambahKasusBK: (kasus: Omit<KasusBK, "id">) => void;
   updateStatusKasusBK: (id: string, status: StatusKasusBK, tindakan?: string) => void;
   currentUser: CurrentUser;
@@ -2364,7 +2365,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
   const pathname = usePathname();
-  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     try {
@@ -2377,424 +2377,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    async function loadDataFromBackend() {
-      // Jangan fetch data jika sedang di halaman login / register / onboarding / root marketing
-      if (pathname === "/login" || pathname === "/onboarding" || pathname === "/") return;
-      if (dataLoaded) return; // JANGAN load ulang jika sudah pernah dimuat!
-
-      const token = getToken();
-      if (!token) return;
-      setDataLoaded(true);
-
-      try {
-        const [
-          gurusRes,
-          kelasListRes,
-          siswaRes,
-          mapelRes,
-          sppRes,
-          sarprasRes,
-          perpusRes,
-          uksRes,
-          ppdbRes,
-          pengumumanRes,
-          bkRes,
-          cbtUjianRes,
-          cbtHasilRes,
-          ekskulRes,
-          anggotaEkskulRes,
-          agendaRes,
-          alumniRes,
-          jadwalRes,
-          presensiTodayRes,
-          jurnalRes,
-        ] = await Promise.allSettled([
-          api.getGuruList(),
-          api.getKelasList(),
-          api.getSiswaList(),
-          api.getMapelList(),
-          api.getSPPList(),
-          api.getSarprasAsetList(),
-          api.getPerpusBukuList(),
-          api.getUKSList(),
-          api.getPPDBList(),
-          api.getPengumumanList(),
-          api.getKasusBKList(),
-          api.getCBTUjianList(),
-          api.getCBTHasilList(),
-          api.getEkskulList(),
-          api.getAnggotaEkskulList(),
-          api.getAgendaAkademikList(),
-          api.getAlumniList(),
-          api.getJadwalList(),
-          api.getPresensiGuruToday(),
-          api.getJurnalList(),
-        ]);
-
-        if (gurusRes.status === "fulfilled" && gurusRes.value?.data) {
-          const mapped = gurusRes.value.data.map((g: any) => ({
-            id: String(g.id),
-            nama: g.nama,
-            email: g.email,
-            telepon: g.telepon || "0812-0000-0000",
-            mapel: g.jabatan ? [g.jabatan] : ["Guru Pengajar"],
-          }));
-          if (mapped.length > 0) setDaftarGuru(mapped);
-        }
-
-        if (kelasListRes.status === "fulfilled" && kelasListRes.value?.data) {
-          const mapped = kelasListRes.value.data.map((k: any) => ({
-            id: String(k.id),
-            nama: k.nama,
-            tingkat: (k.tingkat ? `Kelas ${k.tingkat}` : "Kelas X") as "Kelas X" | "Kelas XI" | "Kelas XII",
-            jurusan: (k.jurusan || "MIPA") as "MIPA" | "IPS" | "Umum / Fase E" | "Bahasa",
-            waliKelas: k.wali_kelas?.nama || "Belum Ditentukan",
-            tahunAjaran: k.tahun_ajaran || "2024/2025",
-            status: "AKTIF" as const,
-          }));
-          if (mapped.length > 0) setDaftarKelas(mapped);
-        }
-
-        if (siswaRes.status === "fulfilled" && siswaRes.value?.data) {
-          const mapped = siswaRes.value.data.map((s: any) => ({
-            id: String(s.id),
-            nisn: s.nisn || "",
-            nis: s.nis || "",
-            nama: s.nama,
-            gender: (s.gender === "P" ? "P" : "L") as "L" | "P",
-            kelas: s.kelas?.nama || "X IPA 1",
-            waliKelas: s.kelas?.wali_kelas?.nama || "-",
-            namaWali: s.nama_wali || "-",
-            teleponWali: s.telepon_wali || "-",
-            status: (s.status === "MUTASI" || s.status === "ALUMNI" ? s.status : "AKTIF") as "AKTIF" | "MUTASI" | "ALUMNI",
-          }));
-          if (mapped.length > 0) setDaftarSiswaInduk(mapped);
-        }
-
-        if (mapelRes.status === "fulfilled" && mapelRes.value?.data) {
-          const mapped = mapelRes.value.data.map((m: any) => ({
-            id: String(m.id),
-            kode: m.kode,
-            nama: m.nama,
-            kelompok: m.kelompok || "A (Wajib)",
-            tingkat: m.tingkat || "Semua Tingkat",
-            bebanJam: Number(m.beban_jam) || 3,
-            guruPengampu: m.guru?.nama || "Guru Pengampu",
-            status: (m.status === "NONAKTIF" ? "NONAKTIF" : "AKTIF") as "AKTIF" | "NONAKTIF",
-          }));
-          if (mapped.length > 0) setDaftarMapel(mapped);
-        }
-
-        if (sppRes.status === "fulfilled" && sppRes.value?.data) {
-          const mapped = sppRes.value.data.map((t: any) => ({
-            id: String(t.id),
-            noKwitansi: t.no_kwitansi || `KW-${t.id}`,
-            siswaId: String(t.siswa_id || t.siswa?.id || ""),
-            siswaNama: t.siswa?.nama || "Siswa",
-            nisn: t.siswa?.nisn || "",
-            kelas: t.siswa?.kelas?.nama || "X IPA 1",
-            bulan: t.bulan,
-            nominal: Number(t.nominal),
-            status: t.status,
-            tanggalBayar: t.tanggal_bayar,
-            metodeBayar: t.metode_bayar,
-            catatan: t.catatan,
-          }));
-          if (mapped.length > 0) setDaftarTagihanSPP(mapped);
-        }
-
-        if (sarprasRes.status === "fulfilled" && sarprasRes.value?.data) {
-          const mapped = sarprasRes.value.data.map((a: any) => ({
-            id: String(a.id),
-            kodeAset: a.kode_aset,
-            namaAset: a.nama_aset,
-            kategori: a.kategori,
-            merkModel: a.merk_model || "",
-            kondisi: a.kondisi,
-            lokasi: a.lokasi,
-            jumlahTotal: Number(a.jumlah_total),
-            jumlahTersedia: Number(a.jumlah_tersedia),
-            tahunPengadaan: Number(a.tahun_pengadaan) || 2024,
-            sumberDana: a.sumber_dana || "BOS_REGULER",
-            keterangan: a.keterangan,
-          }));
-          if (mapped.length > 0) setDaftarAsetSarpras(mapped);
-        }
-
-        if (perpusRes.status === "fulfilled" && perpusRes.value?.data) {
-          const mapped = perpusRes.value.data.map((b: any) => ({
-            id: String(b.id),
-            isbn: b.isbn || "",
-            kodeBuku: b.kode_buku,
-            judul: b.judul,
-            pengarang: b.pengarang,
-            penerbit: b.penerbit,
-            tahunTerbit: Number(b.tahun_terbit) || 2024,
-            kategori: b.kategori,
-            lokasiRak: b.lokasi_rak || "Rak A",
-            jumlahEksemplar: Number(b.jumlah_eksemplar),
-            eksemplarTersedia: Number(b.eksemplar_tersedia),
-            tipeFormat: b.tipe_format || "FISIK",
-            ebookUrl: b.ebook_url,
-            sinopsis: b.sinopsis,
-          }));
-          if (mapped.length > 0) setDaftarBuku(mapped);
-        }
-
-        if (uksRes.status === "fulfilled" && uksRes.value?.data) {
-          const mapped = uksRes.value.data.map((u: any) => ({
-            id: String(u.id),
-            tanggal: u.tanggal,
-            jam: u.jam ? u.jam.substring(0, 5) : "08:00",
-            siswaId: String(u.siswa_id || u.siswa?.id || ""),
-            namaSiswa: u.siswa?.nama || "Siswa",
-            kelas: u.siswa?.kelas?.nama || "X IPA 1",
-            keluhan: u.keluhan,
-            kategoriKeluhan: u.kategori_keluhan,
-            tindakan: u.tindakan,
-            obatDiberikan: u.obat_diberikan,
-            kondisiAkhir: u.kondisi_akhir,
-            petugasUKS: u.petugas_uks,
-            status: u.status,
-          }));
-          if (mapped.length > 0) setDaftarKunjunganUKS(mapped);
-        }
-
-        if (ppdbRes.status === "fulfilled" && ppdbRes.value?.data) {
-          const mapped = ppdbRes.value.data.map((p: any) => ({
-            id: String(p.id),
-            noPendaftaran: p.no_pendaftaran,
-            nama: p.nama,
-            nisn: p.nisn,
-            nik: p.nik || "",
-            asalSekolah: p.asal_sekolah,
-            jalur: p.jalur,
-            pilihanJurusan: p.pilihan_jurusan || "MIPA",
-            nilaiRataRapor: Number(p.nilai_rata_rapor) || 85,
-            namaWali: p.nama_wali,
-            teleponWali: p.telepon_wali,
-            statusVerifikasi: p.status_verifikasi,
-            statusKelulusan: p.status_kelulusan,
-            berkasKK: Boolean(p.berkas_kk),
-            berkasAkta: Boolean(p.berkas_akta),
-            berkasRapor: Boolean(p.berkas_rapor),
-            tanggalDaftar: p.tanggal_daftar,
-            catatanVerifikasi: p.catatan_verifikasi,
-          }));
-          if (mapped.length > 0) setDaftarPPDB(mapped);
-        }
-
-        if (pengumumanRes.status === "fulfilled" && pengumumanRes.value?.data) {
-          const mapped = pengumumanRes.value.data.map((pg: any) => ({
-            id: String(pg.id),
-            judul: pg.judul,
-            konten: pg.konten,
-            kategori: pg.kategori,
-            sasaran: pg.sasaran,
-            prioritas: pg.prioritas,
-            tanggal: pg.tanggal,
-            penulis: pg.penulis,
-            status: pg.status,
-            pin: Boolean(pg.pin),
-          }));
-          if (mapped.length > 0) setDaftarPengumuman(mapped);
-        }
-
-        if (bkRes.status === "fulfilled" && bkRes.value?.data) {
-          const mapped = bkRes.value.data.map((k: any) => ({
-            id: String(k.id),
-            nis: k.siswa?.nis || "",
-            namaSiswa: k.siswa?.nama || "Siswa",
-            kelas: k.siswa?.kelas?.nama || "X IPA 1",
-            kategori: k.kategori,
-            poin: Number(k.poin) || 0,
-            deskripsi: k.deskripsi,
-            tindakan: k.tindakan || "",
-            status: k.status,
-            tanggalKasus: k.tanggal_kasus,
-            guruBK: k.guru_bk?.nama || "Guru BK",
-            waliKelas: k.siswa?.kelas?.wali_kelas?.nama || "-",
-          }));
-          if (mapped.length > 0) setKasusBKList(mapped);
-        }
-
-        if (cbtUjianRes.status === "fulfilled" && cbtUjianRes.value?.data) {
-          const mapped = cbtUjianRes.value.data.map((u: any) => ({
-            id: String(u.id),
-            kodeUjian: u.kode_ujian,
-            judul: u.judul,
-            mapel: u.mapel_nama || u.mapel?.nama || "Matematika Wajib",
-            tingkatKelas: u.tingkat_kelas,
-            jenisUjian: u.jenis_ujian,
-            tanggalUjian: u.tanggal_ujian,
-            jamMulai: u.jam_mulai ? u.jam_mulai.substring(0, 5) : "07:30",
-            jamSelesai: u.jam_selesai ? u.jam_selesai.substring(0, 5) : "09:00",
-            durasiMenit: Number(u.durasi_menit) || 90,
-            tokenUjian: u.token_ujian,
-            status: u.status,
-            jumlahSoal: Number(u.jumlah_soal) || 25,
-            kkm: Number(u.kkm) || 75,
-            acakSoal: Boolean(u.acak_soal),
-            acakOpsi: Boolean(u.acak_opsi),
-          }));
-          if (mapped.length > 0) setDaftarUjianCBT(mapped);
-        }
-
-        if (cbtHasilRes.status === "fulfilled" && cbtHasilRes.value?.data) {
-          const mapped = cbtHasilRes.value.data.map((h: any) => ({
-            id: String(h.id),
-            ujianId: String(h.ujian_id),
-            siswaId: String(h.siswa_id),
-            namaSiswa: h.siswa?.nama || "Siswa",
-            nisn: h.siswa?.nisn || "",
-            kelas: h.siswa?.kelas?.nama || "X IPA 1",
-            nilai: Number(h.nilai) || 0,
-            statusKelulusan: h.status_kelulusan,
-            waktuMulai: h.waktu_mulai || "07:30",
-            waktuSelesai: h.waktu_selesai || "-",
-            statusPengerjaan: h.status_pengerjaan,
-            jawabanBenar: Number(h.jawaban_benar) || 0,
-            jawabanSalah: Number(h.jawaban_salah) || 0,
-          }));
-          if (mapped.length > 0) setDaftarHasilCBT(mapped);
-        }
-
-        if (ekskulRes.status === "fulfilled" && ekskulRes.value?.data) {
-          const mapped = ekskulRes.value.data.map((e: any) => ({
-            id: String(e.id),
-            nama: e.nama,
-            kategori: e.kategori || "OLAHRAGA",
-            pembina: e.pembina || e.pembina_guru?.nama || "Pembina",
-            kontakPembina: e.kontak_pembina || "0812-0000-0000",
-            hariLatihan: e.hari_latihan || "Jumat",
-            jamMulai: e.jam_mulai || "15:30",
-            jamSelesai: e.jam_selesai || "17:00",
-            lokasiLatihan: e.lokasi_latihan || "Lapangan Sekolah",
-            kuotaMaksimal: Number(e.kuota_maksimal) || 30,
-            deskripsi: e.deskripsi,
-            prestasiTerbaru: e.prestasi_terbaru,
-          }));
-          if (mapped.length > 0) setDaftarEkskul(mapped);
-        }
-
-        if (anggotaEkskulRes.status === "fulfilled" && anggotaEkskulRes.value?.data) {
-          const mapped = anggotaEkskulRes.value.data.map((a: any) => ({
-            id: String(a.id),
-            ekskulId: String(a.ekskul_id),
-            namaEkskul: a.ekskul?.nama || "Ekstrakurikuler",
-            siswaId: String(a.siswa_id),
-            namaSiswa: a.siswa?.nama || "Siswa",
-            nisn: a.siswa?.nisn || "",
-            kelas: a.siswa?.kelas?.nama || "X IPA 1",
-            jabatan: a.jabatan || "ANGGOTA",
-            predikatNilai: a.predikat_nilai || "BAIK",
-            kehadiranPersen: Number(a.kehadiran_persen) || 100,
-            catatanPembina: a.catatan_pembina,
-          }));
-          if (mapped.length > 0) setDaftarAnggotaEkskul(mapped);
-        }
-
-        if (agendaRes.status === "fulfilled" && agendaRes.value?.data) {
-          const mapped = agendaRes.value.data.map((ag: any) => ({
-            id: String(ag.id),
-            judul: ag.judul,
-            kategori: ag.kategori || "KEGIATAN_SEKOLAH",
-            tanggalMulai: ag.tanggal_mulai,
-            tanggalSelesai: ag.tanggal_selesai || ag.tanggal_mulai,
-            sasaran: ag.sasaran || "SEMUA",
-            keterangan: ag.keterangan,
-            warna: ag.warna || "sky",
-          }));
-          if (mapped.length > 0) setDaftarAgendaAkademik(mapped);
-        }
-
-        if (alumniRes.status === "fulfilled" && alumniRes.value?.data) {
-          const mapped = alumniRes.value.data.map((al: any) => ({
-            id: String(al.id),
-            nisn: al.nisn || "",
-            nama: al.nama,
-            gender: al.gender || "L",
-            tahunLulus: Number(al.tahun_lulus) || 2024,
-            jurusan: al.jurusan || "MIPA",
-            statusTracer: al.status_tracer || "BEKERJA",
-            instansiAtauKampus: al.instansi_atau_kampus || "-",
-            posisiAtauJurusan: al.posisi_atau_jurusan || "-",
-            email: al.email || "-",
-            telepon: al.telepon || "-",
-            kotaDomisili: al.kota_domisili || "-",
-            kesanPesan: al.kesan_pesan,
-            bersediaMentoring: Boolean(al.bersedia_mentoring),
-          }));
-          if (mapped.length > 0) setDaftarAlumni(mapped);
-        }
-
-        if (jadwalRes.status === "fulfilled" && jadwalRes.value?.data) {
-          const mapped = jadwalRes.value.data.map((j: any) => ({
-            id: String(j.id),
-            kelas: j.kelas?.nama || "X IPA 1",
-            mapel: j.mapel?.nama || "Matematika",
-            hari: j.hari || "Kamis",
-            jamMulai: j.jam_mulai ? j.jam_mulai.substring(0, 5) : "07:00",
-            jamSelesai: j.jam_selesai ? j.jam_selesai.substring(0, 5) : "08:30",
-            guruId: String(j.guru_id || "g1"),
-          }));
-          if (mapped.length > 0) setJadwal(mapped);
-        }
-
-        if (presensiTodayRes.status === "fulfilled" && presensiTodayRes.value?.data) {
-          const p = presensiTodayRes.value.data;
-          setPresensiGuruList((prev) => {
-            const guruId = String(p.guru_id || currentUser.id || "g1");
-            const existing = prev.find((item) => item.guruId === guruId);
-            const entry: PresensiGuruRecord = {
-              id: String(p.id),
-              guruId,
-              nama: p.guru?.nama || currentUser.nama || "Sari Wulandari, S.Pd",
-              nip: p.guru?.nip || "198503152010012015",
-              jabatan: p.guru?.jabatan || "Wali Kelas & Guru Matematika",
-              tanggal: p.tanggal || getTanggalHariIniFormatted(),
-              jamMasuk: p.jam_masuk ? `${p.jam_masuk.substring(0, 5)} WIB` : "06:45 WIB",
-              jamPulang: p.jam_pulang ? `${p.jam_pulang.substring(0, 5)} WIB` : undefined,
-              status: p.status || "TEPAT_WAKTU",
-              keterangan: p.keterangan || "Presensi Hadir",
-              lokasi: p.lokasi || "SMAN 3 Contoh",
-            };
-            return existing ? prev.map((item) => (item.guruId === guruId ? entry : item)) : [entry, ...prev];
-          });
-        }
-
-        if (jurnalRes.status === "fulfilled" && jurnalRes.value?.data) {
-          const mapped = jurnalRes.value.data.map((jur: any) => ({
-            id: String(jur.id),
-            jadwalId: String(jur.jadwal_id || "j1"),
-            guruId: String(jur.guru_id || "g1"),
-            guruNama: jur.guru?.nama || "Guru Pengajar",
-            kelas: jur.kelas?.nama || "X IPA 1",
-            mapel: jur.mapel?.nama || "Matematika",
-            hari: "Kamis",
-            jamMulai: jur.jam_mulai ? jur.jam_mulai.substring(0, 5) : "07:00",
-            jamSelesai: jur.jam_selesai ? jur.jam_selesai.substring(0, 5) : "08:30",
-            tanggal: jur.tanggal || getTanggalHariIniFormatted(),
-            materiPokok: jur.materi_pokok,
-            tujuanPembelajaran: jur.tujuan_pembelajaran || "Tercapainya capaian pembelajaran",
-            catatanKejadian: jur.catatan_kejadian || "KBM kondusif",
-            ketercapaian: jur.ketercapaian || "TERCAPAI",
-            hadir: Number(jur.hadir) || 0,
-            sakit: Number(jur.sakit) || 0,
-            izin: Number(jur.izin) || 0,
-            alpha: Number(jur.alpha) || 0,
-            totalSiswa: Number(jur.total_siswa) || 0,
-          }));
-          if (mapped.length > 0) setJurnalList(mapped);
-        }
-      } catch (err) {
-        console.warn("Could not sync store with backend API:", err);
-      }
-    }
-
-    loadDataFromBackend();
-  }, [pathname]);
+  // Polling massal dinonaktifkan permanen demi efisiensi SaaS (On-Demand Fetching standar).
 
   const value = useMemo<StoreValue>(
     () => ({
@@ -2874,6 +2457,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         } catch (err: any) {
           console.warn("API clockOutGuru notice:", err?.message);
           return null;
+        }
+      },
+      refreshPresensiGuruToday: async () => {
+        try {
+          const res = await api.getPresensiGuruToday();
+          if (res?.data) {
+            const p = res.data;
+            const entry: PresensiGuruRecord = {
+              id: String(p.id),
+              guruId: String(p.guru_id || currentUser.id || "g1"),
+              nama: p.guru?.nama || currentUser.nama || "Sari Wulandari, S.Pd",
+              nip: p.guru?.nip || "198503152010012015",
+              jabatan: p.guru?.jabatan || "Wali Kelas & Guru Matematika",
+              tanggal: p.tanggal || getTanggalHariIniFormatted(),
+              jamMasuk: p.jam_masuk ? `${p.jam_masuk.substring(0, 5)} WIB` : "-",
+              jamPulang: p.jam_pulang ? `${p.jam_pulang.substring(0, 5)} WIB` : undefined,
+              status: p.status || "TEPAT_WAKTU",
+              keterangan: p.keterangan || "Presensi Hadir",
+              lokasi: p.lokasi || "SMAN 3 Contoh",
+            };
+            setPresensiGuruList((prev) => {
+              const exists = prev.some((item) => item.guruId === entry.guruId);
+              return exists ? prev.map((item) => (item.guruId === entry.guruId ? entry : item)) : [entry, ...prev];
+            });
+          }
+        } catch (err) {
+          // ignore offline
         }
       },
       currentUser,
