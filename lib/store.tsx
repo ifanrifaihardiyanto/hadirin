@@ -2504,7 +2504,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tambahGuru: (guru) => {
         setDaftarGuru((prev) => [
           ...prev,
-          { ...guru, id: `g-${Date.now()}` },
+          { ...guru, id: String(Date.now()) },
         ]);
         api.createGuru({
           nama: guru.nama,
@@ -2516,7 +2516,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }).catch((e) => console.warn("API createGuru failed:", e));
       },
       tambahJadwal: (entry) =>
-        setJadwal((prev) => [...prev, { ...entry, id: `j-${Date.now()}` }]),
+        setJadwal((prev) => [...prev, { ...entry, id: String(Date.now()) }]),
       hapusJadwal: (id) =>
         setJadwal((prev) => prev.filter((j) => j.id !== id)),
       simpanAbsensi: (jadwalId: string, siswaList: Siswa[]) => {
@@ -2596,7 +2596,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       tambahKasusBK: (kasus: Omit<KasusBK, "id">) => {
         setKasusBKList((prev) => [
-          { ...kasus, id: `bk-${Date.now()}` },
+          { ...kasus, id: String(Date.now()) },
           ...prev,
         ]);
         api.createKasusBK({
