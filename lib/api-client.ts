@@ -129,6 +129,15 @@ export const api = {
   },
 
   // Jadwal & Absensi (Fase 2)
+  async getJadwalList(params?: { hari?: string; kelas_id?: string | number; guru_id?: string | number }) {
+    const query = new URLSearchParams();
+    if (params?.hari) query.append("hari", params.hari);
+    if (params?.kelas_id) query.append("kelas_id", String(params.kelas_id));
+    if (params?.guru_id) query.append("guru_id", String(params.guru_id));
+    const qs = query.toString();
+    return fetchApi(`/jadwal${qs ? `?${qs}` : ""}`);
+  },
+
   async getJadwalHariIni() {
     return fetchApi<{
       success: boolean;

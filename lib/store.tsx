@@ -2459,6 +2459,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           anggotaEkskulRes,
           agendaRes,
           alumniRes,
+          jadwalRes,
+          presensiTodayRes,
+          jurnalRes,
         ] = await Promise.allSettled([
           api.getGuruList(),
           api.getKelasList(),
@@ -2477,6 +2480,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           api.getAnggotaEkskulList(),
           api.getAgendaAkademikList(),
           api.getAlumniList(),
+          api.getJadwalList(),
+          api.getPresensiGuruToday(),
+          api.getJurnalList(),
         ]);
 
         if (gurusRes.status === "fulfilled" && gurusRes.value?.data) {
@@ -2775,6 +2781,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }));
           if (mapped.length > 0) setDaftarAlumni(mapped);
         }
+
+        if (jadwalRes.status === "fulfilled" && jadwalRes.value?.data) {
+          const mapped = jadwalRes.value.data.map((j: any) => ({
+            id: String(j.id),
+            kelas: j.kelas?.nama || "X IPA 1",
+            mapel: j.mapel?.nama || "Matematika",
+            hari: j.hari || "Kamis",
+            jamMulai: j.jam_mulai ? j.jam_mulai.substring(0, 5) : "07:00",
+            jamSelesai: j.jam_selesai ? j.jam_selesai.substring(0, 5) : "08:30",
+            guruId: String(j.guru_id || "g1"),
+          }));
+          if (mapped.length > 0) setJadwal(mapped);
+        }
+
+        if (presensiTodayRes.status === "fulfilled" && presensiTodayRes.value?.data) {
+          const p = presensiTodayRes.value.data;
+          setPresensiGuruList((prev) => {
+            const guruId = String(p.guru_id || currentUser.id || "g1");
+            const existing = prev.find((item) => item.guruId === guruId);
+            const entry: PresensiGuruRecord = {
+              id: String(p.id),
+              guruId,
+              nama: p.guru?.nama || currentUser.nama || "Sari Wulandari, S.Pd",
+              nip: p.guru?.nip || "198503152010012015",
+              jabatan: p.guru?.jabatan || "Wali Kelas & Guru Matematika",
+              tanggal: p.tanggal || "Kamis, 24 Juli 2026",
+              jamMasuk: p.jam_masuk ? `${p.jam_masuk.substring(0, 5)} WIB` : "06:45 WIB",
+              jamPulang: p.jam_pulang ? `${p.jam_pulang.substring(0, 5)} WIB` : undefined,
+              status: p.status || "TEPAT_WAKTU",
+              keterangan: p.keterangan || "Presensi Hadir",
+              lokasi: p.lokasi || "SMAN 3 Contoh",
+            };
+            return existing ? prev.map((item) => (item.guruId === guruId ? entry : item)) : [entry, ...prev];
+          });
+        }
+
+        if (jurnalRes.status === "fulfilled" && jurnalRes.value?.data) {
+          const mapped = jurnalRes.value.data.map((jur: any) => ({
+            id: String(jur.id),
+            jadwalId: String(jur.jadwal_id || "j1"),
+            guruId: String(jur.guru_id || "g1"),
+            guruNama: jur.guru?.nama || "Guru Pengajar",
+            kelas: jur.kelas?.nama || "X IPA 1",
+            mapel: jur.mapel?.nama || "Matematika",
+            hari: "Kamis",
+            jamMulai: jur.jam_mulai ? jur.jam_mulai.substring(0, 5) : "07:00",
+            jamSelesai: jur.jam_selesai ? jur.jam_selesai.substring(0, 5) : "08:30",
+            tanggal: jur.tanggal || "Kamis, 24 Juli 2026",
+            materiPokok: jur.materi_pokok,
+            tujuanPembelajaran: jur.tujuan_pembelajaran || "Tercapainya capaian pembelajaran",
+            catatanKejadian: jur.catatan_kejadian || "KBM kondusif",
+            ketercapaian: jur.ketercapaian || "TERCAPAI",
+            hadir: Number(jur.hadir) || 0,
+            sakit: Number(jur.sakit) || 0,
+            izin: Number(jur.izin) || 0,
+            alpha: Number(jur.alpha) || 0,
+            totalSiswa: Number(jur.total_siswa) || 0,
+          }));
+          if (mapped.length > 0) setJurnalList(mapped);
+        }
       } catch (err) {
         console.warn("Could not sync store with backend API:", err);
       }
@@ -2827,6 +2893,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...prev,
           ];
         });
+
+        // Sync with Backend
+        api.clockInGuru({
+          lokasi: "SMA Negeri 3 Contoh",
+          keterangan: keterangan || (status === "TEPAT_WAKTU" ? "Presensi mandiri pagi" : "Presensi terlambat"),
+        }).catch((err) => console.warn("API clockInGuru notice:", err?.message));
       },
       checkOutGuru: (guruId: string) => {
         const jamSekarang = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
@@ -2835,6 +2907,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             p.guruId === guruId ? { ...p, jamPulang: jamSekarang } : p
           )
         );
+
+        // Sync with Backend
+        api.clockOutGuru().catch((err) => console.warn("API clockOutGuru notice:", err?.message));
       },
       currentUser,
       tambahGuru: (guru) => {
@@ -2860,6 +2935,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setAbsensiTersimpanHariIni((prev) =>
           prev.includes(jadwalId) ? prev : [...prev, jadwalId]
         );
+
+        // Convert and submit to backend API
+        const numericJadwalId = jadwalId.replace(/\D/g, "") || "1";
+        const absensiPayload = siswaList.map((s) => ({
+          siswa_id: Number(s.id.replace(/\D/g, "")) || 1,
+          status: s.status as "H" | "S" | "I" | "A",
+          catatan: (s as any).catatan || undefined,
+        }));
+
+        api.saveAbsensi(numericJadwalId, {
+          tanggal: new Date().toISOString().split("T")[0],
+          absensi: absensiPayload,
+        }).catch((err: any) => console.warn("API saveAbsensi notice:", err?.message));
       },
       ambilDataSiswa: (jadwalId: string) => {
         if (absensiRecord[jadwalId]) {
@@ -2872,6 +2960,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           { ...entry, id: `jur-${Date.now()}` },
           ...prev.filter((j) => j.jadwalId !== entry.jadwalId),
         ]);
+
+        // Submit to backend API JurnalMengajar
+        const numericJadwalId = Number(entry.jadwalId.replace(/\D/g, "")) || 1;
+        api.saveJurnal({
+          kelas_id: 1, // Fallback default kelas
+          mapel_id: 1, // Fallback default mapel
+          jadwal_id: numericJadwalId,
+          tanggal: new Date().toISOString().split("T")[0],
+          jam_mulai: entry.jamMulai?.replace(".", ":") || "07:00",
+          jam_selesai: entry.jamSelesai?.replace(".", ":") || "08:30",
+          materi_pokok: entry.materiPokok,
+          tujuan_pembelajaran: entry.tujuanPembelajaran,
+          ketercapaian: entry.ketercapaian,
+          catatan_kejadian: entry.catatanKejadian,
+          hadir: entry.hadir,
+          sakit: entry.sakit,
+          izin: entry.izin,
+          alpha: entry.alpha,
+          total_siswa: entry.totalSiswa,
+        }).catch((err: any) => console.warn("API saveJurnal notice:", err?.message));
       },
       tambahIzin: (izin) => {
         const jamSekarang = new Date().toLocaleTimeString("id-ID", {

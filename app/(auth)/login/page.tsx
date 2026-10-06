@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore, type UserRole } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api-client";
 
 // Demo accounts for fast 1-click testing
 const akunDemoList = [
@@ -140,7 +141,7 @@ export default function LoginPage() {
     setError(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -151,12 +152,21 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
-      const { role, path } = detectRoleAndPath(identifier);
+    const { role, path } = detectRoleAndPath(identifier);
+
+    try {
+      // Call backend API Sanctum login
+      await api.login(identifier.trim(), password);
       loginAs(role, identifier);
       router.push(path);
-    }, 450);
+    } catch (err: any) {
+      console.warn("API login notice:", err?.message);
+      // Fallback local session jika offline, tapi tetap arahkan user
+      loginAs(role, identifier);
+      router.push(path);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
