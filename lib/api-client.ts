@@ -124,6 +124,12 @@ export const api = {
     });
   },
 
+  async deleteSiswa(id: string | number) {
+    return fetchApi(`/siswa/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   async getMapelList() {
     return fetchApi("/mapel");
   },

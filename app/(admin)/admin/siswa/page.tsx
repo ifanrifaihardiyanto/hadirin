@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Users,
   Search,
@@ -15,16 +15,23 @@ import {
   Sparkles,
   School,
   X,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useStore, type SiswaInduk } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export default function AdminSiswaPage() {
-  const { daftarSiswaInduk, tambahSiswaInduk, hapusSiswaInduk, tahunAjaranAktif, semesterAktif } = useStore();
+  const { tahunAjaranAktif, semesterAktif } = useStore();
+  const [siswaList, setSiswaList] = useState<SiswaInduk[]>([]);
+  const [kelasList, setKelasList] = useState<{ id: number; nama: string; waliKelas?: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [filterKelas, setFilterKelas] = useState("SEMUA");
@@ -39,17 +46,60 @@ export default function AdminSiswaPage() {
     nama: "",
     gender: "L" as "L" | "P",
     kelas: "X IPA 1",
-    waliKelas: "Sari Wulandari, S.Pd",
     namaWali: "",
     teleponWali: "",
     status: "AKTIF" as const,
   });
 
-  const daftarKelasList = ["X IPA 1", "X IPA 2", "XI IPA 1", "XI IPA 2", "XII IPA 1", "XII IPS 1"];
+  const daftarKelasList = useMemo(() => {
+    if (kelasList.length > 0) return kelasList.map((k) => k.nama);
+    return ["X IPA 1", "X IPA 2", "XI IPA 1", "XI IPA 2", "XII IPA 1", "XII IPS 1"];
+  }, [kelasList]);
+
+  const fetchSiswaAndKelas = async () => {
+    setLoading(true);
+    try {
+      const [resSiswa, resKelas] = await Promise.all([
+        api.getSiswaList(),
+        api.getKelasList().catch(() => ({ data: [] })),
+      ]);
+
+      const kelasArr = (resKelas?.data || []).map((k: any) => ({
+        id: k.id,
+        nama: k.nama,
+        waliKelas: k.wali_guru?.nama || "Wali Kelas",
+      }));
+      setKelasList(kelasArr);
+
+      if (resSiswa?.data) {
+        const mapped: SiswaInduk[] = resSiswa.data.map((s: any) => ({
+          id: s.id,
+          nisn: s.nisn || "-",
+          nis: s.nis || "-",
+          nama: s.nama,
+          gender: s.gender || "L",
+          kelas: s.kelas?.nama || "X IPA 1",
+          waliKelas: s.kelas?.wali_guru?.nama || "Wali Kelas",
+          namaWali: s.nama_wali || "Wali Murid",
+          teleponWali: s.telepon_wali || "0812-0000-0000",
+          status: (s.status || "AKTIF") as any,
+        }));
+        setSiswaList(mapped);
+      }
+    } catch (err: any) {
+      console.warn("Gagal memuat data siswa:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSiswaAndKelas();
+  }, []);
 
   // Filtered List
   const filteredList = useMemo(() => {
-    return daftarSiswaInduk.filter((s) => {
+    return siswaList.filter((s) => {
       const matchSearch =
         s.nama.toLowerCase().includes(search.toLowerCase()) ||
         s.nisn.includes(search) ||
@@ -58,48 +108,83 @@ export default function AdminSiswaPage() {
       const matchStatus = filterStatus === "SEMUA" || s.status === filterStatus;
       return matchSearch && matchKelas && matchStatus;
     });
-  }, [daftarSiswaInduk, search, filterKelas, filterStatus]);
+  }, [siswaList, search, filterKelas, filterStatus]);
 
   // Statistics
-  const totalAktif = daftarSiswaInduk.filter((s) => s.status === "AKTIF").length;
-  const totalLaki = daftarSiswaInduk.filter((s) => s.gender === "L").length;
-  const totalPerempuan = daftarSiswaInduk.filter((s) => s.gender === "P").length;
-  const totalRombel = new Set(daftarSiswaInduk.map((s) => s.kelas)).size;
+  const totalAktif = siswaList.filter((s) => s.status === "AKTIF").length;
+  const totalLaki = siswaList.filter((s) => s.gender === "L").length;
+  const totalPerempuan = siswaList.filter((s) => s.gender === "P").length;
+  const totalRombel = new Set(siswaList.map((s) => s.kelas)).size;
 
-  function handleSubmitTambah(e: React.FormEvent) {
+  async function handleSubmitTambah(e: React.FormEvent) {
     e.preventDefault();
-    if (!formSiswa.nama || !formSiswa.nisn) return;
+    if (!formSiswa.nama) return;
 
-    tambahSiswaInduk({
-      ...formSiswa,
-      waliKelas:
-        formSiswa.kelas === "X IPA 1"
-          ? "Sari Wulandari, S.Pd"
-          : formSiswa.kelas === "X IPA 2"
-          ? "Bambang Santoso, M.Si"
-          : formSiswa.kelas === "XI IPA 1"
-          ? "Dewi Lestari, M.Pd"
-          : "Ahmad Fauzi, S.Pd",
-    });
+    setSubmitting(true);
+    try {
+      const targetKelas = kelasList.find((k) => k.nama === formSiswa.kelas);
+      const payload = {
+        nama: formSiswa.nama,
+        nisn: formSiswa.nisn || undefined,
+        nis: formSiswa.nis || undefined,
+        gender: formSiswa.gender,
+        kelas_id: targetKelas?.id,
+        nama_wali: formSiswa.namaWali || undefined,
+        telepon_wali: formSiswa.teleponWali || undefined,
+        status: formSiswa.status,
+      };
 
-    setOpenModal(false);
-    setFormSiswa({
-      nisn: "",
-      nis: "",
-      nama: "",
-      gender: "L",
-      kelas: "X IPA 1",
-      waliKelas: "Sari Wulandari, S.Pd",
-      namaWali: "",
-      teleponWali: "",
-      status: "AKTIF",
-    });
+      const res = await api.createSiswa(payload);
+      if (res?.data) {
+        const newSiswa: SiswaInduk = {
+          id: res.data.id,
+          nisn: res.data.nisn || formSiswa.nisn || "-",
+          nis: res.data.nis || formSiswa.nis || "-",
+          nama: res.data.nama,
+          gender: res.data.gender || formSiswa.gender,
+          kelas: formSiswa.kelas,
+          waliKelas: targetKelas?.waliKelas || "Wali Kelas",
+          namaWali: res.data.nama_wali || formSiswa.namaWali,
+          teleponWali: res.data.telepon_wali || formSiswa.teleponWali,
+          status: formSiswa.status,
+        };
+        setSiswaList((prev) => [newSiswa, ...prev]);
+      } else {
+        await fetchSiswaAndKelas();
+      }
+
+      setOpenModal(false);
+      setFormSiswa({
+        nisn: "",
+        nis: "",
+        nama: "",
+        gender: "L",
+        kelas: kelasList[0]?.nama || "X IPA 1",
+        namaWali: "",
+        teleponWali: "",
+        status: "AKTIF",
+      });
+    } catch (err: any) {
+      alert("Gagal menambahkan siswa: " + (err?.message || "Terjadi kesalahan"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleHapus(id: string | number) {
+    if (!confirm("Apakah Anda yakin ingin menghapus data siswa ini?")) return;
+    try {
+      await api.deleteSiswa(id);
+      setSiswaList((prev) => prev.filter((s) => String(s.id) !== String(id)));
+    } catch (err: any) {
+      alert("Gagal menghapus siswa: " + (err?.message || "Terjadi kesalahan"));
+    }
   }
 
   function handleImportDapodik() {
     setImportNotice("Sinkronisasi otomatis dengan Dapodik Kemdikbud sedang berjalan...");
     setTimeout(() => {
-      setImportNotice("Berhasil menyinkronkan 12 data peserta didik terdaftar.");
+      setImportNotice(`Berhasil menyinkronkan ${siswaList.length} data peserta didik terdaftar.`);
       setTimeout(() => setImportNotice(null), 4000);
     }, 1200);
   }
@@ -123,6 +208,17 @@ export default function AdminSiswaPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchSiswaAndKelas}
+            disabled={loading}
+            className="text-xs h-9 gap-1.5"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -166,7 +262,9 @@ export default function AdminSiswaPage() {
                 <Users size={16} />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{daftarSiswaInduk.length}</div>
+            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">
+              {loading ? <Skeleton className="h-8 w-16" /> : siswaList.length}
+            </div>
             <div className="mt-1 text-[11px] text-emerald-600 font-medium">● {totalAktif} Status Aktif</div>
           </CardContent>
         </Card>
@@ -179,9 +277,11 @@ export default function AdminSiswaPage() {
                 <GraduationCap size={16} />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalLaki}</div>
+            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">
+              {loading ? <Skeleton className="h-8 w-16" /> : totalLaki}
+            </div>
             <div className="mt-1 text-[11px] text-slate-500">
-              {daftarSiswaInduk.length > 0 ? Math.round((totalLaki / daftarSiswaInduk.length) * 100) : 0}% dari total
+              {siswaList.length > 0 ? Math.round((totalLaki / siswaList.length) * 100) : 0}% dari total
             </div>
           </CardContent>
         </Card>
@@ -194,9 +294,11 @@ export default function AdminSiswaPage() {
                 <GraduationCap size={16} />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalPerempuan}</div>
+            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">
+              {loading ? <Skeleton className="h-8 w-16" /> : totalPerempuan}
+            </div>
             <div className="mt-1 text-[11px] text-slate-500">
-              {daftarSiswaInduk.length > 0 ? Math.round((totalPerempuan / daftarSiswaInduk.length) * 100) : 0}% dari total
+              {siswaList.length > 0 ? Math.round((totalPerempuan / siswaList.length) * 100) : 0}% dari total
             </div>
           </CardContent>
         </Card>
@@ -209,7 +311,9 @@ export default function AdminSiswaPage() {
                 <School size={16} />
               </span>
             </div>
-            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{totalRombel}</div>
+            <div className="mt-2 text-2xl font-bold font-mono text-navy-950">
+              {loading ? <Skeleton className="h-8 w-16" /> : totalRombel}
+            </div>
             <div className="mt-1 text-[11px] text-slate-500">Tingkat X, XI, XII</div>
           </CardContent>
         </Card>
@@ -274,7 +378,19 @@ export default function AdminSiswaPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredList.length === 0 ? (
+                {loading ? (
+                  [1, 2, 3, 4, 5].map((n) => (
+                    <tr key={n}>
+                      <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-5 py-4"><Skeleton className="h-4 w-36" /></td>
+                      <td className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                      <td className="px-5 py-4"><Skeleton className="h-4 w-28" /></td>
+                      <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></td>
+                      <td className="px-5 py-4 text-right"><Skeleton className="h-6 w-6 rounded-md ml-auto" /></td>
+                    </tr>
+                  ))
+                ) : filteredList.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-slate-400">
                       Tidak ada data siswa yang cocok dengan filter pencarian.
@@ -332,7 +448,7 @@ export default function AdminSiswaPage() {
                       <td className="px-5 py-3.5 text-right">
                         <button
                           type="button"
-                          onClick={() => hapusSiswaInduk(s.id)}
+                          onClick={() => handleHapus(s.id)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                           title="Hapus Siswa"
                         >
@@ -460,9 +576,10 @@ export default function AdminSiswaPage() {
                 <Button
                   type="submit"
                   size="sm"
+                  disabled={submitting}
                   className="bg-navy-900 text-white hover:bg-navy-800 rounded-xl text-xs shadow-xs"
                 >
-                  Simpan Siswa
+                  {submitting ? "Menyimpan..." : "Simpan Siswa"}
                 </Button>
               </div>
             </form>
