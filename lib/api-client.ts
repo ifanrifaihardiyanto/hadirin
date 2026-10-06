@@ -109,6 +109,19 @@ export const api = {
     });
   },
 
+  async updateKelas(id: string | number, payload: any) {
+    return fetchApi(`/kelas/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteKelas(id: string | number) {
+    return fetchApi(`/kelas/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   async getSiswaList(params?: { kelas_id?: string | number; status?: string }) {
     const query = new URLSearchParams();
     if (params?.kelas_id) query.append("kelas_id", String(params.kelas_id));

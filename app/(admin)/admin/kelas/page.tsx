@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   School,
   Plus,
@@ -23,6 +23,7 @@ import {
   Printer,
   ChevronRight,
   ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,21 +31,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useStore, type Kelas, type SiswaInduk } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export default function ManajemenKelasPage() {
-  const {
-    daftarKelas,
-    tambahKelas,
-    hapusKelas,
-    updateKelas,
-    daftarSiswaInduk,
-    pindahSiswaRombel,
-    daftarGuru,
-    tahunAjaranAktif,
-    semesterAktif,
-  } = useStore();
+  const { tahunAjaranAktif, semesterAktif } = useStore();
+
+  const [kelasList, setKelasList] = useState<Kelas[]>([]);
+  const [guruList, setGuruList] = useState<{ id: number; nama: string; mapel?: string[] }[]>([]);
+  const [siswaList, setSiswaList] = useState<SiswaInduk[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tingkatFilter, setTingkatFilter] = useState<string>("SEMUA");
@@ -76,18 +74,75 @@ export default function ManajemenKelasPage() {
   const [formNama, setFormNama] = useState("");
   const [formTingkat, setFormTingkat] = useState<"Kelas X" | "Kelas XI" | "Kelas XII">("Kelas X");
   const [formJurusan, setFormJurusan] = useState<"MIPA" | "IPS" | "Umum / Fase E" | "Bahasa">("MIPA");
-  const [formWaliKelas, setFormWaliKelas] = useState("");
+  const [formWaliKelasId, setFormWaliKelasId] = useState<string>("");
   const [formRuangan, setFormRuangan] = useState("");
   const [formKapasitas, setFormKapasitas] = useState(36);
   const [formKurikulum, setFormKurikulum] = useState<"Kurikulum Merdeka" | "Kurikulum 2013">("Kurikulum Merdeka");
   const [formStatus, setFormStatus] = useState<"AKTIF" | "ARSIP">("AKTIF");
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [resKelas, resGuru, resSiswa] = await Promise.all([
+        api.getKelasList().catch(() => ({ data: [] })),
+        api.getGuruList().catch(() => ({ data: [] })),
+        api.getSiswaList().catch(() => ({ data: [] })),
+      ]);
+
+      const gurus = (resGuru?.data || []).map((g: any) => ({
+        id: g.id,
+        nama: g.nama,
+        mapel: g.mata_pelajarans?.map((m: any) => m.nama) || [],
+      }));
+      setGuruList(gurus);
+
+      const siswas: SiswaInduk[] = (resSiswa?.data || []).map((s: any) => ({
+        id: String(s.id),
+        nis: s.nis || "-",
+        nisn: s.nisn || "-",
+        nama: s.nama,
+        gender: (s.jenis_kelamin === "P" ? "P" : "L") as "L" | "P",
+        kelas: s.kelas?.nama || "-",
+        waliKelas: s.kelas?.wali_kelas?.nama || "-",
+        namaWali: s.nama_wali || s.nama_ayah || "-",
+        teleponWali: s.telepon_ortu || "-",
+        status: "AKTIF",
+      }));
+      setSiswaList(siswas);
+
+      if (resKelas?.data) {
+        const mapped: Kelas[] = resKelas.data.map((k: any) => ({
+          id: String(k.id),
+          nama: k.nama,
+          tingkat: (k.tingkat || "Kelas X") as any,
+          jurusan: (k.jurusan || "MIPA") as any,
+          waliKelas: k.wali_kelas?.nama || "Belum Ditugaskan",
+          ruangan: k.ruangan || "R.101 (Gedung A)",
+          kapasitas: 36,
+          kurikulum: "Kurikulum Merdeka",
+          tahunAjaran: k.tahun_ajaran || "2026/2027",
+          semester: "Ganjil",
+          status: "AKTIF",
+        }));
+        setKelasList(mapped);
+      }
+    } catch (err: any) {
+      console.warn("Gagal memuat rombel kelas:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const openAddModal = () => {
     setEditingKelas(null);
     setFormNama("");
     setFormTingkat("Kelas X");
     setFormJurusan("MIPA");
-    setFormWaliKelas(daftarGuru[0]?.nama || "Sari Wulandari, S.Pd");
+    setFormWaliKelasId(guruList[0]?.id ? String(guruList[0].id) : "");
     setFormRuangan("R.101 (Gedung A)");
     setFormKapasitas(36);
     setFormKurikulum("Kurikulum Merdeka");
@@ -100,7 +155,8 @@ export default function ManajemenKelasPage() {
     setFormNama(kelas.nama);
     setFormTingkat(kelas.tingkat || "Kelas X");
     setFormJurusan(kelas.jurusan || "MIPA");
-    setFormWaliKelas(kelas.waliKelas || daftarGuru[0]?.nama || "");
+    const foundGuru = guruList.find((g) => g.nama === kelas.waliKelas);
+    setFormWaliKelasId(foundGuru ? String(foundGuru.id) : "");
     setFormRuangan(kelas.ruangan || "");
     setFormKapasitas(kelas.kapasitas || 36);
     setFormKurikulum(kelas.kurikulum || "Kurikulum Merdeka");
@@ -108,50 +164,78 @@ export default function ManajemenKelasPage() {
     setIsAddModalOpen(true);
   };
 
-  const handleSaveKelas = (e: React.FormEvent) => {
+  const handleSaveKelas = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNama.trim()) return;
 
-    if (editingKelas) {
-      updateKelas(editingKelas.id, {
-        nama: formNama.trim(),
-        tingkat: formTingkat,
-        jurusan: formJurusan,
-        waliKelas: formWaliKelas,
-        ruangan: formRuangan,
-        kapasitas: Number(formKapasitas) || 36,
-        kurikulum: formKurikulum,
-        status: formStatus,
-      });
-      showToast(`Rombel ${formNama} berhasil diperbarui.`);
-    } else {
-      tambahKelas({
-        nama: formNama.trim(),
-        tingkat: formTingkat,
-        jurusan: formJurusan,
-        waliKelas: formWaliKelas,
-        ruangan: formRuangan,
-        kapasitas: Number(formKapasitas) || 36,
-        kurikulum: formKurikulum,
-        tahunAjaran: tahunAjaranAktif,
-        semester: semesterAktif,
-        status: formStatus,
-      });
-      showToast(`Rombel baru ${formNama} berhasil dibuat.`);
+    const payload = {
+      nama: formNama.trim(),
+      tingkat: formTingkat,
+      jurusan: formJurusan,
+      wali_kelas_id: formWaliKelasId ? Number(formWaliKelasId) : null,
+      tahun_ajaran: tahunAjaranAktif,
+    };
+
+    try {
+      if (editingKelas) {
+        await api.updateKelas(editingKelas.id, payload);
+        const waliGuru = guruList.find((g) => String(g.id) === String(formWaliKelasId));
+        setKelasList((prev) =>
+          prev.map((k) =>
+            k.id === editingKelas.id
+              ? {
+                  ...k,
+                  nama: formNama.trim(),
+                  tingkat: formTingkat,
+                  jurusan: formJurusan,
+                  waliKelas: waliGuru?.nama || k.waliKelas,
+                  ruangan: formRuangan,
+                  kapasitas: Number(formKapasitas) || 36,
+                }
+              : k
+          )
+        );
+        showToast(`Rombel ${formNama} berhasil diperbarui.`);
+      } else {
+        const res = await api.createKelas(payload);
+        const waliGuru = guruList.find((g) => String(g.id) === String(formWaliKelasId));
+        const newKelas: Kelas = {
+          id: String(res?.data?.id || Date.now()),
+          nama: formNama.trim(),
+          tingkat: formTingkat,
+          jurusan: formJurusan,
+          waliKelas: waliGuru?.nama || "Belum Ditugaskan",
+          ruangan: formRuangan,
+          kapasitas: Number(formKapasitas) || 36,
+          kurikulum: formKurikulum,
+          tahunAjaran: tahunAjaranAktif,
+          semester: semesterAktif,
+          status: formStatus,
+        };
+        setKelasList((prev) => [newKelas, ...prev]);
+        showToast(`Rombel baru ${formNama} berhasil dibuat.`);
+      }
+      setIsAddModalOpen(false);
+    } catch (err: any) {
+      alert("Gagal menyimpan rombel: " + (err?.message || "Terjadi kesalahan"));
     }
-    setIsAddModalOpen(false);
   };
 
-  const handleDeleteKelas = (id: string, nama: string) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus rombel ${nama}?`)) {
-      hapusKelas(id);
+  const handleDeleteKelas = async (id: string, nama: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus rombel ${nama}?`)) return;
+
+    try {
+      await api.deleteKelas(id);
+      setKelasList((prev) => prev.filter((k) => k.id !== id));
       showToast(`Rombel ${nama} telah dihapus.`);
+    } catch (err: any) {
+      alert("Gagal menghapus rombel: " + (err?.message || "Terjadi kesalahan"));
     }
   };
 
   // Filtered classes
   const filteredKelas = useMemo(() => {
-    return daftarKelas.filter((k) => {
+    return kelasList.filter((k) => {
       const matchSearch =
         k.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (k.waliKelas && k.waliKelas.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -162,20 +246,26 @@ export default function ManajemenKelasPage() {
 
       return matchSearch && matchTingkat && matchJurusan;
     });
-  }, [daftarKelas, searchQuery, tingkatFilter, jurusanFilter]);
+  }, [kelasList, searchQuery, tingkatFilter, jurusanFilter]);
 
   // Summary Metrics
-  const totalRombel = daftarKelas.length;
-  const totalRombelAktif = daftarKelas.filter((k) => k.status !== "ARSIP").length;
-  const totalSiswaTerdistribusi = daftarSiswaInduk.length;
+  const totalRombel = kelasList.length;
+  const totalRombelAktif = kelasList.filter((k) => k.status !== "ARSIP").length;
+  const totalSiswaTerdistribusi = siswaList.length;
   const rataKapasitas = totalRombel > 0 ? Math.round(totalSiswaTerdistribusi / totalRombel) : 0;
-  const waliKelasCount = new Set(daftarKelas.map((k) => k.waliKelas).filter(Boolean)).size;
+  const waliKelasCount = new Set(kelasList.map((k) => k.waliKelas).filter(Boolean)).size;
 
   // Students in selected class modal
   const siswaDiRombel = useMemo(() => {
     if (!selectedKelasForSiswa) return [];
-    return daftarSiswaInduk.filter((s) => s.kelas === selectedKelasForSiswa.nama);
-  }, [selectedKelasForSiswa, daftarSiswaInduk]);
+    return siswaList.filter((s) => s.kelas === selectedKelasForSiswa.nama);
+  }, [selectedKelasForSiswa, siswaList]);
+
+  const pindahSiswaRombel = (siswaId: string, rombelTujuan: string) => {
+    setSiswaList((prev) =>
+      prev.map((s) => (s.id === siswaId ? { ...s, kelas: rombelTujuan } : s))
+    );
+  };
 
   // Execute batch migration / promotion
   const handleBatchPromote = () => {
@@ -188,7 +278,7 @@ export default function ManajemenKelasPage() {
       return;
     }
 
-    const siswaToMove = daftarSiswaInduk.filter((s) => s.kelas === kelasAsal);
+    const siswaToMove = siswaList.filter((s) => s.kelas === kelasAsal);
     if (siswaToMove.length === 0) {
       alert(`Tidak ada siswa di rombel ${kelasAsal} untuk dimutasi.`);
       return;
@@ -205,8 +295,8 @@ export default function ManajemenKelasPage() {
   // CSV Export
   const handleExportCSV = () => {
     const headers = ["ID", "Nama Rombel", "Tingkat", "Jurusan", "Wali Kelas", "Ruangan", "Kapasitas", "Jumlah Siswa", "Kurikulum", "Status"];
-    const rows = daftarKelas.map((k) => {
-      const jumlahSiswa = daftarSiswaInduk.filter((s) => s.kelas === k.nama).length;
+    const rows = kelasList.map((k) => {
+      const jumlahSiswa = siswaList.filter((s) => s.kelas === k.nama).length;
       return [
         k.id,
         `"${k.nama}"`,
@@ -263,8 +353,19 @@ export default function ManajemenKelasPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={fetchData}
+            disabled={loading}
+            className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer h-9"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setIsPromoteModalOpen(true)}
-            className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
+            className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer h-9"
           >
             <ArrowRightLeft size={14} className="text-navy-700" />
             <span>Kenaikan &amp; Mutasi</span>
@@ -274,7 +375,7 @@ export default function ManajemenKelasPage() {
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
-            className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
+            className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer h-9"
           >
             <Download size={14} className="text-slate-600" />
             <span>Ekspor CSV</span>
@@ -283,7 +384,7 @@ export default function ManajemenKelasPage() {
           <Button
             size="sm"
             onClick={openAddModal}
-            className="gap-1.5 text-xs font-bold bg-navy-900 text-white hover:bg-navy-800 shadow-sm cursor-pointer"
+            className="gap-1.5 text-xs font-bold bg-navy-900 text-white hover:bg-navy-800 shadow-sm cursor-pointer h-9"
           >
             <Plus size={15} />
             <span>Tambah Rombel</span>
@@ -293,75 +394,91 @@ export default function ManajemenKelasPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
-              <School size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Total Rombel</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalRombel}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-600 uppercase font-mono">
-                  {totalRombelAktif} Aktif
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <Skeleton className="h-11 w-11 rounded-2xl shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3.5 w-16" />
+                  <Skeleton className="h-6 w-24" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
+                  <School size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Total Rombel</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {totalRombel}
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 uppercase font-mono">
+                      {totalRombelAktif} Aktif
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-50 text-sky-900 shrink-0">
-              <GraduationCap size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Siswa Terdaftar</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalSiswaTerdistribusi}
-                </span>
-                <span className="text-[10px] text-slate-500">Siswa Induk</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-50 text-sky-900 shrink-0">
+                  <GraduationCap size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Siswa Terdaftar</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {totalSiswaTerdistribusi}
+                    </span>
+                    <span className="text-[10px] text-slate-500">Siswa Induk</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-900 shrink-0">
-              <UserCheck size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Wali Kelas</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {waliKelasCount}
-                </span>
-                <span className="text-[10px] text-emerald-700 font-semibold">Guru Ditugaskan</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-900 shrink-0">
+                  <UserCheck size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Wali Kelas</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {waliKelasCount}
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">Guru Ditugaskan</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-50 text-purple-900 shrink-0">
-              <Building size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Rata-rata Kelas</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {rataKapasitas}
-                </span>
-                <span className="text-[10px] text-purple-700 font-medium">Siswa / Rombel</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-50 text-purple-900 shrink-0">
+                  <Building size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Rata-rata Kelas</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                      {rataKapasitas}
+                    </span>
+                    <span className="text-[10px] text-purple-700 font-medium">Siswa / Rombel</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Filter & Search Bar */}
@@ -461,10 +578,41 @@ export default function ManajemenKelasPage() {
       {/* Grid View */}
       {viewMode === "grid" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredKelas.map((kelas) => {
-            const siswaCount = daftarSiswaInduk.filter((s) => s.kelas === kelas.nama).length;
-            const kapasitas = kelas.kapasitas || 36;
-            const persenTerisi = Math.min(100, Math.round((siswaCount / kapasitas) * 100));
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="border border-border/80 bg-white shadow-xs p-5 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-6 w-32" />
+                  </div>
+                  <Skeleton className="h-7 w-14 rounded-lg" />
+                </div>
+                <div className="space-y-2 py-2 border-y border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-7 w-7 rounded-full" />
+                    <div className="space-y-1 flex-1">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-4 w-28" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-3.5 w-full" />
+                </div>
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="h-2 w-full rounded" />
+                </div>
+              </Card>
+            ))
+          ) : filteredKelas.length === 0 ? (
+            <div className="col-span-full py-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+              Tidak ada rombel kelas yang cocok dengan filter pencarian.
+            </div>
+          ) : (
+            filteredKelas.map((kelas) => {
+              const siswaCount = siswaList.filter((s) => s.kelas === kelas.nama).length;
+              const kapasitas = kelas.kapasitas || 36;
+              const persenTerisi = Math.min(100, Math.round((siswaCount / kapasitas) * 100));
 
             return (
               <Card
@@ -585,7 +733,7 @@ export default function ManajemenKelasPage() {
                 </div>
               </Card>
             );
-          })}
+          }))}
         </div>
       )}
 
@@ -607,13 +755,33 @@ export default function ManajemenKelasPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredKelas.map((kelas) => {
-                  const siswaCount = daftarSiswaInduk.filter((s) => s.kelas === kelas.nama).length;
-                  const kapasitas = kelas.kapasitas || 36;
-                  const persen = Math.min(100, Math.round((siswaCount / kapasitas) * 100));
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="py-3 px-4"><Skeleton className="h-5 w-24" /></td>
+                      <td className="py-3 px-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="py-3 px-4"><Skeleton className="h-4 w-28" /></td>
+                      <td className="py-3 px-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 px-4 text-center"><Skeleton className="h-4 w-16 mx-auto" /></td>
+                      <td className="py-3 px-4"><Skeleton className="h-4 w-28" /></td>
+                      <td className="py-3 px-4"><Skeleton className="h-5 w-14 rounded" /></td>
+                      <td className="py-3 px-4 text-right"><Skeleton className="h-7 w-20 ml-auto rounded" /></td>
+                    </tr>
+                  ))
+                ) : filteredKelas.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-slate-400">
+                      Tidak ada rombel kelas yang cocok dengan filter pencarian.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredKelas.map((kelas) => {
+                    const siswaCount = siswaList.filter((s) => s.kelas === kelas.nama).length;
+                    const kapasitas = kelas.kapasitas || 36;
+                    const persen = Math.min(100, Math.round((siswaCount / kapasitas) * 100));
 
-                  return (
-                    <tr key={kelas.id} className="hover:bg-slate-50/60 transition-colors">
+                    return (
+                      <tr key={kelas.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4 font-bold text-navy-950 font-display text-sm">
                         {kelas.nama}
                       </td>
@@ -674,7 +842,7 @@ export default function ManajemenKelasPage() {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -751,13 +919,14 @@ export default function ManajemenKelasPage() {
                 <div className="space-y-1.5 col-span-2">
                   <label className="font-bold text-slate-700">Wali Kelas Ditugaskan *</label>
                   <select
-                    value={formWaliKelas}
-                    onChange={(e) => setFormWaliKelas(e.target.value)}
+                    value={formWaliKelasId}
+                    onChange={(e) => setFormWaliKelasId(e.target.value)}
                     className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-navy-900"
                   >
-                    {daftarGuru.map((g) => (
-                      <option key={g.id} value={g.nama}>
-                        {g.nama} ({g.mapel.join(", ")})
+                    <option value="">-- Pilih Guru Wali Kelas --</option>
+                    {guruList.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.nama} {g.mapel && g.mapel.length > 0 ? `(${g.mapel.join(", ")})` : ""}
                       </option>
                     ))}
                   </select>
@@ -897,7 +1066,7 @@ export default function ManajemenKelasPage() {
                           </span>
                         </td>
                         <td className="py-2 px-3 text-slate-600">
-                          <div>{siswa.namaWali}</div>
+                          <div>{siswa.namaWali || "-"}</div>
                           <div className="text-[10px] text-slate-400 font-mono">{siswa.teleponWali}</div>
                         </td>
                         <td className="py-2 px-3 text-right">
@@ -909,7 +1078,7 @@ export default function ManajemenKelasPage() {
                             }}
                             className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-navy-950 outline-none focus:ring-1 focus:ring-navy-900 cursor-pointer"
                           >
-                            {daftarKelas.map((k) => (
+                            {kelasList.map((k) => (
                               <option key={k.id} value={k.nama}>
                                 {k.nama}
                               </option>
@@ -994,8 +1163,8 @@ export default function ManajemenKelasPage() {
                   className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-navy-900"
                 >
                   <option value="">-- Pilih Rombel Asal --</option>
-                  {daftarKelas.map((k) => {
-                    const count = daftarSiswaInduk.filter((s) => s.kelas === k.nama).length;
+                  {kelasList.map((k) => {
+                    const count = siswaList.filter((s) => s.kelas === k.nama).length;
                     return (
                       <option key={k.id} value={k.nama}>
                         {k.nama} ({count} siswa)
@@ -1013,7 +1182,7 @@ export default function ManajemenKelasPage() {
                   className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-navy-900"
                 >
                   <option value="">-- Pilih Rombel Tujuan --</option>
-                  {daftarKelas.map((k) => (
+                  {kelasList.map((k) => (
                     <option key={k.id} value={k.nama}>
                       {k.nama} (Wali: {k.waliKelas || "-"})
                     </option>
@@ -1025,7 +1194,7 @@ export default function ManajemenKelasPage() {
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                   <span className="text-slate-500">Jumlah siswa yang akan dimutasi: </span>
                   <span className="font-bold text-navy-950 font-mono">
-                    {daftarSiswaInduk.filter((s) => s.kelas === kelasAsal).length} Siswa
+                    {siswaList.filter((s) => s.kelas === kelasAsal).length} Siswa
                   </span>
                 </div>
               )}
