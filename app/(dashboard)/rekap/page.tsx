@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Download,
   Filter,
@@ -11,9 +11,9 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  Users,
+  RefreshCw,
 } from "lucide-react";
-import { rekapBulanIni } from "@/lib/mock-data";
+import { api } from "@/lib/api-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,29 +27,75 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface RekapItem {
+  siswa_id: number;
+  nama: string;
+  nis: string;
+  kelas: string;
+  hadir: number;
+  sakit: number;
+  izin: number;
+  alpha: number;
+  total_sesi: number;
+  persentase_hadir: number;
+}
+
+interface KelasOption {
+  id: number;
+  nama: string;
+}
+
 export default function RekapPage() {
-  const [kelasFilter, setKelasFilter] = useState<string>("Semua kelas");
+  const [kelasFilter, setKelasFilter] = useState<string>("all");
   const [cariSiswa, setCariSiswa] = useState<string>("");
   const [bukaSemuaPerhatian, setBukaSemuaPerhatian] = useState(false);
   const [fokusPerhatian, setFokusPerhatian] = useState(false);
 
-  const daftarKelas = useMemo(
-    () => ["Semua kelas", ...Array.from(new Set(rekapBulanIni.map((r) => r.kelas)))],
-    []
-  );
+  const [loading, setLoading] = useState(true);
+  const [rekapList, setRekapList] = useState<RekapItem[]>([]);
+  const [kelasList, setKelasList] = useState<KelasOption[]>([]);
 
-  const baseData = useMemo(
-    () =>
-      kelasFilter === "Semua kelas"
-        ? rekapBulanIni
-        : rekapBulanIni.filter((r) => r.kelas === kelasFilter),
-    [kelasFilter]
-  );
+  // Load daftar kelas untuk filter
+  useEffect(() => {
+    async function fetchKelas() {
+      try {
+        const res = await api.getKelasList();
+        if (res && res.data) {
+          setKelasList(res.data);
+        }
+      } catch (err) {
+        console.error("Gagal memuat daftar kelas:", err);
+      }
+    }
+    fetchKelas();
+  }, []);
 
-  const totalHadir = baseData.reduce((a, r) => a + r.hadir, 0);
-  const totalSakit = baseData.reduce((a, r) => a + r.sakit, 0);
-  const totalIzin = baseData.reduce((a, r) => a + r.izin, 0);
-  const totalAlpha = baseData.reduce((a, r) => a + r.alpha, 0);
+  // Fetch data rekap presensi live
+  const loadRekap = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getRekapAbsensi(kelasFilter);
+      if (res && res.data) {
+        setRekapList(res.data);
+      } else {
+        setRekapList([]);
+      }
+    } catch (err) {
+      console.error("Gagal memuat rekap absensi:", err);
+      setRekapList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRekap();
+  }, [kelasFilter]);
+
+  const totalHadir = useMemo(() => rekapList.reduce((a, r) => a + r.hadir, 0), [rekapList]);
+  const totalSakit = useMemo(() => rekapList.reduce((a, r) => a + r.sakit, 0), [rekapList]);
+  const totalIzin = useMemo(() => rekapList.reduce((a, r) => a + r.izin, 0), [rekapList]);
+  const totalAlpha = useMemo(() => rekapList.reduce((a, r) => a + r.alpha, 0), [rekapList]);
   const totalCatatan = totalHadir + totalSakit + totalIzin + totalAlpha;
   const persenHadir = totalCatatan
     ? Math.round((totalHadir / totalCatatan) * 100)
@@ -57,39 +103,42 @@ export default function RekapPage() {
 
   const perluPerhatian = useMemo(
     () =>
-      [...baseData]
+      [...rekapList]
         .filter((r) => r.alpha >= 2)
         .sort((a, b) => b.alpha - a.alpha),
-    [baseData]
+    [rekapList]
   );
 
   const dataTampil = useMemo(() => {
-    let res = baseData;
+    let res = rekapList;
     if (fokusPerhatian) {
       res = res.filter((r) => r.alpha >= 2);
     }
     if (cariSiswa.trim()) {
       const q = cariSiswa.toLowerCase();
       res = res.filter(
-        (r) => r.nama.toLowerCase().includes(q) || r.nis.includes(q)
+        (r) =>
+          (r.nama && r.nama.toLowerCase().includes(q)) ||
+          (r.nis && r.nis.toLowerCase().includes(q))
       );
     }
     return res;
-  }, [baseData, fokusPerhatian, cariSiswa]);
+  }, [rekapList, fokusPerhatian, cariSiswa]);
 
   function unduhCSV() {
-    const header = "Nama,NIS,Kelas,Hadir,Sakit,Izin,Alpha,Total Sesi\n";
+    const header = "Nama,NIS,Kelas,Hadir,Sakit,Izin,Alpha,Total Sesi,Persentase\n";
     const rows = dataTampil
       .map(
         (r) =>
-          `${r.nama},${r.nis},${r.kelas},${r.hadir},${r.sakit},${r.izin},${r.alpha},${r.totalSesi}`
+          `"${r.nama}","${r.nis}","${r.kelas}",${r.hadir},${r.sakit},${r.izin},${r.alpha},${r.total_sesi},${r.persentase_hadir}%`
       )
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `rekap-absensi-${kelasFilter.replace(/\s+/g, "-").toLowerCase()}.csv`;
+    const kelasLabel = kelasFilter === "all" ? "semua-kelas" : `kelas-${kelasFilter}`;
+    link.download = `rekap-absensi-${kelasLabel}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -107,11 +156,22 @@ export default function RekapPage() {
             Rekapitulasi Presensi Siswa
           </h1>
           <p className="text-xs text-muted-foreground">
-            Ringkasan akumulasi kehadiran siswa semester berjalan
+            Ringkasan akumulasi kehadiran siswa semester berjalan langsung dari database
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadRekap}
+            disabled={loading}
+            className="gap-1.5 border-border bg-white text-xs hover:bg-slate-50"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Segarkan
+          </Button>
+
           <div className="flex items-center gap-2">
             <Filter size={14} className="text-slate-400" />
             <select
@@ -119,9 +179,10 @@ export default function RekapPage() {
               onChange={(e) => setKelasFilter(e.target.value)}
               className="h-9 rounded-lg border border-border bg-white px-3 text-xs font-medium text-navy-900 shadow-xs outline-none focus:border-navy-600"
             >
-              {daftarKelas.map((k) => (
-                <option key={k} value={k}>
-                  {k}
+              <option value="all">Semua Kelas</option>
+              {kelasList.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.nama}
                 </option>
               ))}
             </select>
@@ -130,6 +191,7 @@ export default function RekapPage() {
           <Button
             size="sm"
             onClick={unduhCSV}
+            disabled={loading || dataTampil.length === 0}
             className="gap-1.5 bg-navy-900 text-white hover:bg-navy-800"
           >
             <Download size={14} />
@@ -138,105 +200,120 @@ export default function RekapPage() {
         </div>
       </div>
 
-      {/* Row 1: KPI Metrics Row (Presisi, Proporsional & Seragam) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Rata Kehadiran */}
-        <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Rata Kehadiran
-              </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                <CheckCircle2 size={18} />
+      {/* Row 1: KPI Metrics Row */}
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="border-border bg-white p-5 animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="h-3.5 w-24 rounded bg-slate-200" />
+                <div className="h-8 w-8 rounded-lg bg-slate-200" />
               </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-mono text-3xl font-bold tracking-tight text-navy-950">
-                {persenHadir}%
-              </span>
-              <Badge variant="hadir" className="text-[10px] py-0 px-1.5">
-                Sangat Baik
-              </Badge>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Rata-rata kehadiran semester berjalan
-            </p>
-          </CardContent>
-        </Card>
+              <div className="mt-4 h-8 w-16 rounded bg-slate-200" />
+              <div className="mt-3 h-3 w-36 rounded bg-slate-200" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Rata Kehadiran */}
+          <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Rata Kehadiran
+                </span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <CheckCircle2 size={18} />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-mono text-3xl font-bold tracking-tight text-navy-950">
+                  {persenHadir}%
+                </span>
+                <Badge variant="hadir" className="text-[10px] py-0 px-1.5">
+                  {persenHadir >= 90 ? "Sangat Baik" : persenHadir >= 75 ? "Baik" : "Perlu Evaluasi"}
+                </Badge>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Rata-rata kehadiran semester berjalan
+              </p>
+            </CardContent>
+          </Card>
 
-        {/* Card 2: Total Sakit */}
-        <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Total Sakit
-              </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                <Activity size={18} />
+          {/* Card 2: Total Sakit */}
+          <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Total Sakit
+                </span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                  <Activity size={18} />
+                </div>
               </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-mono text-3xl font-bold tracking-tight text-amber-600">
-                {totalSakit}
-              </span>
-              <span className="text-xs text-muted-foreground">siswa terdata</span>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Tercatat dengan surat izin medis
-            </p>
-          </CardContent>
-        </Card>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-mono text-3xl font-bold tracking-tight text-amber-600">
+                  {totalSakit}
+                </span>
+                <span className="text-xs text-muted-foreground">kali sesi</span>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Tercatat dengan surat izin medis
+              </p>
+            </CardContent>
+          </Card>
 
-        {/* Card 3: Total Izin */}
-        <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Total Izin
-              </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
-                <Clock size={18} />
+          {/* Card 3: Total Izin */}
+          <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Total Izin
+                </span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                  <Clock size={18} />
+                </div>
               </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-mono text-3xl font-bold tracking-tight text-sky-600">
-                {totalIzin}
-              </span>
-              <span className="text-xs text-muted-foreground">siswa terdata</span>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Pemberitahuan resmi orang tua/wali
-            </p>
-          </CardContent>
-        </Card>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-mono text-3xl font-bold tracking-tight text-sky-600">
+                  {totalIzin}
+                </span>
+                <span className="text-xs text-muted-foreground">kali sesi</span>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Pemberitahuan resmi orang tua/wali
+              </p>
+            </CardContent>
+          </Card>
 
-        {/* Card 4: Total Alpha */}
-        <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Total Alpha
-              </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
-                <AlertTriangle size={18} />
+          {/* Card 4: Total Alpha */}
+          <Card className="border-border bg-white shadow-2xs transition-all hover:shadow-xs">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Total Alpha
+                </span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                  <AlertTriangle size={18} />
+                </div>
               </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-mono text-3xl font-bold tracking-tight text-rose-600">
-                {totalAlpha}
-              </span>
-              <span className="text-xs text-muted-foreground">sesi tanpa keterangan</span>
-            </div>
-            <p className="mt-2 text-xs font-medium text-rose-600/80">
-              Perlu tindak lanjut wali kelas &amp; BK
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-mono text-3xl font-bold tracking-tight text-rose-600">
+                  {totalAlpha}
+                </span>
+                <span className="text-xs text-muted-foreground">sesi tanpa keterangan</span>
+              </div>
+              <p className="mt-2 text-xs font-medium text-rose-600/80">
+                Perlu tindak lanjut wali kelas &amp; BK
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Scalable Alert Banner for At-risk Students */}
-      {perluPerhatian.length > 0 && (
+      {!loading && perluPerhatian.length > 0 && (
         <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 transition-all shadow-2xs">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
@@ -288,16 +365,18 @@ export default function RekapPage() {
             </div>
           </div>
 
-          {/* List of at-risk students (smoothly scrollable if many) */}
+          {/* List of at-risk students */}
           <div className="mt-3">
-            <div className={`grid grid-cols-1 gap-2 text-xs text-rose-900 sm:grid-cols-2 lg:grid-cols-3 ${
-              bukaSemuaPerhatian && perluPerhatian.length > 6
-                ? "max-h-64 overflow-y-auto pr-1"
-                : ""
-            }`}>
+            <div
+              className={`grid grid-cols-1 gap-2 text-xs text-rose-900 sm:grid-cols-2 lg:grid-cols-3 ${
+                bukaSemuaPerhatian && perluPerhatian.length > 6
+                  ? "max-h-64 overflow-y-auto pr-1"
+                  : ""
+              }`}
+            >
               {perhatianDitampilkan.map((r) => (
                 <div
-                  key={r.nis}
+                  key={r.siswa_id || r.nis}
                   onClick={() => {
                     setCariSiswa(r.nama);
                   }}
@@ -306,7 +385,7 @@ export default function RekapPage() {
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] font-bold text-rose-800">
-                      {r.nama.slice(0, 2).toUpperCase()}
+                      {r.nama ? r.nama.slice(0, 2).toUpperCase() : "SW"}
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-navy-950">
@@ -380,40 +459,71 @@ export default function RekapPage() {
                 <TableHead className="text-center font-semibold text-amber-700">Sakit</TableHead>
                 <TableHead className="text-center font-semibold text-sky-700">Izin</TableHead>
                 <TableHead className="text-center font-semibold text-rose-700">Alpha</TableHead>
+                <TableHead className="text-center font-semibold text-navy-950">Persentase</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dataTampil.map((r) => (
-                <TableRow key={r.nis} className="hover:bg-slate-50/80">
-                  <TableCell>
-                    <p className="font-semibold text-navy-950">{r.nama}</p>
-                    <p className="font-mono text-[11px] text-muted-foreground">NIS {r.nis}</p>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-medium">{r.kelas}</TableCell>
-                  <TableCell className="text-center font-mono font-semibold text-emerald-600">
-                    {r.hadir}
-                  </TableCell>
-                  <TableCell className="text-center font-mono font-semibold text-amber-600">
-                    {r.sakit}
-                  </TableCell>
-                  <TableCell className="text-center font-mono font-semibold text-sky-600">
-                    {r.izin}
-                  </TableCell>
-                  <TableCell className="text-center font-mono font-semibold text-rose-600">
-                    {r.alpha > 0 ? (
-                      <Badge variant={r.alpha >= 2 ? "alpha" : "outline"} className="font-mono text-[11px]">
-                        {r.alpha}
-                      </Badge>
-                    ) : (
-                      "0"
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-
-              {dataTampil.length === 0 && (
+              {loading ? (
+                [...Array(6)].map((_, i) => (
+                  <TableRow key={i} className="animate-pulse">
+                    <TableCell>
+                      <div className="h-4 w-36 rounded bg-slate-200" />
+                      <div className="mt-1 h-3 w-20 rounded bg-slate-200" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-3 w-16 rounded bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="mx-auto h-4 w-8 rounded bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="mx-auto h-4 w-8 rounded bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="mx-auto h-4 w-8 rounded bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="mx-auto h-4 w-8 rounded bg-slate-200" />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="mx-auto h-4 w-12 rounded bg-slate-200" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : dataTampil.length > 0 ? (
+                dataTampil.map((r) => (
+                  <TableRow key={r.siswa_id || r.nis} className="hover:bg-slate-50/80">
+                    <TableCell>
+                      <p className="font-semibold text-navy-950">{r.nama}</p>
+                      <p className="font-mono text-[11px] text-muted-foreground">NIS {r.nis}</p>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground font-medium">{r.kelas}</TableCell>
+                    <TableCell className="text-center font-mono font-semibold text-emerald-600">
+                      {r.hadir}
+                    </TableCell>
+                    <TableCell className="text-center font-mono font-semibold text-amber-600">
+                      {r.sakit}
+                    </TableCell>
+                    <TableCell className="text-center font-mono font-semibold text-sky-600">
+                      {r.izin}
+                    </TableCell>
+                    <TableCell className="text-center font-mono font-semibold text-rose-600">
+                      {r.alpha > 0 ? (
+                        <Badge variant={r.alpha >= 2 ? "alpha" : "outline"} className="font-mono text-[11px]">
+                          {r.alpha}
+                        </Badge>
+                      ) : (
+                        "0"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-xs font-medium text-navy-950">
+                      {r.persentase_hadir ?? (r.total_sesi > 0 ? Math.round((r.hadir / r.total_sesi) * 100) : 100)}%
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-xs text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-xs text-muted-foreground">
                     Tidak ada data siswa ditemukan untuk kriteria filter ini.
                   </TableCell>
                 </TableRow>
