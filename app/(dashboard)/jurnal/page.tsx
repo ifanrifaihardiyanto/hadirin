@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BookOpen,
   Calendar,
@@ -13,7 +13,10 @@ import {
   X,
   GraduationCap,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
+import { api } from "@/lib/api-client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useStore, type Ketercapaian, type JurnalEntry } from "@/lib/store";
 import { getTanggalHariIniFormatted } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -42,14 +45,55 @@ const KETERCAPAIAN_BADGE: Record<
 };
 
 export default function JurnalMengajarPage() {
-  const { jurnalList, currentUser } = useStore();
+  const { currentUser } = useStore();
+  const [jurnalData, setJurnalData] = useState<JurnalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterKetercapaian, setFilterKetercapaian] = useState<string>("ALL");
   const [selectedJurnal, setSelectedJurnal] = useState<JurnalEntry | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
+  const fetchJurnal = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getJurnalList();
+      if (res?.data) {
+        const mapped: JurnalEntry[] = res.data.map((jur: any) => ({
+          id: String(jur.id),
+          jadwalId: String(jur.jadwal_id || "1"),
+          guruId: String(jur.guru_id || "1"),
+          guruNama: jur.guru?.nama || currentUser.nama || "Guru Pengajar",
+          kelas: jur.kelas?.nama || "Kelas X",
+          mapel: jur.mapel?.nama || "Mata Pelajaran",
+          hari: jur.jadwal?.hari || "Senin",
+          jamMulai: jur.jam_mulai ? jur.jam_mulai.substring(0, 5) : "07:00",
+          jamSelesai: jur.jam_selesai ? jur.jam_selesai.substring(0, 5) : "08:30",
+          tanggal: jur.tanggal || getTanggalHariIniFormatted(),
+          materiPokok: jur.materi_pokok || "Materi Pembelajaran",
+          tujuanPembelajaran: jur.tujuan_pembelajaran || "Tercapainya capaian pembelajaran",
+          catatanKejadian: jur.catatan_kejadian || "KBM kondusif",
+          ketercapaian: (jur.ketercapaian || "TERCAPAI") as Ketercapaian,
+          hadir: Number(jur.hadir) || 0,
+          sakit: Number(jur.sakit) || 0,
+          izin: Number(jur.izin) || 0,
+          alpha: Number(jur.alpha) || 0,
+          totalSiswa: Number(jur.total_siswa) || 0,
+        }));
+        setJurnalData(mapped);
+      }
+    } catch (e: any) {
+      console.warn("Gagal memuat jurnal:", e?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJurnal();
+  }, []);
+
   // Filter journals for current teacher if role is guru
-  const teacherJournals = jurnalList.filter((j) => {
+  const teacherJournals = jurnalData.filter((j) => {
     if (currentUser?.role === "guru") {
       return j.guruId === currentUser.id;
     }
@@ -95,11 +139,20 @@ export default function JurnalMengajarPage() {
 
         <div className="flex items-center gap-2">
           <Button
+            onClick={fetchJurnal}
+            disabled={loading}
+            variant="outline"
+            className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Muat Ulang
+          </Button>
+          <Button
             onClick={() => setIsPrintModalOpen(true)}
             variant="outline"
-            className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+            className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs"
           >
-            <Printer className="h-4 w-4 text-slate-500" />
+            <Printer className="h-3.5 w-3.5 text-slate-500" />
             Cetak Dokumen Supervisi
           </Button>
         </div>
@@ -230,7 +283,22 @@ export default function JurnalMengajarPage() {
 
       {/* Journal Entry Timeline Cards */}
       <div className="space-y-4">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="border border-slate-200 bg-white p-6 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-40 rounded" />
+                    <Skeleton className="h-6 w-64 rounded" />
+                  </div>
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                </div>
+                <Skeleton className="h-12 w-full rounded-lg" />
+              </Card>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <Card className="border border-slate-200/80 bg-white shadow-xs p-10 text-center">
             <BookOpen className="mx-auto h-12 w-12 text-slate-300" />
             <h3 className="mt-3 text-base font-semibold text-slate-800">
