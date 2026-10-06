@@ -2786,7 +2786,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     loadDataFromBackend();
-  }, [currentUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const value = useMemo<StoreValue>(
     () => ({
