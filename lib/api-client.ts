@@ -499,6 +499,13 @@ export const api = {
     });
   },
 
+  async kembalikanPerpusBuku(id: string | number, payload?: { denda?: number }) {
+    return fetchApi(`/perpus/pinjam/${id}/kembali`, {
+      method: "PATCH",
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
   // UKS (Fase 4)
   async getUKSList(params?: { tanggal?: string; kategori?: string }) {
     const query = new URLSearchParams();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Library,
@@ -12,19 +12,17 @@ import {
   BookMarked,
   CheckCircle2,
   Clock,
-  AlertTriangle,
   RotateCcw,
   Building,
-  User,
-  Calendar,
-  Trash2,
-  Edit,
-  ExternalLink,
   Printer,
-  FileText,
   BadgeAlert,
   Coins,
   Check,
+  RefreshCw,
+  ExternalLink,
+  Edit,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,15 +35,47 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  useStore,
-  type BukuPerpus,
-  type PeminjamanBuku,
-} from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
+export interface PerpusBukuItem {
+  id: string | number;
+  kodeBuku: string;
+  isbn: string;
+  judul: string;
+  pengarang: string;
+  penerbit: string;
+  tahunTerbit: number;
+  kategori: "BUKU_TEKS" | "FIKSI" | "SAINS" | "SEJARAH" | "AGAMA" | "REFERENSI" | string;
+  lokasiRak: string;
+  jumlahEksemplar: number;
+  eksemplarTersedia: number;
+  tipeFormat: "FISIK" | "EBOOK" | "FISIK_DAN_EBOOK" | string;
+  ebookUrl?: string;
+  sinopsis?: string;
+}
+
+export interface PerpusPinjamItem {
+  id: string | number;
+  kodePinjam: string;
+  bukuId: string | number;
+  judulBuku: string;
+  kodeBuku: string;
+  namaPeminjam: string;
+  nomorIdentitas: string;
+  rolePeminjam: "SISWA" | "GURU" | "STAF" | string;
+  kelasAtauUnit: string;
+  tanggalPinjam: string;
+  batasKembali: string;
+  tanggalKembali?: string | null;
+  status: "DIPINJAM" | "TERLAMBAT" | "DIKEMBALIKAN" | "KEMBALI" | string;
+  denda: number;
+  statusDenda?: "LUNAS" | "BELUM_LUNAS" | string;
+  catatanPetugas?: string;
+}
+
 const KATEGORI_CONFIG: Record<
-  BukuPerpus["kategori"],
+  string,
   { label: string; badgeClass: string }
 > = {
   BUKU_TEKS: {
@@ -75,16 +105,11 @@ const KATEGORI_CONFIG: Record<
 };
 
 export default function AdminPerpusPage() {
-  const {
-    daftarBuku,
-    tambahBuku,
-    updateBuku,
-    hapusBuku,
-    daftarPeminjamanBuku,
-    pinjamBuku,
-    kembalikanBuku,
-    bayarDendaBuku,
-  } = useStore();
+  const [daftarBuku, setDaftarBuku] = useState<PerpusBukuItem[]>([]);
+  const [daftarPeminjamanBuku, setDaftarPeminjamanBuku] = useState<PerpusPinjamItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"katalog" | "sirkulasi" | "rak">("katalog");
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,8 +125,15 @@ export default function AdminPerpusPage() {
   const [isCetakOpen, setCetakOpen] = useState(false);
 
   // Selected items
-  const [selectedBuku, setSelectedBuku] = useState<BukuPerpus | null>(null);
-  const [selectedPinjam, setSelectedPinjam] = useState<PeminjamanBuku | null>(null);
+  const [selectedBuku, setSelectedBuku] = useState<PerpusBukuItem | null>(null);
+  const [selectedPinjam, setSelectedPinjam] = useState<PerpusPinjamItem | null>(null);
+
+  // Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Form Tambah Buku
   const [formBuku, setFormBuku] = useState({
@@ -111,10 +143,10 @@ export default function AdminPerpusPage() {
     pengarang: "",
     penerbit: "",
     tahunTerbit: new Date().getFullYear(),
-    kategori: "BUKU_TEKS" as BukuPerpus["kategori"],
+    kategori: "BUKU_TEKS",
     lokasiRak: "Rak A-01 (MIPA)",
     jumlahEksemplar: 5,
-    tipeFormat: "FISIK" as BukuPerpus["tipeFormat"],
+    tipeFormat: "FISIK",
     ebookUrl: "",
     sinopsis: "",
   });
@@ -124,7 +156,7 @@ export default function AdminPerpusPage() {
     bukuId: "",
     namaPeminjam: "",
     nomorIdentitas: "",
-    rolePeminjam: "SISWA" as PeminjamanBuku["rolePeminjam"],
+    rolePeminjam: "SISWA",
     kelasAtauUnit: "X IPA 1",
     tanggalPinjam: new Date().toISOString().split("T")[0],
     batasKembali: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
@@ -135,6 +167,74 @@ export default function AdminPerpusPage() {
     denda: 0,
     catatanPetugas: "",
   });
+
+  const fetchData = useCallback(async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const [resBuku, resPinjam] = await Promise.all([
+        api.getPerpusBukuList(),
+        api.getPerpusPeminjamanList(),
+      ]);
+
+      const rawBuku = (resBuku as any)?.data || (resBuku as any) || [];
+      const normalizedBuku: PerpusBukuItem[] = Array.isArray(rawBuku)
+        ? rawBuku.map((item: any) => ({
+            id: item.id,
+            kodeBuku: item.kode_buku || item.kodeBuku || `BK-${item.id}`,
+            isbn: item.isbn || "-",
+            judul: item.judul || "Tanpa Judul",
+            pengarang: item.pengarang || "-",
+            penerbit: item.penerbit || "-",
+            tahunTerbit: Number(item.tahun_terbit ?? item.tahunTerbit ?? new Date().getFullYear()),
+            kategori: item.kategori || "BUKU_TEKS",
+            lokasiRak: item.lokasi_rak || item.lokasiRak || "Rak Utama",
+            jumlahEksemplar: Number(item.jumlah_eksemplar ?? item.jumlahEksemplar ?? 1),
+            eksemplarTersedia: Number(item.eksemplar_tersedia ?? item.eksemplarTersedia ?? 1),
+            tipeFormat: item.tipe_format || item.tipeFormat || "FISIK",
+            ebookUrl: item.ebook_url || item.ebookUrl || "",
+            sinopsis: item.sinopsis || "",
+          }))
+        : [];
+      setDaftarBuku(normalizedBuku);
+
+      const rawPinjam = (resPinjam as any)?.data || (resPinjam as any) || [];
+      const normalizedPinjam: PerpusPinjamItem[] = Array.isArray(rawPinjam)
+        ? rawPinjam.map((item: any) => ({
+            id: item.id,
+            kodePinjam: item.kode_pinjam || item.kodePinjam || `TRX-${item.id}`,
+            bukuId: item.buku_id ?? item.bukuId ?? (item.buku?.id || ""),
+            judulBuku: item.buku?.judul || item.judul_buku || item.judulBuku || "Buku Perpustakaan",
+            kodeBuku: item.buku?.kode_buku || item.kode_buku || item.kodeBuku || "-",
+            namaPeminjam: item.peminjam_nama || item.nama_peminjam || item.namaPeminjam || "-",
+            nomorIdentitas: item.nomor_identitas || item.nomorIdentitas || "-",
+            rolePeminjam: item.peminjam_tipe || item.role_peminjam || item.rolePeminjam || "SISWA",
+            kelasAtauUnit: item.kelas_atau_unit || item.kelasAtauUnit || "-",
+            tanggalPinjam: item.tanggal_pinjam || item.tanggalPinjam || "",
+            batasKembali: item.tanggal_jatuh_tempo || item.batas_kembali || item.batasKembali || "",
+            tanggalKembali: item.tanggal_kembali || item.tanggalKembali || null,
+            status: item.status || "DIPINJAM",
+            denda: Number(item.denda || 0),
+            statusDenda: item.status_denda || item.statusDenda || (Number(item.denda) > 0 ? "BELUM_LUNAS" : "LUNAS"),
+            catatanPetugas: item.catatan_petugas || item.catatanPetugas || "",
+          }))
+        : [];
+      setDaftarPeminjamanBuku(normalizedPinjam);
+
+      if (isManual) showToast("Data perpustakaan & sirkulasi berhasil diperbarui.");
+    } catch (err: any) {
+      console.error("Gagal memuat data perpustakaan:", err);
+      showToast("Gagal memuat data perpustakaan dari server.");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // KPI Calculations
   const totalJudul = daftarBuku.length;
@@ -168,7 +268,9 @@ export default function AdminPerpusPage() {
   // List of distinct book racks
   const daftarRakUnik = useMemo(() => {
     const s = new Set<string>();
-    daftarBuku.forEach((b) => s.add(b.lokasiRak));
+    daftarBuku.forEach((b) => {
+      if (b.lokasiRak) s.add(b.lokasiRak);
+    });
     return Array.from(s);
   }, [daftarBuku]);
 
@@ -206,51 +308,69 @@ export default function AdminPerpusPage() {
         p.nomorIdentitas.includes(searchQuery);
 
       const matchStatus =
-        statusSirkulasiFilter === "SEMUA" || p.status === statusSirkulasiFilter;
+        statusSirkulasiFilter === "SEMUA" ||
+        (statusSirkulasiFilter === "KEMBALI" && (p.status === "KEMBALI" || p.status === "DIKEMBALIKAN")) ||
+        p.status === statusSirkulasiFilter;
 
       return matchSearch && matchStatus;
     });
   }, [daftarPeminjamanBuku, searchQuery, statusSirkulasiFilter]);
 
   // Submit Tambah Buku
-  const handleSimpanBuku = (e: React.FormEvent) => {
+  const handleSimpanBuku = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formBuku.judul.trim()) return;
 
+    setIsSubmitting(true);
     const kodeAuto =
       formBuku.kodeBuku.trim() ||
       `BK-${formBuku.kategori.substring(0, 3)}-${String(daftarBuku.length + 1).padStart(3, "0")}`;
 
-    tambahBuku({
-      ...formBuku,
-      kodeBuku: kodeAuto,
+    const payload = {
+      kode_buku: kodeAuto,
       isbn: formBuku.isbn.trim() || `978-602-${Math.floor(100 + Math.random() * 900)}-${Math.floor(100 + Math.random() * 900)}-1`,
-      jumlahEksemplar: Number(formBuku.jumlahEksemplar) || 1,
-      eksemplarTersedia: Number(formBuku.jumlahEksemplar) || 1,
-      tahunTerbit: Number(formBuku.tahunTerbit) || new Date().getFullYear(),
-    });
+      judul: formBuku.judul,
+      pengarang: formBuku.pengarang || "Anonim",
+      penerbit: formBuku.penerbit || "Penerbit Sekolah",
+      tahun_terbit: Number(formBuku.tahunTerbit) || new Date().getFullYear(),
+      kategori: formBuku.kategori,
+      lokasi_rak: formBuku.lokasiRak,
+      jumlah_eksemplar: Number(formBuku.jumlahEksemplar) || 1,
+      tipe_format: formBuku.tipeFormat,
+      sinopsis: formBuku.sinopsis,
+    };
 
-    setFormBuku({
-      isbn: "",
-      kodeBuku: "",
-      judul: "",
-      pengarang: "",
-      penerbit: "",
-      tahunTerbit: new Date().getFullYear(),
-      kategori: "BUKU_TEKS",
-      lokasiRak: "Rak A-01 (MIPA)",
-      jumlahEksemplar: 5,
-      tipeFormat: "FISIK",
-      ebookUrl: "",
-      sinopsis: "",
-    });
-    setTambahBukuOpen(false);
+    try {
+      await api.createPerpusBuku(payload);
+      showToast(`Buku "${formBuku.judul}" berhasil ditambahkan ke katalog.`);
+      setFormBuku({
+        isbn: "",
+        kodeBuku: "",
+        judul: "",
+        pengarang: "",
+        penerbit: "",
+        tahunTerbit: new Date().getFullYear(),
+        kategori: "BUKU_TEKS",
+        lokasiRak: "Rak A-01 (MIPA)",
+        jumlahEksemplar: 5,
+        tipeFormat: "FISIK",
+        ebookUrl: "",
+        sinopsis: "",
+      });
+      setTambahBukuOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Gagal simpan buku:", err);
+      showToast("Gagal menyimpan buku ke database.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Buka Modal Pinjam Cepat dari item buku
-  const handleBukaPinjamBuku = (buku: BukuPerpus) => {
+  const handleBukaPinjamBuku = (buku: PerpusBukuItem) => {
     setFormPinjam({
-      bukuId: buku.id,
+      bukuId: String(buku.id),
       namaPeminjam: "",
       nomorIdentitas: "",
       rolePeminjam: "SISWA",
@@ -262,32 +382,35 @@ export default function AdminPerpusPage() {
   };
 
   // Submit Peminjaman
-  const handleSimpanPinjam = (e: React.FormEvent) => {
+  const handleSimpanPinjam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formPinjam.bukuId || !formPinjam.namaPeminjam.trim()) return;
 
-    const targetBuku = daftarBuku.find((b) => b.id === formPinjam.bukuId);
-    if (!targetBuku) return;
+    setIsSubmitting(true);
+    const payload = {
+      buku_id: formPinjam.bukuId,
+      peminjam_nama: formPinjam.namaPeminjam,
+      peminjam_tipe: formPinjam.rolePeminjam,
+      tanggal_pinjam: formPinjam.tanggalPinjam,
+      tanggal_jatuh_tempo: formPinjam.batasKembali,
+    };
 
-    pinjamBuku({
-      bukuId: targetBuku.id,
-      judulBuku: targetBuku.judul,
-      kodeBuku: targetBuku.kodeBuku,
-      namaPeminjam: formPinjam.namaPeminjam,
-      nomorIdentitas: formPinjam.nomorIdentitas || "00xxxxxxx",
-      rolePeminjam: formPinjam.rolePeminjam,
-      kelasAtauUnit: formPinjam.kelasAtauUnit,
-      tanggalPinjam: formPinjam.tanggalPinjam,
-      batasKembali: formPinjam.batasKembali,
-    });
-
-    setPinjamOpen(false);
+    try {
+      await api.pinjamPerpusBuku(payload);
+      showToast(`Peminjaman buku untuk ${formPinjam.namaPeminjam} berhasil dicatat.`);
+      setPinjamOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Gagal mencatat peminjaman:", err);
+      showToast("Gagal mencatat peminjaman buku.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Buka Modal Pengembalian
-  const handleBukaKembali = (p: PeminjamanBuku) => {
+  const handleBukaKembali = (p: PerpusPinjamItem) => {
     setSelectedPinjam(p);
-    // Hitung estimasi denda jika terlambat
     const hariIni = new Date();
     const tenggat = new Date(p.batasKembali);
     const diffTime = hariIni.getTime() - tenggat.getTime();
@@ -302,15 +425,23 @@ export default function AdminPerpusPage() {
   };
 
   // Submit Pengembalian
-  const handleSimpanKembali = () => {
+  const handleSimpanKembali = async () => {
     if (!selectedPinjam) return;
-    kembalikanBuku(
-      selectedPinjam.id,
-      Number(formKembali.denda) || 0,
-      formKembali.catatanPetugas
-    );
-    setKembaliOpen(false);
-    setSelectedPinjam(null);
+    setIsSubmitting(true);
+    try {
+      await api.kembalikanPerpusBuku(selectedPinjam.id, {
+        denda: Number(formKembali.denda) || 0,
+      });
+      showToast(`Buku "${selectedPinjam.judulBuku}" berhasil dikembalikan.`);
+      setKembaliOpen(false);
+      setSelectedPinjam(null);
+      fetchData();
+    } catch (err: any) {
+      console.error("Gagal memproses pengembalian buku:", err);
+      showToast("Gagal memproses pengembalian buku.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Export Katalog CSV
@@ -356,10 +487,19 @@ export default function AdminPerpusPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast("Katalog perpustakaan berhasil diekspor ke CSV.");
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-2xl bg-navy-950 px-4 py-3 text-sm font-medium text-white shadow-2xl animate-in fade-in slide-in-from-top-4 border border-navy-800">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* HEADER SECTION */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border pb-5">
         <div>
@@ -381,7 +521,7 @@ export default function AdminPerpusPage() {
             Perpustakaan & Manajemen Sirkulasi Buku
           </h1>
           <p className="text-sm text-muted-foreground">
-            Katalog buku fisik dan modul ajar digital Kurikulum Merdeka, sirkulasi peminjaman siswa/guru, serta tata kelola denda.
+            Katalog buku fisik dan modul ajar digital, sirkulasi peminjaman siswa/guru live dari database Supabase.
           </p>
         </div>
 
@@ -389,7 +529,19 @@ export default function AdminPerpusPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing || isLoading}
+            className="gap-1.5 text-xs shadow-xs"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", (isRefreshing || isLoading) && "animate-spin")} />
+            <span>{isRefreshing ? "Memuat..." : "Refresh"}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportCSV}
+            disabled={daftarBuku.length === 0}
             className="gap-1.5 text-xs shadow-xs"
           >
             <Download className="h-3.5 w-3.5" />
@@ -401,7 +553,7 @@ export default function AdminPerpusPage() {
             size="sm"
             onClick={() => {
               if (daftarBuku.length > 0) {
-                setFormPinjam((prev) => ({ ...prev, bukuId: daftarBuku[0].id }));
+                setFormPinjam((prev) => ({ ...prev, bukuId: String(daftarBuku[0].id) }));
               }
               setPinjamOpen(true);
             }}
@@ -424,69 +576,85 @@ export default function AdminPerpusPage() {
 
       {/* KPI METRICS */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Total Judul Koleksi</p>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-2xl font-bold tracking-tight text-foreground">{totalJudul}</span>
-                <span className="text-xs text-muted-foreground">judul ({totalEksemplar} eks.)</span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-sky-50 text-sky-700">
-              <BookMarked className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border border-border/60 shadow-xs animate-pulse">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-2 flex-1">
+                  <div className="h-3 w-24 bg-slate-200 rounded" />
+                  <div className="h-6 w-16 bg-slate-200 rounded" />
+                </div>
+                <div className="h-10 w-10 bg-slate-200 rounded-lg shrink-0" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total Judul Koleksi</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-foreground">{totalJudul}</span>
+                    <span className="text-xs text-muted-foreground">judul ({totalEksemplar} eks.)</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-sky-50 text-sky-700">
+                  <BookMarked className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Eksemplar Tersedia di Rak</p>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-2xl font-bold tracking-tight text-emerald-700">{totalTersedia}</span>
-                <span className="text-xs text-muted-foreground">
-                  ({Math.round((totalTersedia / (totalEksemplar || 1)) * 100)}% siap pinjam)
-                </span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-700">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Eksemplar Tersedia di Rak</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-emerald-700">{totalTersedia}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({Math.round((totalTersedia / (totalEksemplar || 1)) * 100)}% siap pinjam)
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-700">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Buku Sedang Dipinjam</p>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-2xl font-bold tracking-tight text-amber-700">{totalDipinjamAktif}</span>
-                <span className="text-xs text-muted-foreground">transaksi aktif</span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-amber-50 text-amber-700">
-              <Clock className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Buku Sedang Dipinjam</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-amber-700">{totalDipinjamAktif}</span>
+                    <span className="text-xs text-muted-foreground">transaksi aktif</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-amber-50 text-amber-700">
+                  <Clock className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Terlambat & Tunggakan Denda</p>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-2xl font-bold tracking-tight text-rose-700">{totalTerlambat}</span>
-                <span className="text-xs text-muted-foreground font-medium">
-                  (Rp {totalDendaTertunggak.toLocaleString("id-ID")})
-                </span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-rose-50 text-rose-700">
-              <BadgeAlert className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Terlambat & Tunggakan Denda</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-rose-700">{totalTerlambat}</span>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      (Rp {totalDendaTertunggak.toLocaleString("id-ID")})
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-rose-50 text-rose-700">
+                  <BadgeAlert className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* TABS NAVIGATION */}
@@ -494,7 +662,7 @@ export default function AdminPerpusPage() {
         <button
           onClick={() => setActiveTab("katalog")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer",
             activeTab === "katalog"
               ? "border-emerald-600 text-emerald-700 font-semibold"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -507,7 +675,7 @@ export default function AdminPerpusPage() {
         <button
           onClick={() => setActiveTab("sirkulasi")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer",
             activeTab === "sirkulasi"
               ? "border-emerald-600 text-emerald-700 font-semibold"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -520,7 +688,7 @@ export default function AdminPerpusPage() {
         <button
           onClick={() => setActiveTab("rak")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer",
             activeTab === "rak"
               ? "border-emerald-600 text-emerald-700 font-semibold"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -591,7 +759,35 @@ export default function AdminPerpusPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {bukuFiltered.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, idx) => (
+                      <tr key={idx} className="animate-pulse">
+                        <td className="px-4 py-3 space-y-1">
+                          <div className="h-4 w-48 bg-slate-200 rounded" />
+                          <div className="h-3 w-28 bg-slate-100 rounded" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="h-5 w-24 bg-slate-200 rounded" />
+                        </td>
+                        <td className="px-4 py-3 space-y-1">
+                          <div className="h-4 w-32 bg-slate-200 rounded" />
+                          <div className="h-3 w-20 bg-slate-100 rounded" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="h-4 w-28 bg-slate-200 rounded" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="h-4 w-20 bg-slate-200 rounded" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="h-4 w-16 bg-slate-200 rounded" />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="h-7 w-16 bg-slate-200 rounded ml-auto" />
+                        </td>
+                      </tr>
+                    ))
+                  ) : bukuFiltered.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">
                         Tidak ada buku yang cocok dengan kata kunci pencarian.
@@ -599,7 +795,10 @@ export default function AdminPerpusPage() {
                     </tr>
                   ) : (
                     bukuFiltered.map((buku) => {
-                      const KategoriConf = KATEGORI_CONFIG[buku.kategori];
+                      const KategoriConf = KATEGORI_CONFIG[buku.kategori] || {
+                        label: buku.kategori,
+                        badgeClass: "bg-slate-100 text-slate-800 border-slate-200",
+                      };
                       const persentaseTersedia = Math.round(
                         (buku.eksemplarTersedia / (buku.jumlahEksemplar || 1)) * 100
                       );
@@ -696,38 +895,11 @@ export default function AdminPerpusPage() {
                                 variant="outline"
                                 disabled={buku.eksemplarTersedia === 0}
                                 onClick={() => handleBukaPinjamBuku(buku)}
-                                className="h-7 text-xs px-2 gap-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200"
+                                className="h-7 text-xs px-2 gap-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200 cursor-pointer"
                                 title="Pinjamkan Buku"
                               >
                                 <RotateCcw className="h-3 w-3" />
                                 Pinjam
-                              </Button>
-
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedBuku(buku);
-                                  setEditOpen(true);
-                                }}
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                                title="Edit Buku"
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                              </Button>
-
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  if (confirm(`Yakin ingin menghapus ${buku.judul}?`)) {
-                                    hapusBuku(buku.id);
-                                  }
-                                }}
-                                className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
-                                title="Hapus Buku"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </td>
@@ -773,11 +945,11 @@ export default function AdminPerpusPage() {
                 size="sm"
                 onClick={() => {
                   if (daftarBuku.length > 0) {
-                    setFormPinjam((prev) => ({ ...prev, bukuId: daftarBuku[0].id }));
+                    setFormPinjam((prev) => ({ ...prev, bukuId: String(daftarBuku[0].id) }));
                   }
                   setPinjamOpen(true);
                 }}
-                className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 Catat Peminjaman
@@ -799,7 +971,18 @@ export default function AdminPerpusPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {sirkulasiFiltered.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 4 }).map((_, idx) => (
+                      <tr key={idx} className="animate-pulse">
+                        <td className="px-4 py-3"><div className="h-5 w-20 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-4 w-40 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-4 w-32 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-4 w-28 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-5 w-24 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3 text-right"><div className="h-7 w-20 bg-slate-200 rounded ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : sirkulasiFiltered.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
                         Belum ada data sirkulasi peminjaman.
@@ -808,7 +991,7 @@ export default function AdminPerpusPage() {
                   ) : (
                     sirkulasiFiltered.map((p) => {
                       const isTerlambat = p.status === "TERLAMBAT";
-                      const isKembali = p.status === "KEMBALI";
+                      const isKembali = p.status === "KEMBALI" || p.status === "DIKEMBALIKAN";
 
                       return (
                         <tr key={p.id} className="hover:bg-muted/30 transition-colors">
@@ -895,38 +1078,24 @@ export default function AdminPerpusPage() {
                                 <Button
                                   size="sm"
                                   onClick={() => handleBukaKembali(p)}
-                                  className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                                  className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1 cursor-pointer"
                                 >
                                   <Check className="h-3 w-3" />
                                   Kembalikan
                                 </Button>
                               ) : (
-                                <>
-                                  {p.statusDenda === "BELUM_LUNAS" && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => bayarDendaBuku(p.id)}
-                                      className="h-7 text-xs gap-1 border-rose-200 text-rose-700 hover:bg-rose-50"
-                                      title="Lunasi Denda"
-                                    >
-                                      <Coins className="h-3 w-3" />
-                                      Bayar Denda
-                                    </Button>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setSelectedPinjam(p);
-                                      setCetakOpen(true);
-                                    }}
-                                    className="h-7 text-xs gap-1"
-                                  >
-                                    <Printer className="h-3 w-3" />
-                                    Bukti
-                                  </Button>
-                                </>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedPinjam(p);
+                                    setCetakOpen(true);
+                                  }}
+                                  className="h-7 text-xs gap-1 cursor-pointer"
+                                >
+                                  <Printer className="h-3 w-3" />
+                                  Bukti
+                                </Button>
                               )}
                             </div>
                           </td>
@@ -945,77 +1114,83 @@ export default function AdminPerpusPage() {
       {activeTab === "rak" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {daftarRakUnik.map((rak) => {
-              const bukuRak = daftarBuku.filter((b) => b.lokasiRak === rak);
-              const totalEks = bukuRak.reduce((acc, b) => acc + b.jumlahEksemplar, 0);
-              const totalAda = bukuRak.reduce((acc, b) => acc + b.eksemplarTersedia, 0);
-              const totalPinjam = totalEks - totalAda;
-              const persentaseAda = Math.round((totalAda / (totalEks || 1)) * 100);
+            {daftarRakUnik.length === 0 ? (
+              <div className="col-span-3 py-12 text-center text-muted-foreground text-sm">
+                Belum ada klasifikasi rak buku yang tercatat.
+              </div>
+            ) : (
+              daftarRakUnik.map((rak) => {
+                const bukuRak = daftarBuku.filter((b) => b.lokasiRak === rak);
+                const totalEks = bukuRak.reduce((acc, b) => acc + b.jumlahEksemplar, 0);
+                const totalAda = bukuRak.reduce((acc, b) => acc + b.eksemplarTersedia, 0);
+                const totalPinjam = totalEks - totalAda;
+                const persentaseAda = Math.round((totalAda / (totalEks || 1)) * 100);
 
-              return (
-                <Card key={rak} className="border border-border/70 shadow-xs hover:border-emerald-300 transition-colors">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
-                          <Building className="h-4 w-4" />
+                return (
+                  <Card key={rak} className="border border-border/70 shadow-xs hover:border-emerald-300 transition-colors">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
+                            <Building className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-base font-bold text-foreground">{rak}</CardTitle>
+                            <p className="text-xs text-muted-foreground">{bukuRak.length} judul tersusun</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-3 gap-2 p-2.5 bg-muted/40 rounded-lg text-center">
+                        <div>
+                          <div className="text-lg font-bold text-foreground">{totalEks}</div>
+                          <div className="text-[10px] text-muted-foreground">Total Eks.</div>
                         </div>
                         <div>
-                          <CardTitle className="text-base font-bold text-foreground">{rak}</CardTitle>
-                          <p className="text-xs text-muted-foreground">{bukuRak.length} judul tersusun</p>
+                          <div className="text-lg font-bold text-emerald-600">{totalAda}</div>
+                          <div className="text-[10px] text-muted-foreground">Tersedia</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-amber-600">{totalPinjam}</div>
+                          <div className="text-[10px] text-muted-foreground">Dipinjam</div>
                         </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2 p-2.5 bg-muted/40 rounded-lg text-center">
-                      <div>
-                        <div className="text-lg font-bold text-foreground">{totalEks}</div>
-                        <div className="text-[10px] text-muted-foreground">Total Eks.</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-emerald-600">{totalAda}</div>
-                        <div className="text-[10px] text-muted-foreground">Tersedia</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-amber-600">{totalPinjam}</div>
-                        <div className="text-[10px] text-muted-foreground">Dipinjam</div>
-                      </div>
-                    </div>
 
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-muted-foreground">Ketersediaan Fisik</span>
-                        <span className="font-semibold text-emerald-700">{persentaseAda}%</span>
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-muted-foreground">Ketersediaan Fisik</span>
+                          <span className="font-semibold text-emerald-700">{persentaseAda}%</span>
+                        </div>
+                        <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-emerald-600 h-full rounded-full transition-all"
+                            style={{ width: `${persentaseAda}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-emerald-600 h-full rounded-full transition-all"
-                          style={{ width: `${persentaseAda}%` }}
-                        />
-                      </div>
-                    </div>
 
-                    <div className="pt-2 border-t border-border flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {bukuRak.map((b) => b.kategori).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSearchQuery(rak.split(" ")[0]);
-                          setActiveTab("katalog");
-                        }}
-                        className="text-xs text-emerald-700 hover:text-emerald-800 h-7 px-2"
-                      >
-                        Buka Rak
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                      <div className="pt-2 border-t border-border flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {bukuRak.map((b) => b.kategori).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSearchQuery(rak.split(" ")[0]);
+                            setActiveTab("katalog");
+                          }}
+                          className="text-xs text-emerald-700 hover:text-emerald-800 h-7 px-2 cursor-pointer"
+                        >
+                          Buka Rak
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -1094,7 +1269,7 @@ export default function AdminPerpusPage() {
                   onChange={(e) =>
                     setFormBuku({
                       ...formBuku,
-                      kategori: e.target.value as BukuPerpus["kategori"],
+                      kategori: e.target.value,
                     })
                   }
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1158,7 +1333,7 @@ export default function AdminPerpusPage() {
                   onChange={(e) =>
                     setFormBuku({
                       ...formBuku,
-                      tipeFormat: e.target.value as BukuPerpus["tipeFormat"],
+                      tipeFormat: e.target.value,
                     })
                   }
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1192,11 +1367,12 @@ export default function AdminPerpusPage() {
             </div>
 
             <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => setTambahBukuOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setTambahBukuOpen(false)} disabled={isSubmitting}>
                 Batal
               </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                Simpan ke Katalog
+              <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>{isSubmitting ? "Menyimpan..." : "Simpan ke Katalog"}</span>
               </Button>
             </DialogFooter>
           </form>
@@ -1222,11 +1398,15 @@ export default function AdminPerpusPage() {
                 onChange={(e) => setFormPinjam({ ...formPinjam, bukuId: e.target.value })}
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                {daftarBuku.map((buku) => (
-                  <option key={buku.id} value={buku.id} disabled={buku.eksemplarTersedia === 0}>
-                    {buku.judul} ({buku.kodeBuku}) - Tersedia: {buku.eksemplarTersedia} eks.
-                  </option>
-                ))}
+                {daftarBuku.length === 0 ? (
+                  <option value="">Belum ada buku di katalog</option>
+                ) : (
+                  daftarBuku.map((buku) => (
+                    <option key={buku.id} value={buku.id} disabled={buku.eksemplarTersedia === 0}>
+                      {buku.judul} ({buku.kodeBuku}) - Tersedia: {buku.eksemplarTersedia} eks.
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -1249,7 +1429,7 @@ export default function AdminPerpusPage() {
                   onChange={(e) =>
                     setFormPinjam({
                       ...formPinjam,
-                      rolePeminjam: e.target.value as PeminjamanBuku["rolePeminjam"],
+                      rolePeminjam: e.target.value,
                     })
                   }
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1265,7 +1445,6 @@ export default function AdminPerpusPage() {
               <div>
                 <label className="text-xs font-semibold text-foreground">Nomor Induk (NISN / NIP)</label>
                 <Input
-                  required
                   placeholder="006789xxxx / 1985xxxx"
                   value={formPinjam.nomorIdentitas}
                   onChange={(e) =>
@@ -1278,7 +1457,6 @@ export default function AdminPerpusPage() {
               <div>
                 <label className="text-xs font-semibold text-foreground">Kelas / Unit Kerja</label>
                 <Input
-                  required
                   placeholder="X IPA 1 / Guru Matematika"
                   value={formPinjam.kelasAtauUnit}
                   onChange={(e) =>
@@ -1304,7 +1482,7 @@ export default function AdminPerpusPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Batas Pengembalian (7-14 hari)</label>
+                <label className="text-xs font-semibold text-foreground">Batas Pengembalian</label>
                 <Input
                   type="date"
                   required
@@ -1318,11 +1496,12 @@ export default function AdminPerpusPage() {
             </div>
 
             <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => setPinjamOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setPinjamOpen(false)} disabled={isSubmitting}>
                 Batal
               </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                Konfirmasi Peminjaman
+              <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>{isSubmitting ? "Memproses..." : "Konfirmasi Peminjaman"}</span>
               </Button>
             </DialogFooter>
           </form>
@@ -1349,12 +1528,12 @@ export default function AdminPerpusPage() {
                   Peminjam: <span className="font-medium text-foreground">{selectedPinjam.namaPeminjam}</span> ({selectedPinjam.kelasAtauUnit})
                 </div>
                 <div className="text-muted-foreground">
-                  Batas Waktu: <span className="font-medium">{selectedPinjam.batasKembali}</span>
+                  Jatuh Tempo: <span className="font-mono">{selectedPinjam.batasKembali}</span>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Denda Keterlambatan (Rp 1.000 / hari)</label>
+                <label className="text-xs font-semibold text-foreground">Denda Keterlambatan (Rp)</label>
                 <Input
                   type="number"
                   min="0"
@@ -1363,122 +1542,32 @@ export default function AdminPerpusPage() {
                   onChange={(e) =>
                     setFormKembali({ ...formKembali, denda: Number(e.target.value) || 0 })
                   }
-                  className="mt-1 text-sm"
+                  className="mt-1 text-sm font-semibold"
                 />
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Isi 0 jika dikembalikan tepat waktu tanpa denda.
-                </p>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Catatan Petugas Perpustakaan</label>
-                <textarea
-                  rows={2}
+                <label className="text-xs font-semibold text-foreground">Catatan Kondisi Buku</label>
+                <Input
                   value={formKembali.catatanPetugas}
                   onChange={(e) =>
                     setFormKembali({ ...formKembali, catatanPetugas: e.target.value })
                   }
-                  className="mt-1 w-full rounded-md border border-input bg-background p-2 text-sm"
-                />
-              </div>
-
-              <DialogFooter className="mt-4">
-                <Button type="button" variant="outline" onClick={() => setKembaliOpen(false)}>
-                  Batal
-                </Button>
-                <Button onClick={handleSimpanKembali} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  Verifikasi Pengembalian
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* MODAL EDIT BUKU */}
-      <Dialog open={isEditOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Edit className="h-5 w-5 text-emerald-600" />
-              Edit Data Buku
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedBuku && (
-            <div className="space-y-4">
-              <div className="p-2.5 bg-muted/40 rounded-lg text-xs space-y-0.5">
-                <div className="font-semibold text-foreground">{selectedBuku.judul}</div>
-                <div className="font-mono text-muted-foreground">{selectedBuku.kodeBuku} • {selectedBuku.isbn}</div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-foreground">Lokasi Rak Buku</label>
-                <Input
-                  value={selectedBuku.lokasiRak}
-                  onChange={(e) => setSelectedBuku({ ...selectedBuku, lokasiRak: e.target.value })}
-                  className="mt-1 text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-foreground">Total Eksemplar</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={selectedBuku.jumlahEksemplar}
-                    onChange={(e) =>
-                      setSelectedBuku({
-                        ...selectedBuku,
-                        jumlahEksemplar: Number(e.target.value) || 1,
-                      })
-                    }
-                    className="mt-1 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-foreground">Eksemplar Tersedia</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max={selectedBuku.jumlahEksemplar}
-                    value={selectedBuku.eksemplarTersedia}
-                    onChange={(e) =>
-                      setSelectedBuku({
-                        ...selectedBuku,
-                        eksemplarTersedia: Number(e.target.value) || 0,
-                      })
-                    }
-                    className="mt-1 text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-foreground">Tautan E-Book</label>
-                <Input
-                  value={selectedBuku.ebookUrl || ""}
-                  onChange={(e) => setSelectedBuku({ ...selectedBuku, ebookUrl: e.target.value })}
                   className="mt-1 text-sm"
                 />
               </div>
 
               <DialogFooter className="mt-4">
-                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                <Button variant="outline" onClick={() => setKembaliOpen(false)} disabled={isSubmitting}>
                   Batal
                 </Button>
                 <Button
-                  onClick={() => {
-                    if (selectedBuku) {
-                      updateBuku(selectedBuku.id, selectedBuku);
-                      setEditOpen(false);
-                    }
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={handleSimpanKembali}
+                  disabled={isSubmitting}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
                 >
-                  Simpan Perubahan
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  <span>{isSubmitting ? "Menyimpan..." : "Buku Telah Diterima"}</span>
                 </Button>
               </DialogFooter>
             </div>
@@ -1486,7 +1575,7 @@ export default function AdminPerpusPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL CETAK BUKTI PENGEMBALIAN / BEBAS PUSTAKA */}
+      {/* MODAL CETAK BUKTI PENGEMBALIAN */}
       <Dialog open={isCetakOpen} onOpenChange={setCetakOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1502,7 +1591,7 @@ export default function AdminPerpusPage() {
                 <div className="text-center pb-2 border-b border-border">
                   <div className="font-bold text-sm tracking-wide">PERPUSTAKAAN SEKOLAH</div>
                   <div className="text-muted-foreground text-[11px]">
-                    SMA NEGERI CONTOH - BUKTI RESMI SIRKULASI BUKU
+                    BUKTI RESMI SIRKULASI BUKU
                   </div>
                 </div>
 
@@ -1524,7 +1613,7 @@ export default function AdminPerpusPage() {
                   <span className="text-muted-foreground">Denda:</span>
                   <span className="text-right font-semibold">
                     {selectedPinjam.denda > 0
-                      ? `Rp ${selectedPinjam.denda.toLocaleString("id-ID")} (${selectedPinjam.statusDenda})`
+                      ? `Rp ${selectedPinjam.denda.toLocaleString("id-ID")}`
                       : "Tidak Ada"}
                   </span>
                 </div>
