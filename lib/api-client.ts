@@ -545,6 +545,19 @@ export const api = {
     });
   },
 
+  async updatePengumuman(id: string | number, payload: any) {
+    return fetchApi(`/pengumuman/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deletePengumuman(id: string | number) {
+    return fetchApi(`/pengumuman/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   // CBT / Ujian Komputer (Fase 5)
   async getCBTUjianList(params?: { tingkat_kelas?: string; status?: string }) {
     const query = new URLSearchParams();

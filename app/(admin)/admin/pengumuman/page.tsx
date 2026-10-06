@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Megaphone,
   Plus,
@@ -9,32 +9,40 @@ import {
   Download,
   Pin,
   Send,
-  FileText,
-  AlertCircle,
   CheckCircle2,
-  Calendar,
   Users,
-  Building,
-  Sparkles,
   Edit3,
   Trash2,
   X,
   MessageSquare,
-  Share2,
   ChevronRight,
-  Eye,
   ShieldAlert,
   Paperclip,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useStore, type Pengumuman } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
+interface PengumumanItem {
+  id: number;
+  judul: string;
+  konten: string;
+  kategori: "PENTING" | "AKADEMIK" | "KEUANGAN" | "EVENT" | "LIBUR";
+  sasaran: "SEMUA" | "GURU" | "SISWA" | "ORANG_TUA";
+  prioritas: "TINGGI" | "NORMAL";
+  tanggal: string;
+  penulis: string;
+  lampiran_url?: string;
+  pin: boolean;
+  status: "DITERBITKAN" | "DRAFT";
+}
+
 const KATEGORI_BADGES: Record<
-  Pengumuman["kategori"],
+  PengumumanItem["kategori"],
   { label: string; badgeClass: string; dotColor: string }
 > = {
   PENTING: {
@@ -65,15 +73,8 @@ const KATEGORI_BADGES: Record<
 };
 
 export default function PengumumanPage() {
-  const {
-    daftarPengumuman,
-    tambahPengumuman,
-    hapusPengumuman,
-    updatePengumuman,
-    togglePinPengumuman,
-    tahunAjaranAktif,
-    semesterAktif,
-  } = useStore();
+  const [daftarPengumuman, setDaftarPengumuman] = useState<PengumumanItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [kategoriFilter, setKategoriFilter] = useState<string>("SEMUA");
@@ -81,11 +82,11 @@ export default function PengumumanPage() {
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingPengumuman, setEditingPengumuman] = useState<Pengumuman | null>(null);
+  const [editingPengumuman, setEditingPengumuman] = useState<PengumumanItem | null>(null);
 
   // WhatsApp Broadcast Modal
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
-  const [selectedPengumumanForBroadcast, setSelectedPengumumanForBroadcast] = useState<Pengumuman | null>(null);
+  const [selectedPengumumanForBroadcast, setSelectedPengumumanForBroadcast] = useState<PengumumanItem | null>(null);
   const [broadcastTarget, setBroadcastTarget] = useState<"ORTU" | "GURU" | "SEMUA">("ORTU");
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
 
@@ -99,13 +100,35 @@ export default function PengumumanPage() {
   // Form State
   const [formJudul, setFormJudul] = useState("");
   const [formKonten, setFormKonten] = useState("");
-  const [formKategori, setFormKategori] = useState<Pengumuman["kategori"]>("PENTING");
-  const [formSasaran, setFormSasaran] = useState<Pengumuman["sasaran"]>("SEMUA");
-  const [formPrioritas, setFormPrioritas] = useState<Pengumuman["prioritas"]>("NORMAL");
+  const [formKategori, setFormKategori] = useState<PengumumanItem["kategori"]>("PENTING");
+  const [formSasaran, setFormSasaran] = useState<PengumumanItem["sasaran"]>("SEMUA");
+  const [formPrioritas, setFormPrioritas] = useState<PengumumanItem["prioritas"]>("NORMAL");
   const [formPenulis, setFormPenulis] = useState("");
   const [formLampiran, setFormLampiran] = useState("");
   const [formPin, setFormPin] = useState(false);
-  const [formStatus, setFormStatus] = useState<Pengumuman["status"]>("DITERBITKAN");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch data live dari Supabase via backend API
+  const fetchPengumuman = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getPengumumanList();
+      if (res && res.data) {
+        setDaftarPengumuman(res.data);
+      } else {
+        setDaftarPengumuman([]);
+      }
+    } catch (err) {
+      console.error("Gagal memuat pengumuman:", err);
+      setDaftarPengumuman([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPengumuman();
+  }, []);
 
   const openAddModal = () => {
     setEditingPengumuman(null);
@@ -117,11 +140,10 @@ export default function PengumumanPage() {
     setFormPenulis("Kepala Sekolah / Tata Usaha");
     setFormLampiran("");
     setFormPin(false);
-    setFormStatus("DITERBITKAN");
     setIsAddModalOpen(true);
   };
 
-  const openEditModal = (p: Pengumuman) => {
+  const openEditModal = (p: PengumumanItem) => {
     setEditingPengumuman(p);
     setFormJudul(p.judul);
     setFormKonten(p.konten);
@@ -129,57 +151,70 @@ export default function PengumumanPage() {
     setFormSasaran(p.sasaran);
     setFormPrioritas(p.prioritas);
     setFormPenulis(p.penulis);
-    setFormLampiran(p.lampiran || "");
-    setFormPin(p.pin);
-    setFormStatus(p.status);
+    setFormLampiran(p.lampiran_url || "");
+    setFormPin(Boolean(p.pin));
     setIsAddModalOpen(true);
   };
 
-  const handleSavePengumuman = (e: React.FormEvent) => {
+  const handleSavePengumuman = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formJudul.trim() || !formKonten.trim()) return;
 
-    const todayStr = new Date().toISOString().split("T")[0];
-
-    if (editingPengumuman) {
-      updatePengumuman(editingPengumuman.id, {
+    setIsSubmitting(true);
+    try {
+      const payload = {
         judul: formJudul.trim(),
         konten: formKonten.trim(),
         kategori: formKategori,
         sasaran: formSasaran,
         prioritas: formPrioritas,
-        penulis: formPenulis.trim() || "Tata Usaha",
-        lampiran: formLampiran.trim() || undefined,
-        pin: formPin,
-        status: formStatus,
-      });
-      showToast(`Pengumuman "${formJudul}" berhasil diperbarui.`);
-    } else {
-      tambahPengumuman({
-        judul: formJudul.trim(),
-        konten: formKonten.trim(),
-        kategori: formKategori,
-        sasaran: formSasaran,
-        prioritas: formPrioritas,
-        tanggal: todayStr,
         penulis: formPenulis.trim() || "Kepala Sekolah / TU",
-        lampiran: formLampiran.trim() || undefined,
+        lampiran_url: formLampiran.trim() || null,
         pin: formPin,
-        status: formStatus,
-      });
-      showToast(`Pengumuman baru "${formJudul}" berhasil diterbitkan.`);
+      };
+
+      if (editingPengumuman) {
+        await api.updatePengumuman(editingPengumuman.id, payload);
+        showToast(`Pengumuman "${formJudul}" berhasil diperbarui.`);
+      } else {
+        await api.createPengumuman(payload);
+        showToast(`Pengumuman baru "${formJudul}" berhasil diterbitkan.`);
+      }
+      setIsAddModalOpen(false);
+      await fetchPengumuman();
+    } catch (err) {
+      console.error("Gagal menyimpan pengumuman:", err);
+      showToast("Gagal menyimpan pengumuman. Silakan coba lagi.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsAddModalOpen(false);
   };
 
-  const handleDeletePengumuman = (id: string, judul: string) => {
+  const handleDeletePengumuman = async (id: number, judul: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus pengumuman "${judul}"?`)) {
-      hapusPengumuman(id);
-      showToast("Pengumuman telah dihapus.");
+      try {
+        await api.deletePengumuman(id);
+        showToast("Pengumuman telah dihapus.");
+        await fetchPengumuman();
+      } catch (err) {
+        console.error("Gagal menghapus pengumuman:", err);
+        showToast("Gagal menghapus pengumuman.");
+      }
     }
   };
 
-  const openBroadcastDialog = (p: Pengumuman) => {
+  const togglePinPengumuman = async (item: PengumumanItem) => {
+    try {
+      await api.updatePengumuman(item.id, { pin: !item.pin });
+      showToast(item.pin ? "Sematan dilepas." : "Pengumuman disematkan ke atas.");
+      await fetchPengumuman();
+    } catch (err) {
+      console.error("Gagal mengubah status pin:", err);
+      showToast("Gagal mengubah sematan.");
+    }
+  };
+
+  const openBroadcastDialog = (p: PengumumanItem) => {
     setSelectedPengumumanForBroadcast(p);
     setBroadcastTarget(p.sasaran === "GURU" ? "GURU" : "ORTU");
     setIsBroadcastModalOpen(true);
@@ -190,7 +225,7 @@ export default function PengumumanPage() {
     setTimeout(() => {
       setIsSendingBroadcast(false);
       setIsBroadcastModalOpen(false);
-      showToast("Broadcast WhatsApp berhasil dikirim ke 580 nomor kontak terdaftar!");
+      showToast("Broadcast WhatsApp berhasil dikirim ke nomor kontak terdaftar!");
     }, 1200);
   };
 
@@ -207,7 +242,6 @@ export default function PengumumanPage() {
         return matchSearch && matchKategori && matchSasaran;
       })
       .sort((a, b) => {
-        // Pinned first, then date descending
         if (a.pin && !b.pin) return -1;
         if (!a.pin && b.pin) return 1;
         return b.tanggal.localeCompare(a.tanggal);
@@ -224,12 +258,12 @@ export default function PengumumanPage() {
     const headers = ["ID", "Judul", "Kategori", "Sasaran", "Prioritas", "Tanggal Terbit", "Penulis", "Status"];
     const rows = daftarPengumuman.map((p) => [
       p.id,
-      `"${p.judul}"`,
+      `"${p.judul.replace(/"/g, '""')}"`,
       p.kategori,
       p.sasaran,
       p.prioritas,
       p.tanggal,
-      `"${p.penulis}"`,
+      `"${p.penulis.replace(/"/g, '""')}"`,
       p.status,
     ]);
 
@@ -237,7 +271,7 @@ export default function PengumumanPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Daftar_Pengumuman_Hadirin_${tahunAjaranAktif.replace("/", "-")}.csv`);
+    link.setAttribute("download", `Daftar_Pengumuman_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -267,7 +301,7 @@ export default function PengumumanPage() {
             Pengumuman &amp; Broadcast Sekolah
           </h1>
           <p className="text-xs text-muted-foreground sm:text-sm mt-0.5">
-            Publikasikan surat edaran resmi, broadcast notifikasi WhatsApp, dan banner informasi ke akun Guru, Siswa, dan Orang Tua.
+            Publikasikan surat edaran resmi, broadcast notifikasi WhatsApp, dan banner informasi langsung tersinkron ke Supabase PostgreSQL.
           </p>
         </div>
 
@@ -275,7 +309,19 @@ export default function PengumumanPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={fetchPengumuman}
+            disabled={loading}
+            className="gap-1.5 border-border bg-white text-xs hover:bg-slate-50"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Segarkan
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportCSV}
+            disabled={loading || daftarPengumuman.length === 0}
             className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
           >
             <Download size={14} className="text-slate-600" />
@@ -294,77 +340,88 @@ export default function PengumumanPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
-              <Megaphone size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Total Terbit</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalPengumuman}
-                </span>
-                <span className="text-[10px] text-emerald-600 font-bold uppercase font-mono">
-                  Aktif
-                </span>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="border border-border bg-white p-4 animate-pulse">
+              <div className="h-4 w-20 rounded bg-slate-200" />
+              <div className="mt-3 h-7 w-12 rounded bg-slate-200" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <Card className="border border-border shadow-xs bg-white">
+            <CardContent className="p-4 flex items-center gap-3.5">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
+                <Megaphone size={22} />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Total Terbit</p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    {totalPengumuman}
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-bold uppercase font-mono">
+                    Aktif
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-900 shrink-0">
-              <Pin size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Disematkan (Pin)</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalPinned}
-                </span>
-                <span className="text-[10px] text-amber-700 font-semibold">Di Atas Beranda</span>
+          <Card className="border border-border shadow-xs bg-white">
+            <CardContent className="p-4 flex items-center gap-3.5">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-900 shrink-0">
+                <Pin size={22} />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Disematkan (Pin)</p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    {totalPinned}
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-semibold">Prioritas Atas</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-rose-50 text-rose-900 shrink-0">
-              <ShieldAlert size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Prioritas Tinggi</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {totalPenting}
-                </span>
-                <span className="text-[10px] text-rose-700 font-semibold">Perlu Tindakan</span>
+          <Card className="border border-border shadow-xs bg-white">
+            <CardContent className="p-4 flex items-center gap-3.5">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-rose-50 text-rose-900 shrink-0">
+                <ShieldAlert size={22} />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Prioritas Tinggi</p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    {totalPenting}
+                  </span>
+                  <span className="text-[10px] text-rose-700 font-semibold">Perlu Tindakan</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-900 shrink-0">
-              <Users size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Jangkauan Sasaran</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  1.200+
-                </span>
-                <span className="text-[10px] text-emerald-700 font-medium">Siswa, Guru &amp; Ortu</span>
+          <Card className="border border-border shadow-xs bg-white">
+            <CardContent className="p-4 flex items-center gap-3.5">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-900 shrink-0">
+                <Users size={22} />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Database Supabase</p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    Live
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-medium">PostgreSQL</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <Card className="border border-border shadow-xs bg-white">
@@ -412,7 +469,7 @@ export default function PengumumanPage() {
             >
               Semua
             </button>
-            {(Object.keys(KATEGORI_BADGES) as Pengumuman["kategori"][]).map((kat) => (
+            {(Object.keys(KATEGORI_BADGES) as PengumumanItem["kategori"][]).map((kat) => (
               <button
                 key={kat}
                 type="button"
@@ -454,7 +511,21 @@ export default function PengumumanPage() {
 
       {/* Announcements Newsfeed List */}
       <div className="space-y-4">
-        {filteredList.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className="border border-border bg-white p-5 animate-pulse space-y-3">
+                <div className="flex gap-2">
+                  <div className="h-5 w-24 rounded bg-slate-200" />
+                  <div className="h-5 w-32 rounded bg-slate-200" />
+                </div>
+                <div className="h-5 w-3/4 rounded bg-slate-200" />
+                <div className="h-12 w-full rounded bg-slate-200" />
+                <div className="h-3 w-40 rounded bg-slate-200" />
+              </Card>
+            ))}
+          </div>
+        ) : filteredList.length === 0 ? (
           <Card className="border border-border bg-white p-12 text-center text-xs text-slate-500 shadow-xs">
             Tidak ada pengumuman yang sesuai dengan filter pencarian.
           </Card>
@@ -504,7 +575,7 @@ export default function PengumumanPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => togglePinPengumuman(p.id)}
+                        onClick={() => togglePinPengumuman(p)}
                         className="h-7 text-xs text-slate-500 hover:text-navy-950 hover:bg-slate-100 gap-1 px-2 cursor-pointer"
                         title={p.pin ? "Lepas Sematan (Unpin)" : "Sematkan ke Atas (Pin)"}
                       >
@@ -552,11 +623,11 @@ export default function PengumumanPage() {
                   </div>
 
                   {/* Attachment if any */}
-                  {p.lampiran && (
+                  {p.lampiran_url && (
                     <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-xs text-navy-900 font-medium hover:bg-slate-100 cursor-pointer">
                       <Paperclip size={13} className="text-slate-500" />
-                      <span>{p.lampiran}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">(Unduh PDF)</span>
+                      <span>{p.lampiran_url}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">(Unduh Berkas)</span>
                     </div>
                   )}
 
@@ -594,7 +665,7 @@ export default function PengumumanPage() {
                     {editingPengumuman ? "Edit Pengumuman Sekolah" : "Buat Pengumuman Baru"}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Publikasikan informasi resmi atau surat edaran digital.
+                    Publikasikan informasi resmi atau surat edaran digital langsung ke database.
                   </p>
                 </div>
               </div>
@@ -685,7 +756,7 @@ export default function PengumumanPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Lampiran Berkas (Opsional)</label>
+                <label className="font-bold text-slate-700">Lampiran Berkas / URL (Opsional)</label>
                 <Input
                   placeholder="Contoh: Surat_Edaran_Resmi_No12.pdf"
                   value={formLampiran}
@@ -720,9 +791,14 @@ export default function PengumumanPage() {
                 <Button
                   type="submit"
                   size="sm"
+                  disabled={isSubmitting}
                   className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer"
                 >
-                  {editingPengumuman ? "Simpan Perubahan" : "Terbitkan Pengumuman"}
+                  {isSubmitting
+                    ? "Menyimpan..."
+                    : editingPengumuman
+                    ? "Simpan Perubahan"
+                    : "Terbitkan Pengumuman"}
                 </Button>
               </div>
             </form>
@@ -765,9 +841,9 @@ export default function PengumumanPage() {
                   onChange={(e) => setBroadcastTarget(e.target.value as any)}
                   className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-emerald-700"
                 >
-                  <option value="ORTU">Seluruh Orang Tua / Wali Murid (580 Nomor Terdaftar)</option>
-                  <option value="GURU">Seluruh Dewan Guru &amp; Pegawai (42 Nomor PTK)</option>
-                  <option value="SEMUA">Seluruh Civitas Akademika (622 Kontak)</option>
+                  <option value="ORTU">Seluruh Orang Tua / Wali Murid (Kontak Terdaftar)</option>
+                  <option value="GURU">Seluruh Dewan Guru &amp; Pegawai (PTK)</option>
+                  <option value="SEMUA">Seluruh Civitas Akademika Sekolah</option>
                 </select>
               </div>
 
@@ -775,12 +851,12 @@ export default function PengumumanPage() {
                 <label className="font-bold text-slate-700">Preview Pesan Broadcast (WhatsApp)</label>
                 <div className="rounded-xl bg-emerald-50/60 border border-emerald-200 p-3 font-mono text-[11px] text-slate-800 space-y-1 leading-relaxed">
                   <p className="font-bold text-emerald-950">
-                    *PENGUMUMAN RESMI SMAN 3 CONTOH*
+                    *PENGUMUMAN RESMI SEKOLAH*
                   </p>
                   <p className="font-semibold">*{selectedPengumumanForBroadcast.judul}*</p>
                   <p className="text-slate-700 line-clamp-3">{selectedPengumumanForBroadcast.konten}</p>
                   <p className="text-slate-500 pt-1">
-                    Informasi lengkap dapat diakses melalui portal: hadirin-app.id
+                    Informasi lengkap dapat diakses melalui portal aplikasi Hadirin.
                   </p>
                 </div>
               </div>
