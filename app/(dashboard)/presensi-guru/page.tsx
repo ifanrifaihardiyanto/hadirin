@@ -69,7 +69,9 @@ export default function PresensiGuruMandiriPage() {
   const [jamSekarang, setJamSekarang] = useState("07.00.00");
   const [isDinasModalOpen, setIsDinasModalOpen] = useState(false);
   const [dinasKeterangan, setDinasKeterangan] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
+  const [isSubmittingCheckOut, setIsSubmittingCheckOut] = useState(false);
+  const [isSubmittingDinas, setIsSubmittingDinas] = useState(false);
 
   // GPS State
   const [gpsLoading, setGpsLoading] = useState(true);
@@ -155,7 +157,7 @@ export default function PresensiGuruMandiriPage() {
   }, []);
 
   const handleCheckIn = async () => {
-    setIsSubmitting(true);
+    setIsSubmittingCheckIn(true);
     try {
       const lokasiNama = userCoords
         ? `Sesuai Titik GPS (${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)})`
@@ -195,12 +197,12 @@ export default function PresensiGuruMandiriPage() {
         message: e?.message || "Terjadi kesalahan saat memproses presensi ke server.",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingCheckIn(false);
     }
   };
 
   const handleCheckOut = async () => {
-    setIsSubmitting(true);
+    setIsSubmittingCheckOut(true);
     try {
       await checkOutGuru(guruId);
       const sekarang = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
@@ -224,14 +226,14 @@ export default function PresensiGuruMandiriPage() {
         message: e?.message || "Terjadi kendala saat check-out ke server.",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingCheckOut(false);
     }
   };
 
   const handleDinasSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dinasKeterangan) return;
-    setIsSubmitting(true);
+    setIsSubmittingDinas(true);
     try {
       await checkInGuru(guruId, "IZIN_DINAS", dinasKeterangan, {
         latitude: userCoords?.lat,
@@ -252,7 +254,7 @@ export default function PresensiGuruMandiriPage() {
         },
       });
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingDinas(false);
     }
   };
 
@@ -357,7 +359,7 @@ export default function PresensiGuruMandiriPage() {
               <Button
                 type="button"
                 onClick={handleCheckIn}
-                disabled={isSubmitting || Boolean(myRecord?.jamMasuk && myRecord.jamMasuk !== "-")}
+                disabled={isSubmittingCheckIn || Boolean(myRecord?.jamMasuk && myRecord.jamMasuk !== "-")}
                 className="h-14 bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/40 text-white font-bold text-sm rounded-xl gap-2 shadow-sm transition-all cursor-pointer"
               >
                 {myRecord?.jamMasuk && myRecord.jamMasuk !== "-" ? (
@@ -368,7 +370,7 @@ export default function PresensiGuruMandiriPage() {
                 ) : (
                   <>
                     <LogIn size={18} />
-                    {isSubmitting ? "Memproses..." : "Check-In Kedatangan"}
+                    {isSubmittingCheckIn ? "Memproses Check-In..." : "Check-In Kedatangan"}
                   </>
                 )}
               </Button>
@@ -376,7 +378,7 @@ export default function PresensiGuruMandiriPage() {
               <Button
                 type="button"
                 onClick={handleCheckOut}
-                disabled={isSubmitting || !myRecord?.jamMasuk || myRecord.jamMasuk === "-" || Boolean(myRecord?.jamPulang)}
+                disabled={isSubmittingCheckOut || !myRecord?.jamMasuk || myRecord.jamMasuk === "-" || Boolean(myRecord?.jamPulang)}
                 variant="outline"
                 className="h-14 border-white/20 bg-white/5 hover:bg-white/15 text-white disabled:bg-white/5 disabled:text-white/30 font-bold text-sm rounded-xl gap-2 backdrop-blur-xs transition-all cursor-pointer"
               >
@@ -388,7 +390,7 @@ export default function PresensiGuruMandiriPage() {
                 ) : (
                   <>
                     <LogOut size={18} />
-                    {isSubmitting ? "Memproses..." : "Check-Out Kepulangan (15.00+)"}
+                    {isSubmittingCheckOut ? "Memproses Check-Out..." : "Check-Out Kepulangan (15.00+)"}
                   </>
                 )}
               </Button>
@@ -691,11 +693,11 @@ export default function PresensiGuruMandiriPage() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={isSubmitting}
+                  disabled={isSubmittingDinas}
                   className="bg-navy-900 hover:bg-navy-800 text-white text-xs gap-1.5"
                 >
                   <Send size={13} />
-                  {isSubmitting ? "Mengirim..." : "Kirim Laporan Dinas"}
+                  {isSubmittingDinas ? "Mengirim..." : "Kirim Laporan Dinas"}
                 </Button>
               </div>
             </form>

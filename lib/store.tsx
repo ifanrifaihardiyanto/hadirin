@@ -2364,6 +2364,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
   const pathname = usePathname();
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     try {
@@ -2380,9 +2381,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     async function loadDataFromBackend() {
       // Jangan fetch data jika sedang di halaman login / register / onboarding / root marketing
       if (pathname === "/login" || pathname === "/onboarding" || pathname === "/") return;
+      if (dataLoaded) return; // JANGAN load ulang jika sudah pernah dimuat!
 
       const token = getToken();
       if (!token) return;
+      setDataLoaded(true);
 
       try {
         const [
