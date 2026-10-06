@@ -1,52 +1,58 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   HeartPulse,
   Plus,
   Search,
-  Filter,
   CheckCircle2,
-  AlertCircle,
   Clock,
-  User,
-  Users,
   Download,
-  Phone,
-  FileText,
   Activity,
   Pill,
-  ShieldAlert,
-  Printer,
-  ChevronRight,
-  TrendingUp,
   Stethoscope,
   Trash2,
   Edit,
-  Smile,
-  AlertTriangle,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import {
-  useStore,
-  KunjunganUKS,
   RekamMedisSiswa,
   ObatUKS,
+  daftarRekamMedisUKSAwal,
+  daftarObatUKSAwal,
 } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
+
+export interface UKSKunjunganLive {
+  id: string | number;
+  siswaId: string | number;
+  namaSiswa: string;
+  kelas: string;
+  tanggal: string;
+  jam: string;
+  kategoriKeluhan: string;
+  keluhan: string;
+  tindakan: string;
+  obatDiberikan: string;
+  kondisiAkhir: string;
+  petugasUKS: string;
+  status: "SEDANG_DIRAWAT" | "SELESAI" | string;
+}
 
 export default function ModulUKSPage() {
-  const {
-    daftarKunjunganUKS,
-    tambahKunjunganUKS,
-    updateKunjunganUKS,
-    hapusKunjunganUKS,
-    daftarRekamMedisUKS,
-    updateRekamMedisUKS,
-    daftarObatUKS,
-    updateStokObatUKS,
-  } = useStore();
+  const [daftarKunjunganUKS, setDaftarKunjunganUKS] = useState<UKSKunjunganLive[]>([]);
+  const [daftarSiswa, setDaftarSiswa] = useState<any[]>([]);
+  const [daftarRekamMedisUKS, setDaftarRekamMedisUKS] = useState<RekamMedisSiswa[]>(daftarRekamMedisUKSAwal);
+  const [daftarObatUKS, setDaftarObatUKS] = useState<ObatUKS[]>(daftarObatUKSAwal);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"KUNJUNGAN" | "REKAM_MEDIS" | "OBAT">("KUNJUNGAN");
 
@@ -69,21 +75,18 @@ export default function ModulUKSPage() {
   const [showModalEditMedis, setShowModalEditMedis] = useState(false);
   const [selectedMedis, setSelectedMedis] = useState<RekamMedisSiswa | null>(null);
 
+  // Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   // Form State Kunjungan Baru
-  const [formKunjungan, setFormKunjungan] = useState<{
-    namaSiswa: string;
-    kelas: string;
-    jam: string;
-    kategoriKeluhan: KunjunganUKS["kategoriKeluhan"];
-    keluhan: string;
-    tindakan: string;
-    obatDiberikan: string;
-    kondisiAkhir: KunjunganUKS["kondisiAkhir"];
-    petugasUKS: string;
-    status: KunjunganUKS["status"];
-  }>({
+  const [formKunjungan, setFormKunjungan] = useState({
+    siswaId: "",
     namaSiswa: "",
-    kelas: "Kelas X IPA 1",
+    kelas: "",
     jam: "09:30",
     kategoriKeluhan: "DEMAM",
     keluhan: "",
@@ -93,6 +96,54 @@ export default function ModulUKSPage() {
     petugasUKS: "drg. Ratna Sari & Tim PMR",
     status: "SEDANG_DIRAWAT",
   });
+
+  const fetchData = useCallback(async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const [resUKS, resSiswa] = await Promise.all([
+        api.getUKSList(),
+        api.getSiswaList(),
+      ]);
+
+      const rawUKS = (resUKS as any)?.data || (resUKS as any) || [];
+      const normalizedKunjungan: UKSKunjunganLive[] = Array.isArray(rawUKS)
+        ? rawUKS.map((item: any) => ({
+            id: item.id,
+            siswaId: item.siswa_id || item.siswaId || "",
+            namaSiswa: item.siswa?.nama || item.nama_siswa || item.namaSiswa || "Siswa",
+            kelas: item.siswa?.kelas?.nama_kelas || item.kelas || "Kelas Umum",
+            tanggal: item.tanggal || new Date().toISOString().split("T")[0],
+            jam: item.jam || "09:00",
+            kategoriKeluhan: item.kategori_keluhan || item.kategoriKeluhan || "DEMAM",
+            keluhan: item.keluhan || "-",
+            tindakan: item.tindakan || "-",
+            obatDiberikan: item.obat_diberikan || item.obatDiberikan || "-",
+            kondisiAkhir: item.kondisi_akhir || item.kondisiAkhir || "MEMBAIK_KEMBALI_KE_KELAS",
+            petugasUKS: item.petugas_uks || item.petugasUKS || "Petugas UKS",
+            status: item.status || "SELESAI",
+          }))
+        : [];
+      setDaftarKunjunganUKS(normalizedKunjungan);
+
+      const rawSiswa = (resSiswa as any)?.data || (resSiswa as any) || [];
+      const siswasList = Array.isArray(rawSiswa) ? rawSiswa : [];
+      setDaftarSiswa(siswasList);
+
+      if (isManual) showToast("Data kunjungan UKS berhasil diperbarui.");
+    } catch (err: any) {
+      console.error("Gagal memuat data UKS:", err);
+      showToast("Gagal memuat data UKS dari server.");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // KPI Metrics Calculation
   const totalKunjungan = daftarKunjunganUKS.length;
@@ -143,38 +194,48 @@ export default function ModulUKSPage() {
   }, [daftarObatUKS, searchObat, filterKategoriObat]);
 
   // Handlers
-  const handleSimpanKunjungan = (e: React.FormEvent) => {
+  const handleSimpanKunjungan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formKunjungan.namaSiswa.trim() || !formKunjungan.keluhan.trim()) return;
+    if (!formKunjungan.keluhan.trim()) return;
 
-    tambahKunjunganUKS({
-      tanggal: new Date().toISOString().split("T")[0],
-      jam: formKunjungan.jam,
-      siswaId: `sis-${Date.now()}`,
-      namaSiswa: formKunjungan.namaSiswa.trim(),
-      kelas: formKunjungan.kelas,
-      keluhan: formKunjungan.keluhan.trim(),
-      kategoriKeluhan: formKunjungan.kategoriKeluhan,
-      tindakan: formKunjungan.tindakan.trim(),
-      obatDiberikan: formKunjungan.obatDiberikan.trim(),
-      kondisiAkhir: formKunjungan.kondisiAkhir,
-      petugasUKS: formKunjungan.petugasUKS.trim(),
-      status: formKunjungan.status,
-    });
+    // Tentukan siswaId yang valid
+    const targetSiswa = daftarSiswa.find((s) => String(s.id) === String(formKunjungan.siswaId)) || daftarSiswa[0];
+    const targetId = targetSiswa ? targetSiswa.id : 1;
 
-    setShowModalKunjungan(false);
-    setFormKunjungan({
-      namaSiswa: "",
-      kelas: "Kelas X IPA 1",
-      jam: "09:30",
-      kategoriKeluhan: "DEMAM",
-      keluhan: "",
-      tindakan: "Istirahat di ruang UKS dan diberikan obat sesuai keluhan",
-      obatDiberikan: "Paracetamol 500mg",
-      kondisiAkhir: "MEMBAIK_KEMBALI_KE_KELAS",
-      petugasUKS: "drg. Ratna Sari & Tim PMR",
-      status: "SEDANG_DIRAWAT",
-    });
+    setIsSubmitting(true);
+    try {
+      await api.recordKunjunganUKS({
+        siswa_id: targetId,
+        keluhan: formKunjungan.keluhan.trim(),
+        kategori_keluhan: formKunjungan.kategoriKeluhan,
+        tindakan: formKunjungan.tindakan.trim(),
+        obat_diberikan: formKunjungan.obatDiberikan.trim(),
+        kondisi_akhir: formKunjungan.kondisiAkhir,
+        petugas_uks: formKunjungan.petugasUKS.trim(),
+      });
+
+      showToast("Catatan kunjungan UKS berhasil disimpan.");
+      setShowModalKunjungan(false);
+      setFormKunjungan({
+        siswaId: "",
+        namaSiswa: "",
+        kelas: "",
+        jam: "09:30",
+        kategoriKeluhan: "DEMAM",
+        keluhan: "",
+        tindakan: "Istirahat di ruang UKS dan diberikan obat sesuai keluhan",
+        obatDiberikan: "Paracetamol 500mg",
+        kondisiAkhir: "MEMBAIK_KEMBALI_KE_KELAS",
+        petugasUKS: "drg. Ratna Sari & Tim PMR",
+        status: "SEDANG_DIRAWAT",
+      });
+      fetchData();
+    } catch (err: any) {
+      console.error("Gagal simpan kunjungan UKS:", err);
+      showToast("Gagal menyimpan kunjungan UKS.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOpenEditMedis = (item: RekamMedisSiswa) => {
@@ -194,13 +255,20 @@ export default function ModulUKSPage() {
     else if (calcBmi >= 25 && calcBmi < 30) gizi = "BERLEBIH";
     else if (calcBmi >= 30) gizi = "OBESITAS";
 
-    updateRekamMedisUKS(selectedMedis.id, {
-      ...selectedMedis,
-      bmi: calcBmi,
-      statusGizi: gizi,
-      terakhirPeriksa: new Date().toISOString().split("T")[0],
-    });
+    setDaftarRekamMedisUKS((prev) =>
+      prev.map((m) =>
+        m.id === selectedMedis.id
+          ? {
+              ...selectedMedis,
+              bmi: calcBmi,
+              statusGizi: gizi,
+              terakhirPeriksa: new Date().toISOString().split("T")[0],
+            }
+          : m
+      )
+    );
 
+    showToast("Rekam medis berhasil diperbarui.");
     setShowModalEditMedis(false);
   };
 
@@ -246,10 +314,19 @@ export default function ModulUKSPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast("Laporan kunjungan UKS berhasil diekspor.");
   };
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
+      {/* Toast */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-2xl bg-navy-950 px-4 py-3 text-sm font-medium text-white shadow-2xl animate-in fade-in slide-in-from-top-4 border border-navy-800">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-1">
         <div>
@@ -263,19 +340,47 @@ export default function ModulUKSPage() {
             </Badge>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            Monitoring kesehatan siswa, riwayat alergi/penyakit, kunjungan ruang UKS, dan logistik obat P3K.
+            Monitoring kesehatan siswa, rekam kunjungan ruang UKS, dan logistik obat P3K live dari database Supabase.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
-            <Download size={15} />
-            Ekspor Laporan CSV
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing || isLoading}
+            className="gap-2 cursor-pointer shadow-xs"
+          >
+            <RefreshCw size={14} className={cn((isRefreshing || isLoading) && "animate-spin")} />
+            <span>{isRefreshing ? "Memuat..." : "Refresh"}</span>
           </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={daftarKunjunganUKS.length === 0}
+            className="gap-2 cursor-pointer"
+          >
+            <Download size={15} />
+            Ekspor CSV
+          </Button>
+
           <Button
             size="sm"
-            className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-semibold shadow-xs"
-            onClick={() => setShowModalKunjungan(true)}
+            className="bg-navy-900 hover:bg-navy-800 text-white gap-2 font-semibold shadow-xs cursor-pointer"
+            onClick={() => {
+              if (daftarSiswa.length > 0) {
+                setFormKunjungan((prev) => ({
+                  ...prev,
+                  siswaId: String(daftarSiswa[0].id),
+                  namaSiswa: daftarSiswa[0].nama,
+                  kelas: daftarSiswa[0].kelas?.nama_kelas || "Kelas Umum",
+                }));
+              }
+              setShowModalKunjungan(true);
+            }}
           >
             <Plus size={16} />
             Catat Kunjungan UKS
@@ -285,80 +390,94 @@ export default function ModulUKSPage() {
 
       {/* 5 Real-time KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Kunjungan Pasien
-            </span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-navy-950 mt-1">
-              {totalKunjungan} <span className="text-xs font-normal text-slate-400">Siswa</span>
-            </p>
-            <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-              <Clock size={12} className="text-primary" /> Rekap Bulan Ini
-            </p>
-          </div>
-        </Card>
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="border border-border bg-white shadow-xs animate-pulse">
+              <div className="p-4 md:p-5 space-y-2">
+                <div className="h-3 w-20 bg-slate-200 rounded" />
+                <div className="h-7 w-16 bg-slate-200 rounded" />
+                <div className="h-3 w-28 bg-slate-100 rounded" />
+              </div>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Kunjungan Pasien
+                </span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-navy-950 mt-1">
+                  {totalKunjungan} <span className="text-xs font-normal text-slate-400">Siswa</span>
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                  <Clock size={12} className="text-primary" /> Rekap Bulan Ini
+                </p>
+              </div>
+            </Card>
 
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Sedang Dirawat
-            </span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-amber-700 mt-1">
-              {sedangDirawat} <span className="text-xs font-normal text-slate-400">Bed UKS</span>
-            </p>
-            <p className="text-[11px] text-amber-600 mt-1 font-semibold flex items-center gap-1">
-              ● Observasi Aktif
-            </p>
-          </div>
-        </Card>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Sedang Dirawat
+                </span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-amber-700 mt-1">
+                  {sedangDirawat} <span className="text-xs font-normal text-slate-400">Bed UKS</span>
+                </p>
+                <p className="text-[11px] text-amber-600 mt-1 font-semibold flex items-center gap-1">
+                  ● Observasi Aktif
+                </p>
+              </div>
+            </Card>
 
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Rekam Medis Terdata
-            </span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-sky-800 mt-1">
-              {totalRekamMedis} <span className="text-xs font-normal text-slate-400">Profil</span>
-            </p>
-            <p className="text-[11px] text-sky-700 mt-1">Skrining TB/BB &amp; Gol. Darah</p>
-          </div>
-        </Card>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Rekam Medis Terdata
+                </span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-sky-800 mt-1">
+                  {totalRekamMedis} <span className="text-xs font-normal text-slate-400">Profil</span>
+                </p>
+                <p className="text-[11px] text-sky-700 mt-1">Skrining TB/BB &amp; Gol. Darah</p>
+              </div>
+            </Card>
 
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Status Gizi Seimbang
-            </span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-700 mt-1">
-              {rasioGiziBaik}%
-            </p>
-            <p className="text-[11px] text-emerald-700 mt-1 font-medium flex items-center gap-1">
-              <CheckCircle2 size={12} /> Indeks Massa Tubuh Normal
-            </p>
-          </div>
-        </Card>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Status Gizi Seimbang
+                </span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-700 mt-1">
+                  {rasioGiziBaik}%
+                </p>
+                <p className="text-[11px] text-emerald-700 mt-1 font-medium flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Indeks Massa Tubuh Normal
+                </p>
+              </div>
+            </Card>
 
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Stok P3K Menipis
-            </span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-rose-700 mt-1">
-              {obatMenipis} <span className="text-xs font-normal text-slate-400">Item</span>
-            </p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              {obatMenipis > 0 ? "Perlu restock segera" : "Persediaan obat aman"}
-            </p>
-          </div>
-        </Card>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Stok P3K Menipis
+                </span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-rose-700 mt-1">
+                  {obatMenipis} <span className="text-xs font-normal text-slate-400">Item</span>
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {obatMenipis > 0 ? "Perlu restock segera" : "Persediaan obat aman"}
+                </p>
+              </div>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Tabs Navigation */}
       <div className="flex border-b border-border space-x-2">
         <button
           onClick={() => setActiveTab("KUNJUNGAN")}
-          className={`pb-3 px-4 text-xs md:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 px-4 text-xs md:text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === "KUNJUNGAN"
               ? "border-primary text-navy-950 font-bold"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -370,7 +489,7 @@ export default function ModulUKSPage() {
 
         <button
           onClick={() => setActiveTab("REKAM_MEDIS")}
-          className={`pb-3 px-4 text-xs md:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 px-4 text-xs md:text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === "REKAM_MEDIS"
               ? "border-primary text-navy-950 font-bold"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -382,7 +501,7 @@ export default function ModulUKSPage() {
 
         <button
           onClick={() => setActiveTab("OBAT")}
-          className={`pb-3 px-4 text-xs md:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 px-4 text-xs md:text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === "OBAT"
               ? "border-primary text-navy-950 font-bold"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -393,12 +512,9 @@ export default function ModulUKSPage() {
         </button>
       </div>
 
-      {/* ========================================================= */}
-      {/* TAB 1: BUKU KUNJUNGAN & TINDAKAN PASIEN UKS              */}
-      {/* ========================================================= */}
+      {/* TAB 1: BUKU KUNJUNGAN */}
       {activeTab === "KUNJUNGAN" && (
         <div className="space-y-4">
-          {/* Baris Pencarian & Filter */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-border shadow-xs">
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -413,6 +529,7 @@ export default function ModulUKSPage() {
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <select
+                aria-label="Filter Keluhan"
                 value={filterKeluhan}
                 onChange={(e) => setFilterKeluhan(e.target.value)}
                 className="text-xs p-2 rounded-xl border border-slate-200 focus:outline-hidden bg-white w-full sm:w-auto"
@@ -427,6 +544,7 @@ export default function ModulUKSPage() {
               </select>
 
               <select
+                aria-label="Filter Status Kunjungan"
                 value={filterStatusKunjungan}
                 onChange={(e) => setFilterStatusKunjungan(e.target.value)}
                 className="text-xs p-2 rounded-xl border border-slate-200 focus:outline-hidden bg-white w-full sm:w-auto"
@@ -438,7 +556,6 @@ export default function ModulUKSPage() {
             </div>
           </div>
 
-          {/* Tabel Kunjungan */}
           <Card className="border border-border bg-white shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -450,13 +567,23 @@ export default function ModulUKSPage() {
                     <th className="py-3.5 px-4">Tindakan Medis &amp; Obat</th>
                     <th className="py-3.5 px-4">Hasil &amp; Kondisi</th>
                     <th className="py-3.5 px-4">Petugas UKS</th>
-                    <th className="py-3.5 px-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredKunjungan.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 4 }).map((_, idx) => (
+                      <tr key={idx} className="animate-pulse">
+                        <td className="py-3 px-4"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+                        <td className="py-3 px-4"><div className="h-4 w-32 bg-slate-200 rounded" /></td>
+                        <td className="py-3 px-4"><div className="h-4 w-40 bg-slate-200 rounded" /></td>
+                        <td className="py-3 px-4"><div className="h-4 w-36 bg-slate-200 rounded" /></td>
+                        <td className="py-3 px-4"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                        <td className="py-3 px-4"><div className="h-4 w-28 bg-slate-200 rounded" /></td>
+                      </tr>
+                    ))
+                  ) : filteredKunjungan.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-slate-400">
+                      <td colSpan={6} className="text-center py-8 text-slate-400">
                         Tidak ada catatan kunjungan UKS yang sesuai filter.
                       </td>
                     </tr>
@@ -498,65 +625,13 @@ export default function ModulUKSPage() {
                               Sedang Observasi
                             </Badge>
                           ) : (
-                            <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
-                              {item.kondisiAkhir === "MEMBAIK_KEMBALI_KE_KELAS"
-                                ? "Kembali ke Kelas"
-                                : item.kondisiAkhir === "DIJEMPUT_ORANG_TUA"
-                                ? "Dijemput Ortu"
-                                : "Rujukan Medis"}
+                            <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px]">
+                              {item.kondisiAkhir.replace(/_/g, " ")}
                             </Badge>
                           )}
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap text-slate-600">
+                        <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
                           {item.petugasUKS}
-                        </td>
-                        <td className="py-3 px-4 text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {item.status === "SEDANG_DIRAWAT" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-[10px] px-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                                onClick={() =>
-                                  updateKunjunganUKS(item.id, {
-                                    status: "SELESAI",
-                                    kondisiAkhir: "MEMBAIK_KEMBALI_KE_KELAS",
-                                  })
-                                }
-                              >
-                                Selesai / Pulang ke Kelas
-                              </Button>
-                            )}
-
-                            {item.kondisiAkhir === "DIJEMPUT_ORANG_TUA" && (
-                              <a
-                                href={`https://wa.me/?text=${encodeURIComponent(
-                                  `Halo Bapak/Ibu Wali Siswa ${item.namaSiswa} (${item.kelas}). Disampaikan dari Petugas UKS Sekolah bahwa ananda sedang beristirahat di ruang UKS dengan keluhan: "${item.keluhan}". Mohon dapat dijemput untuk istirahat di rumah.`
-                                )}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                                  title="Kirim Notifikasi WhatsApp ke Wali"
-                                >
-                                  <Phone size={13} />
-                                </Button>
-                              </a>
-                            )}
-
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600"
-                              onClick={() => hapusKunjunganUKS(item.id)}
-                              title="Hapus Rekaman Kunjungan"
-                            >
-                              <Trash2 size={13} />
-                            </Button>
-                          </div>
                         </td>
                       </tr>
                     ))
@@ -568,9 +643,7 @@ export default function ModulUKSPage() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* TAB 2: REKAM MEDIS & SKRINING FISIK SISWA (BMI/TB/BB)     */}
-      {/* ========================================================= */}
+      {/* TAB 2: REKAM MEDIS */}
       {activeTab === "REKAM_MEDIS" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-border shadow-xs">
@@ -578,7 +651,7 @@ export default function ModulUKSPage() {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Cari siswa, kelas, alergi, penyakit..."
+                placeholder="Cari nama siswa, alergi, penyakit..."
                 value={searchMedis}
                 onChange={(e) => setSearchMedis(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-primary"
@@ -587,25 +660,27 @@ export default function ModulUKSPage() {
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <select
+                aria-label="Filter Kelas Rekam Medis"
                 value={filterKelasMedis}
                 onChange={(e) => setFilterKelasMedis(e.target.value)}
                 className="text-xs p-2 rounded-xl border border-slate-200 focus:outline-hidden bg-white w-full sm:w-auto"
               >
-                <option value="SEMUA">Semua Rombel</option>
+                <option value="SEMUA">Semua Kelas</option>
                 <option value="Kelas X IPA 1">Kelas X IPA 1</option>
-                <option value="Kelas X IPA 2">Kelas X IPA 2</option>
-                <option value="Kelas XI IPS 1">Kelas XI IPS 1</option>
+                <option value="Kelas XI IPS 2">Kelas XI IPS 2</option>
+                <option value="Kelas XII IPA 3">Kelas XII IPA 3</option>
               </select>
 
               <select
+                aria-label="Filter Status Gizi"
                 value={filterStatusGizi}
                 onChange={(e) => setFilterStatusGizi(e.target.value)}
                 className="text-xs p-2 rounded-xl border border-slate-200 focus:outline-hidden bg-white w-full sm:w-auto"
               >
                 <option value="SEMUA">Semua Status Gizi</option>
                 <option value="GIZI_BAIK">Gizi Baik (Normal)</option>
-                <option value="KURANG">Berat Kurang (Underweight)</option>
-                <option value="BERLEBIH">Kelebihan BB (Overweight)</option>
+                <option value="KURANG">Gizi Kurang</option>
+                <option value="BERLEBIH">Gizi Berlebih</option>
                 <option value="OBESITAS">Obesitas</option>
               </select>
             </div>
@@ -616,87 +691,55 @@ export default function ModulUKSPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50/80 border-b border-border text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="py-3.5 px-4">Nama Siswa &amp; Kelas</th>
-                    <th className="py-3.5 px-4 text-center">Gol. Darah</th>
-                    <th className="py-3.5 px-4">Fisik (TB / BB)</th>
-                    <th className="py-3.5 px-4">Indeks BMI &amp; Status Gizi</th>
+                    <th className="py-3.5 px-4">Nama Siswa</th>
+                    <th className="py-3.5 px-4">Kelas</th>
+                    <th className="py-3.5 px-4">TB / BB</th>
+                    <th className="py-3.5 px-4">Gol. Darah &amp; BMI</th>
                     <th className="py-3.5 px-4">Riwayat Alergi</th>
-                    <th className="py-3.5 px-4">Riwayat Kronis / Khusus</th>
-                    <th className="py-3.5 px-4">Kontak Wali Darurat</th>
+                    <th className="py-3.5 px-4">Penyakit Khusus</th>
+                    <th className="py-3.5 px-4">Kontak Darurat</th>
                     <th className="py-3.5 px-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredMedis.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="text-center py-8 text-slate-400">
-                        Tidak ada rekam medis siswa yang sesuai filter.
+                  {filteredMedis.map((m) => (
+                    <tr key={m.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3 px-4 font-bold text-navy-950">{m.namaSiswa}</td>
+                      <td className="py-3 px-4 text-slate-600">{m.kelas}</td>
+                      <td className="py-3 px-4 font-mono font-medium">
+                        {m.tinggiBadanCm} cm / {m.beratBadanKg} kg
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-mono font-bold text-navy-950 block">Gol. {m.golonganDarah}</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] font-semibold mt-0.5 ${
+                            m.statusGizi === "GIZI_BAIK"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : "bg-rose-50 text-rose-800 border-rose-200"
+                          }`}
+                        >
+                          BMI {m.bmi} ({m.statusGizi.replace(/_/g, " ")})
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 max-w-xs">{m.riwayatAlergi}</td>
+                      <td className="py-3 px-4 text-slate-600 max-w-xs">{m.riwayatPenyakit}</td>
+                      <td className="py-3 px-4">
+                        <span className="font-medium text-navy-950 block">{m.namaOrtu}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{m.kontakDarurat}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEditMedis(m)}
+                          className="h-7 w-7 p-0 cursor-pointer text-slate-600 hover:text-navy-950"
+                        >
+                          <Edit size={14} />
+                        </Button>
                       </td>
                     </tr>
-                  ) : (
-                    filteredMedis.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4">
-                          <span className="font-bold text-navy-950 block">{item.namaSiswa}</span>
-                          <span className="text-[10px] text-slate-500">{item.kelas}</span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="font-mono font-bold text-xs bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md">
-                            {item.golonganDarah}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="font-semibold text-navy-950 block">
-                            {item.tinggiBadanCm} cm / {item.beratBadanKg} kg
-                          </span>
-                          <span className="text-[10px] text-slate-400">Cek: {item.terakhirPeriksa}</span>
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="font-mono font-bold text-navy-950 mr-1.5">{item.bmi}</span>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-semibold ${
-                              item.statusGizi === "GIZI_BAIK"
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                : item.statusGizi === "KURANG"
-                                ? "bg-amber-50 text-amber-800 border-amber-200"
-                                : "bg-rose-50 text-rose-800 border-rose-200"
-                            }`}
-                          >
-                            {item.statusGizi.replace(/_/g, " ")}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-4 max-w-xs">
-                          <p className="text-slate-600 line-clamp-1">{item.riwayatAlergi}</p>
-                        </td>
-                        <td className="py-3 px-4 max-w-xs">
-                          <p className="text-slate-600 line-clamp-1">{item.riwayatPenyakit}</p>
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="font-medium text-navy-950 block">{item.namaOrtu}</span>
-                          <a
-                            href={`https://wa.me/${item.kontakDarurat.replace(/[^0-9]/g, "")}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[10px] text-emerald-700 hover:underline flex items-center gap-1 font-mono"
-                          >
-                            <Phone size={10} /> {item.kontakDarurat}
-                          </a>
-                        </td>
-                        <td className="py-3 px-4 text-center whitespace-nowrap">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-[11px] gap-1 px-2"
-                            onClick={() => handleOpenEditMedis(item)}
-                          >
-                            <Edit size={12} />
-                            Ukur Ulang
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -704,9 +747,7 @@ export default function ModulUKSPage() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* TAB 3: STOK OBAT & PERLENGKAPAN KOTAK P3K                 */}
-      {/* ========================================================= */}
+      {/* TAB 3: OBAT */}
       {activeTab === "OBAT" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-border shadow-xs">
@@ -714,180 +755,151 @@ export default function ModulUKSPage() {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Cari obat, kode, kegunaan indikasi..."
+                placeholder="Cari nama obat, indikasi..."
                 value={searchObat}
                 onChange={(e) => setSearchObat(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-primary"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <select
-                value={filterKategoriObat}
-                onChange={(e) => setFilterKategoriObat(e.target.value)}
-                className="text-xs p-2 rounded-xl border border-slate-200 focus:outline-hidden bg-white w-full sm:w-auto"
-              >
-                <option value="SEMUA">Semua Kategori</option>
-                <option value="ANALGESIK">Analgesik (Pereda Nyeri)</option>
-                <option value="ANTASIDA">Antasida (Lambung &amp; Maag)</option>
-                <option value="P3K_LUKA">P3K Luka Terbuka</option>
-                <option value="MINYAK_OLES">Minyak Oles Hangat</option>
-                <option value="ALAT_MEDIS">Alat Medis Digital</option>
-              </select>
+            <select
+              aria-label="Filter Kategori Obat"
+              value={filterKategoriObat}
+              onChange={(e) => setFilterKategoriObat(e.target.value)}
+              className="text-xs p-2 rounded-xl border border-slate-200 focus:outline-hidden bg-white w-full sm:w-auto"
+            >
+              <option value="SEMUA">Semua Kategori</option>
+              <option value="ANALGESIK">Analgesik &amp; Antipiretik</option>
+              <option value="ANTASIDA">Antasida &amp; Lambung</option>
+              <option value="ANTIHISTAMIN">Antihistamin &amp; Alergi</option>
+              <option value="ANTISEPTIK">Antiseptik &amp; Luka</option>
+              <option value="PERBAN_KASA">Perban &amp; Kasa</option>
+              <option value="MINYAK_HANGAT">Minyak Hangat</option>
+            </select>
+          </div>
+
+          <Card className="border border-border bg-white shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 border-b border-border text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th className="py-3.5 px-4">Kode &amp; Nama Obat</th>
+                    <th className="py-3.5 px-4">Kategori</th>
+                    <th className="py-3.5 px-4">Sisa Stok</th>
+                    <th className="py-3.5 px-4">Satuan</th>
+                    <th className="py-3.5 px-4">Tanggal Kedaluwarsa</th>
+                    <th className="py-3.5 px-4">Indikasi Medis</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredObat.map((o) => (
+                    <tr key={o.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3 px-4 font-bold text-navy-950">
+                        {o.namaObat}
+                        <span className="block text-[10px] text-slate-400 font-mono">{o.kodeObat}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant="outline" className="text-[10px]">
+                          {o.kategori.replace(/_/g, " ")}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 font-mono font-bold">
+                        <span className={o.stok <= 10 ? "text-rose-600 font-bold" : "text-navy-950"}>
+                          {o.stok}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">{o.satuan}</td>
+                      <td className="py-3 px-4 font-mono text-slate-600">{o.kadaluarsa}</td>
+                      <td className="py-3 px-4 text-slate-600 max-w-sm">{o.indikasi}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredObat.map((obat) => {
-              const isMenipis = obat.stok <= 10;
-
-              return (
-                <Card
-                  key={obat.id}
-                  className={`border transition-all flex flex-col justify-between ${
-                    isMenipis ? "border-rose-300 bg-rose-50/20 shadow-xs" : "border-slate-200 bg-white"
-                  }`}
-                >
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-[10px] text-slate-400 font-bold">
-                        {obat.kodeObat}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] font-semibold ${
-                          isMenipis
-                            ? "bg-rose-50 text-rose-800 border-rose-200"
-                            : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        }`}
-                      >
-                        {isMenipis ? "Stok Menipis" : "Tersedia Aman"}
-                      </Badge>
-                    </div>
-
-                    <CardTitle className="text-sm font-bold text-navy-950">
-                      {obat.namaObat}
-                    </CardTitle>
-                    <CardDescription className="text-xs text-slate-500 mt-1 line-clamp-2">
-                      {obat.indikasi}
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="p-4 pt-1 space-y-3">
-                    <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">Sisa Stok Fisik:</span>
-                        <span className="font-mono text-xl font-bold text-navy-950">
-                          {obat.stok} <span className="text-xs font-normal text-slate-500">{obat.satuan}</span>
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block">Masa Berlaku:</span>
-                        <span className="font-mono text-xs font-semibold text-slate-700">
-                          s/d {obat.kadaluarsa}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs text-rose-700 hover:bg-rose-50 border-rose-200"
-                        disabled={obat.stok <= 0}
-                        onClick={() => updateStokObatUKS(obat.id, -1)}
-                      >
-                        -1 Pakai Pasien
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs text-emerald-700 hover:bg-emerald-50 border-emerald-200 font-semibold"
-                        onClick={() => updateStokObatUKS(obat.id, 10)}
-                      >
-                        +10 Restock
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          </Card>
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* MODAL 1: CATAT KUNJUNGAN PASIEN UKS                      */}
-      {/* ========================================================= */}
+      {/* MODAL 1: CATAT KUNJUNGAN BARU */}
       {showModalKunjungan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <Card className="w-full max-w-lg bg-white border border-border shadow-2xl">
+          <Card className="w-full max-w-lg bg-white border border-border shadow-2xl max-h-[92vh] overflow-y-auto">
             <CardHeader className="border-b border-border py-4">
               <CardTitle className="text-base font-bold text-navy-950 flex items-center gap-2">
                 <HeartPulse size={18} className="text-primary" />
-                Catat Kunjungan Pasien Ruang UKS
+                Catat Kunjungan Siswa ke Ruang UKS
               </CardTitle>
               <CardDescription className="text-xs">
-                Pendataan keluhan siswa, tindakan pertolongan pertama, dan pemberian obat.
+                Dokumentasikan keluhan dan pertolongan pertama secara realtime.
               </CardDescription>
             </CardHeader>
 
             <form onSubmit={handleSimpanKunjungan}>
               <CardContent className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Nama Siswa *</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Pilih Pasien Siswa *</label>
+                  {daftarSiswa.length > 0 ? (
+                    <select
+                      required
+                      value={formKunjungan.siswaId}
+                      onChange={(e) => {
+                        const sId = e.target.value;
+                        const s = daftarSiswa.find((item) => String(item.id) === String(sId));
+                        setFormKunjungan({
+                          ...formKunjungan,
+                          siswaId: sId,
+                          namaSiswa: s ? s.nama : "",
+                          kelas: s?.kelas?.nama_kelas || "Kelas Umum",
+                        });
+                      }}
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden bg-white"
+                    >
+                      <option value="">-- Pilih Siswa dari Database --</option>
+                      {daftarSiswa.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nama} ({s.kelas?.nama_kelas || "Tanpa Kelas"})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
                     <input
                       type="text"
                       required
-                      placeholder="Contoh: Muhammad Rayhan"
+                      placeholder="Nama lengkap siswa..."
                       value={formKunjungan.namaSiswa}
                       onChange={(e) => setFormKunjungan({ ...formKunjungan, namaSiswa: e.target.value })}
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:border-primary"
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden"
                     />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Rombel / Kelas *</label>
-                    <select
-                      value={formKunjungan.kelas}
-                      onChange={(e) => setFormKunjungan({ ...formKunjungan, kelas: e.target.value })}
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden bg-white"
-                    >
-                      <option value="Kelas X IPA 1">Kelas X IPA 1</option>
-                      <option value="Kelas X IPA 2">Kelas X IPA 2</option>
-                      <option value="Kelas XI IPS 1">Kelas XI IPS 1</option>
-                      <option value="Kelas XII MIPA 1">Kelas XII MIPA 1</option>
-                    </select>
-                  </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Waktu Jam Masuk</label>
-                    <input
-                      type="text"
-                      value={formKunjungan.jam}
-                      onChange={(e) => setFormKunjungan({ ...formKunjungan, jam: e.target.value })}
-                      placeholder="09:15"
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden font-mono"
-                    />
-                  </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700">Kategori Gejala</label>
                     <select
                       value={formKunjungan.kategoriKeluhan}
                       onChange={(e) =>
-                        setFormKunjungan({ ...formKunjungan, kategoriKeluhan: e.target.value as any })
+                        setFormKunjungan({ ...formKunjungan, kategoriKeluhan: e.target.value })
                       }
                       className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden bg-white"
                     >
                       <option value="DEMAM">Demam &amp; Meriang</option>
                       <option value="SAKIT_PERUT_MAAG">Sakit Perut / Maag</option>
-                      <option value="LUKA_CEDERA">Luka / Cedera Fisik</option>
+                      <option value="LUKA_CEDERA">Luka &amp; Cedera Fisik</option>
                       <option value="PUSING_MIGRAIN">Pusing / Migrain</option>
                       <option value="PINGSAN_LEMAS">Pingsan / Lemas</option>
                       <option value="ALERGI_ASMA">Alergi &amp; Asma</option>
                     </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Jam Masuk</label>
+                    <input
+                      type="text"
+                      value={formKunjungan.jam}
+                      onChange={(e) => setFormKunjungan({ ...formKunjungan, jam: e.target.value })}
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden font-mono"
+                    />
                   </div>
                 </div>
 
@@ -896,7 +908,7 @@ export default function ModulUKSPage() {
                   <textarea
                     rows={2}
                     required
-                    placeholder="Contoh: Mengeluh pusing berputar, pandangan kabur dan lemas saat upacara..."
+                    placeholder="Deskripsikan gejala yang dirasakan siswa..."
                     value={formKunjungan.keluhan}
                     onChange={(e) => setFormKunjungan({ ...formKunjungan, keluhan: e.target.value })}
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:border-primary"
@@ -940,7 +952,7 @@ export default function ModulUKSPage() {
                   <select
                     value={formKunjungan.kondisiAkhir}
                     onChange={(e) =>
-                      setFormKunjungan({ ...formKunjungan, kondisiAkhir: e.target.value as any })
+                      setFormKunjungan({ ...formKunjungan, kondisiAkhir: e.target.value })
                     }
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden bg-white"
                   >
@@ -956,6 +968,7 @@ export default function ModulUKSPage() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={isSubmitting}
                     onClick={() => setShowModalKunjungan(false)}
                   >
                     Batal
@@ -963,9 +976,11 @@ export default function ModulUKSPage() {
                   <Button
                     type="submit"
                     size="sm"
-                    className="bg-navy-900 hover:bg-navy-800 text-white font-semibold"
+                    disabled={isSubmitting}
+                    className="bg-navy-900 hover:bg-navy-800 text-white font-semibold gap-1.5"
                   >
-                    Simpan Catatan Kunjungan
+                    {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+                    <span>{isSubmitting ? "Menyimpan..." : "Simpan Catatan Kunjungan"}</span>
                   </Button>
                 </div>
               </CardContent>
@@ -974,9 +989,7 @@ export default function ModulUKSPage() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* MODAL 2: EDIT SKRINING FISIK & REKAM MEDIS SISWA          */}
-      {/* ========================================================= */}
+      {/* MODAL 2: EDIT SKRINING FISIK */}
       {showModalEditMedis && selectedMedis && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <Card className="w-full max-w-lg bg-white border border-border shadow-2xl">
