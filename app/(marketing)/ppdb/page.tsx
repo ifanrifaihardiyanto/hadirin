@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore, type PendaftarPPDB } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api-client";
 
 export default function PublicPPDBPage() {
   const { daftarPPDB, tambahPendaftarPPDB, tahunAjaranAktif } = useStore();
@@ -54,20 +55,41 @@ export default function PublicPPDBPage() {
   const [foundStudent, setFoundStudent] = useState<PendaftarPPDB | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSubmitRegistration = (e: React.FormEvent) => {
+  const handleSubmitRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nama || !nisn || !asalSekolah) return;
 
-    const noReg = tambahPendaftarPPDB({
+    const payload = {
       nama: nama.trim(),
       nisn: nisn.trim(),
       nik: nik.trim() || "3201" + Math.floor(100000000000 + Math.random() * 900000000000),
-      asalSekolah: asalSekolah.trim(),
+      asal_sekolah: asalSekolah.trim(),
+      jalur,
+      pilihan_jurusan: pilihanJurusan,
+      nilai_rata_rapor: Number(nilaiRataRapor) || 85,
+      nama_wali: namaWali.trim() || "Orang Tua Calon Siswa",
+      telepon_wali: teleponWali.trim() || "0812-" + Math.floor(1000 + Math.random() * 9000),
+      berkas_kk: berkasKK,
+      berkas_akta: berkasAkta,
+      berkas_rapor: berkasRapor,
+    };
+
+    try {
+      await api.daftarPPDBPublic(payload);
+    } catch (err) {
+      console.warn("Gagal menyimpan pendaftaran ke server database (fallback aktif):", err);
+    }
+
+    const noReg = tambahPendaftarPPDB({
+      nama: payload.nama,
+      nisn: payload.nisn,
+      nik: payload.nik,
+      asalSekolah: payload.asal_sekolah,
       jalur,
       pilihanJurusan,
-      nilaiRataRapor: Number(nilaiRataRapor) || 85,
-      namaWali: namaWali.trim() || "Orang Tua Calon Siswa",
-      teleponWali: teleponWali.trim() || "0812-" + Math.floor(1000 + Math.random() * 9000),
+      nilaiRataRapor: payload.nilai_rata_rapor,
+      namaWali: payload.nama_wali,
+      teleponWali: payload.telepon_wali,
       berkasKK,
       berkasAkta,
       berkasRapor,
@@ -76,10 +98,47 @@ export default function PublicPPDBPage() {
     setRegistrationSuccessNo(noReg);
   };
 
-  const handleSearchStudent = (e: React.FormEvent) => {
+  const handleSearchStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     setHasSearched(true);
     const q = searchQuery.trim().toLowerCase();
+
+    try {
+      const res = await api.getPPDBList();
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const foundInApi = raw.find(
+        (p: any) =>
+          (p.no_pendaftaran && p.no_pendaftaran.toLowerCase() === q) ||
+          (p.noPendaftaran && p.noPendaftaran.toLowerCase() === q) ||
+          (p.nisn && p.nisn.toLowerCase() === q)
+      );
+
+      if (foundInApi) {
+        setFoundStudent({
+          id: String(foundInApi.id),
+          noPendaftaran: foundInApi.no_pendaftaran || foundInApi.noPendaftaran || "PPDB-2026-000",
+          nisn: foundInApi.nisn,
+          nik: foundInApi.nik || "-",
+          nama: foundInApi.nama,
+          asalSekolah: foundInApi.asal_sekolah || foundInApi.asalSekolah || "-",
+          jalur: foundInApi.jalur || "ZONASI",
+          pilihanJurusan: foundInApi.pilihan_jurusan || foundInApi.pilihanJurusan || "MIPA",
+          nilaiRataRapor: Number(foundInApi.nilai_rata_rapor || foundInApi.nilaiRataRapor) || 85,
+          namaWali: foundInApi.nama_wali || foundInApi.namaWali || "-",
+          teleponWali: foundInApi.telepon_wali || foundInApi.teleponWali || "-",
+          statusVerifikasi: foundInApi.status_verifikasi || foundInApi.statusVerifikasi || "MENUNGGU_VERIFIKASI",
+          statusKelulusan: (foundInApi.status_kelulusan || "PROSES") as PendaftarPPDB["statusKelulusan"],
+          tanggalDaftar: foundInApi.created_at || "24 Juli 2026",
+          berkasKK: true,
+          berkasAkta: true,
+          berkasRapor: true,
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn("Gagal cek status dari database (fallback aktif):", err);
+    }
+
     const found = daftarPPDB.find(
       (p) => p.noPendaftaran.toLowerCase() === q || p.nisn.toLowerCase() === q
     );

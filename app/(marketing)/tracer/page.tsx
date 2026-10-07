@@ -23,6 +23,7 @@ import { useStore, AlumniRecord } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api-client";
 
 export default function TracerStudyPublicPage() {
   const { tambahAlumni, daftarAlumni } = useStore();
@@ -47,7 +48,7 @@ export default function TracerStudyPublicPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama.trim() || !formData.instansiAtauKampus.trim() || !formData.telepon.trim()) {
       setErrorMsg("Mohon lengkapi Nama Lengkap, Kampus/Instansi, dan Nomor WhatsApp Anda.");
@@ -57,26 +58,46 @@ export default function TracerStudyPublicPage() {
     setSubmitting(true);
     setErrorMsg("");
 
-    setTimeout(() => {
-      tambahAlumni({
-        nisn: formData.nisn.trim() || `00${Math.floor(10000000 + Math.random() * 90000000)}`,
-        nama: formData.nama.trim(),
-        gender: formData.gender,
-        tahunLulus: Number(formData.tahunLulus),
-        jurusan: formData.jurusan,
-        statusTracer: formData.statusTracer,
-        instansiAtauKampus: formData.instansiAtauKampus.trim(),
-        posisiAtauJurusan: formData.posisiAtauJurusan.trim() || "Alumni",
-        email: formData.email.trim() || "alumni@hadirin.sch.id",
-        telepon: formData.telepon.trim(),
-        kotaDomisili: formData.kotaDomisili.trim() || "Indonesia",
-        kesanPesan: formData.kesanPesan.trim(),
-        bersediaMentoring: formData.bersediaMentoring,
-      });
+    const payload = {
+      nisn: formData.nisn.trim() || `00${Math.floor(10000000 + Math.random() * 90000000)}`,
+      nama: formData.nama.trim(),
+      gender: formData.gender,
+      tahun_lulus: Number(formData.tahunLulus),
+      jurusan: formData.jurusan,
+      status_tracer: formData.statusTracer,
+      instansi_atau_kampus: formData.instansiAtauKampus.trim(),
+      posisi_atau_jurusan: formData.posisiAtauJurusan.trim() || "Alumni",
+      email: formData.email.trim() || "alumni@hadirin.sch.id",
+      telepon: formData.telepon.trim(),
+      kota_domisili: formData.kotaDomisili.trim() || "Indonesia",
+      kesan_pesan: formData.kesanPesan.trim(),
+      bersedia_mentoring: formData.bersediaMentoring,
+    };
 
-      setSubmitting(false);
-      setIsSubmitted(true);
-    }, 600);
+    try {
+      await api.createAlumni(payload);
+    } catch (err) {
+      console.warn("Gagal menyimpan ke server database (fallback aktif):", err);
+    }
+
+    tambahAlumni({
+      nisn: payload.nisn,
+      nama: payload.nama,
+      gender: formData.gender,
+      tahunLulus: Number(formData.tahunLulus),
+      jurusan: formData.jurusan,
+      statusTracer: formData.statusTracer,
+      instansiAtauKampus: payload.instansi_atau_kampus,
+      posisiAtauJurusan: payload.posisi_atau_jurusan,
+      email: payload.email,
+      telepon: payload.telepon,
+      kotaDomisili: payload.kota_domisili,
+      kesanPesan: payload.kesan_pesan,
+      bersediaMentoring: formData.bersediaMentoring,
+    });
+
+    setSubmitting(false);
+    setIsSubmitted(true);
   };
 
   return (
