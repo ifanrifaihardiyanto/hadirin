@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Briefcase,
@@ -14,16 +14,14 @@ import {
   Phone,
   MapPin,
   Sparkles,
-  CheckCircle2,
-  PieChart,
   Users,
   Compass,
   Edit,
   Trash2,
-  ExternalLink,
-  MessageSquare,
   Globe,
-  Share2,
+  RefreshCw,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,14 +34,28 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  useStore,
-  type AlumniRecord,
-} from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
+export interface AlumniRecordLive {
+  id: string | number;
+  nisn: string;
+  nama: string;
+  gender: "L" | "P" | string;
+  tahunLulus: number;
+  jurusan: "MIPA" | "IPS" | "BAHASA" | "KEJURUAN" | string;
+  statusTracer: "KULIAH_PTN" | "KULIAH_PTS" | "STUDI_LUAR_NEGERI" | "BEKERJA" | "WIRAUSAHA" | "MENCARI_KERJA" | string;
+  instansiAtauKampus: string;
+  posisiAtauJurusan: string;
+  email: string;
+  telepon: string;
+  kotaDomisili: string;
+  kesanPesan?: string;
+  bersediaMentoring: boolean;
+}
+
 const TRACER_CONFIG: Record<
-  AlumniRecord["statusTracer"],
+  string,
   { label: string; badgeClass: string }
 > = {
   KULIAH_PTN: {
@@ -73,12 +85,10 @@ const TRACER_CONFIG: Record<
 };
 
 export default function AdminAlumniPage() {
-  const {
-    daftarAlumni,
-    tambahAlumni,
-    updateAlumni,
-    hapusAlumni,
-  } = useStore();
+  const [daftarAlumni, setDaftarAlumni] = useState<AlumniRecordLive[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"direktori" | "statistik" | "mentoring">("direktori");
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,16 +99,23 @@ export default function AdminAlumniPage() {
   // Modals
   const [isTambahOpen, setTambahOpen] = useState(false);
   const [isEditOpen, setEditOpen] = useState(false);
-  const [selectedAlumni, setSelectedAlumni] = useState<AlumniRecord | null>(null);
+  const [selectedAlumni, setSelectedAlumni] = useState<AlumniRecordLive | null>(null);
+
+  // Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Form Tambah Alumni
   const [formAlumni, setFormAlumni] = useState({
     nisn: "",
     nama: "",
-    gender: "L" as AlumniRecord["gender"],
-    tahunLulus: 2024,
-    jurusan: "MIPA" as AlumniRecord["jurusan"],
-    statusTracer: "KULIAH_PTN" as AlumniRecord["statusTracer"],
+    gender: "L",
+    tahunLulus: new Date().getFullYear(),
+    jurusan: "MIPA",
+    statusTracer: "KULIAH_PTN",
     instansiAtauKampus: "",
     posisiAtauJurusan: "",
     email: "",
@@ -107,6 +124,46 @@ export default function AdminAlumniPage() {
     kesanPesan: "",
     bersediaMentoring: true,
   });
+
+  const fetchData = useCallback(async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const res = await api.getAlumniList();
+      const raw = (res as any)?.data || (res as any) || [];
+      const normalized: AlumniRecordLive[] = Array.isArray(raw)
+        ? raw.map((item: any) => ({
+            id: item.id,
+            nisn: item.nisn || "-",
+            nama: item.nama || "Alumni",
+            gender: item.gender || "L",
+            tahunLulus: Number(item.tahun_lulus ?? item.tahunLulus ?? new Date().getFullYear()),
+            jurusan: item.jurusan || "MIPA",
+            statusTracer: item.status_tracer || item.statusTracer || "KULIAH_PTN",
+            instansiAtauKampus: item.instansi_atau_kampus || item.instansiAtauKampus || "-",
+            posisiAtauJurusan: item.posisi_atau_jurusan || item.posisiAtauJurusan || "-",
+            email: item.email || "",
+            telepon: item.telepon || "",
+            kotaDomisili: item.kota_domisili || item.kotaDomisili || "-",
+            kesanPesan: item.kesan_pesan || item.kesanPesan || "",
+            bersediaMentoring: Boolean(item.bersedia_mentoring ?? item.bersediaMentoring ?? true),
+          }))
+        : [];
+      setDaftarAlumni(normalized);
+      if (isManual) showToast("Data alumni berhasil diperbarui.");
+    } catch (err: any) {
+      console.error("Gagal memuat data alumni:", err);
+      showToast("Gagal memuat data alumni dari server.");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // KPIs
   const totalAlumni = daftarAlumni.length;
@@ -162,32 +219,103 @@ export default function AdminAlumniPage() {
   }, [daftarAlumni, searchQuery, tahunFilter, statusFilter, jurusanFilter]);
 
   // Submit Tambah Alumni
-  const handleSimpanAlumni = (e: React.FormEvent) => {
+  const handleSimpanAlumni = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAlumni.nama.trim() || !formAlumni.instansiAtauKampus.trim()) return;
 
-    tambahAlumni({
-      ...formAlumni,
+    setIsSubmitting(true);
+    const payload = {
+      nama: formAlumni.nama,
       nisn: formAlumni.nisn.trim() || `00${Math.floor(10000000 + Math.random() * 90000000)}`,
-      tahunLulus: Number(formAlumni.tahunLulus) || new Date().getFullYear(),
-    });
+      gender: formAlumni.gender,
+      tahun_lulus: Number(formAlumni.tahunLulus) || new Date().getFullYear(),
+      jurusan: formAlumni.jurusan,
+      status_tracer: formAlumni.statusTracer,
+      instansi_atau_kampus: formAlumni.instansiAtauKampus,
+      posisi_atau_jurusan: formAlumni.posisiAtauJurusan,
+      email: formAlumni.email,
+      telepon: formAlumni.telepon,
+      kota_domisili: formAlumni.kotaDomisili,
+      kesan_pesan: formAlumni.kesanPesan,
+      bersedia_mentoring: formAlumni.bersediaMentoring,
+    };
 
-    setFormAlumni({
-      nisn: "",
-      nama: "",
-      gender: "L",
-      tahunLulus: 2024,
-      jurusan: "MIPA",
-      statusTracer: "KULIAH_PTN",
-      instansiAtauKampus: "",
-      posisiAtauJurusan: "",
-      email: "",
-      telepon: "",
-      kotaDomisili: "",
-      kesanPesan: "",
-      bersediaMentoring: true,
-    });
-    setTambahOpen(false);
+    try {
+      await api.createAlumni(payload);
+      showToast(`Data alumni "${formAlumni.nama}" berhasil disimpan.`);
+      setFormAlumni({
+        nisn: "",
+        nama: "",
+        gender: "L",
+        tahunLulus: new Date().getFullYear(),
+        jurusan: "MIPA",
+        statusTracer: "KULIAH_PTN",
+        instansiAtauKampus: "",
+        posisiAtauJurusan: "",
+        email: "",
+        telepon: "",
+        kotaDomisili: "",
+        kesanPesan: "",
+        bersediaMentoring: true,
+      });
+      setTambahOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Gagal simpan alumni:", err);
+      showToast("Gagal menyimpan data alumni.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Submit Edit Alumni
+  const handleUpdateAlumni = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAlumni) return;
+
+    setIsSubmitting(true);
+    const payload = {
+      nama: selectedAlumni.nama,
+      nisn: selectedAlumni.nisn,
+      gender: selectedAlumni.gender,
+      tahun_lulus: Number(selectedAlumni.tahunLulus),
+      jurusan: selectedAlumni.jurusan,
+      status_tracer: selectedAlumni.statusTracer,
+      instansi_atau_kampus: selectedAlumni.instansiAtauKampus,
+      posisi_atau_jurusan: selectedAlumni.posisiAtauJurusan,
+      email: selectedAlumni.email,
+      telepon: selectedAlumni.telepon,
+      kota_domisili: selectedAlumni.kotaDomisili,
+      kesan_pesan: selectedAlumni.kesanPesan,
+      bersedia_mentoring: selectedAlumni.bersediaMentoring,
+    };
+
+    try {
+      await api.updateAlumni(selectedAlumni.id, payload);
+      showToast(`Data alumni "${selectedAlumni.nama}" berhasil diperbarui.`);
+      setEditOpen(false);
+      setSelectedAlumni(null);
+      fetchData();
+    } catch (err: any) {
+      console.error("Gagal update alumni:", err);
+      showToast("Gagal memperbarui data alumni.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Hapus Alumni
+  const handleHapusAlumni = async (id: string | number, nama: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus alumni "${nama}"?`)) {
+      try {
+        await api.deleteAlumni(id);
+        showToast(`Alumni "${nama}" berhasil dihapus.`);
+        fetchData();
+      } catch (err: any) {
+        console.error("Gagal hapus alumni:", err);
+        showToast("Gagal menghapus alumni.");
+      }
+    }
   };
 
   // Export CSV
@@ -235,10 +363,19 @@ export default function AdminAlumniPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast("Data tracer study alumni berhasil diekspor ke CSV.");
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-2xl bg-navy-950 px-4 py-3 text-sm font-medium text-white shadow-2xl animate-in fade-in slide-in-from-top-4 border border-navy-800">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* HEADER SECTION */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border pb-5">
         <div>
@@ -252,15 +389,15 @@ export default function AdminAlumniPage() {
             </Link>
             <span className="text-muted-foreground">•</span>
             <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-800 border-emerald-200">
-              Tracer Study & Karir
+              Tracer Study &amp; Karir
             </Badge>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Briefcase className="h-6 w-6 text-emerald-600" />
-            Alumni & Penelusuran Karir (Tracer Study)
+            <GraduationCap className="h-6 w-6 text-emerald-600" />
+            Database Alumni &amp; Tracer Study
           </h1>
           <p className="text-sm text-muted-foreground">
-            Database kelulusan siswa, pemetaan studi lanjut (PTN/PTS/Luar Negeri), dunia kerja & wirausaha, serta jaringan mentoring adik kelas.
+            Penelusuran tamatan pendidikan tinggi/dunia kerja, rekam jejak lulusan, dan jaringan mentoring siswa live dari database Supabase.
           </p>
         </div>
 
@@ -268,8 +405,20 @@ export default function AdminAlumniPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing || isLoading}
+            className="gap-1.5 text-xs shadow-xs cursor-pointer"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", (isRefreshing || isLoading) && "animate-spin")} />
+            <span>{isRefreshing ? "Memuat..." : "Refresh"}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportCSV}
-            className="gap-1.5 text-xs shadow-xs"
+            disabled={daftarAlumni.length === 0}
+            className="gap-1.5 text-xs shadow-xs cursor-pointer"
           >
             <Download className="h-3.5 w-3.5" />
             Export CSV
@@ -278,7 +427,7 @@ export default function AdminAlumniPage() {
           <Button
             size="sm"
             onClick={() => setTambahOpen(true)}
-            className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+            className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             Tambah Data Alumni
@@ -287,62 +436,86 @@ export default function AdminAlumniPage() {
       </div>
 
       {/* KPI METRICS */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Total Alumni Terekam</p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-2xl font-bold tracking-tight text-foreground">{totalAlumni}</span>
-              <span className="text-xs text-muted-foreground">lulusan</span>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border border-border/60 shadow-xs animate-pulse">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-2 flex-1">
+                  <div className="h-3 w-24 bg-slate-200 rounded" />
+                  <div className="h-6 w-16 bg-slate-200 rounded" />
+                </div>
+                <div className="h-10 w-10 bg-slate-200 rounded-lg shrink-0" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total Alumni Terdata</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-foreground">{totalAlumni}</span>
+                    <span className="text-xs text-muted-foreground">orang</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-sky-50 text-sky-700">
+                  <Users className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Studi Lanjut Perguruan Tinggi</p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-2xl font-bold tracking-tight text-blue-700">{totalKuliah}</span>
-              <span className="text-xs text-muted-foreground">
-                ({Math.round((totalKuliah / (totalAlumni || 1)) * 100)}%)
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Studi Lanjut (Kuliah)</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-emerald-700">{totalKuliah}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({Math.round((totalKuliah / (totalAlumni || 1)) * 100)}%)
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-700">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Bekerja di Industri</p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-2xl font-bold tracking-tight text-emerald-700">{totalBekerja}</span>
-              <span className="text-xs text-muted-foreground">
-                ({Math.round((totalBekerja / (totalAlumni || 1)) * 100)}%)
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Bekerja &amp; Wirausaha</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-amber-700">{totalBekerja + totalWirausaha}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({Math.round(((totalBekerja + totalWirausaha) / (totalAlumni || 1)) * 100)}%)
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-amber-50 text-amber-700">
+                  <Briefcase className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border/60 shadow-xs">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Wirausaha / Bisnis</p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-2xl font-bold tracking-tight text-amber-700">{totalWirausaha}</span>
-              <span className="text-xs text-muted-foreground">
-                ({Math.round((totalWirausaha / (totalAlumni || 1)) * 100)}%)
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border/60 shadow-xs col-span-2 md:col-span-1">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Siap Jadi Mentor</p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-2xl font-bold tracking-tight text-purple-700">{totalMentor}</span>
-              <span className="text-xs text-muted-foreground">alumni aktif</span>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border/60 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Siap Mentoring Adik Kelas</p>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold tracking-tight text-purple-700">{totalMentor}</span>
+                    <span className="text-xs text-muted-foreground">mentor</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-purple-50 text-purple-700">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* TABS NAVIGATION */}
@@ -350,7 +523,7 @@ export default function AdminAlumniPage() {
         <button
           onClick={() => setActiveTab("direktori")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer",
             activeTab === "direktori"
               ? "border-emerald-600 text-emerald-700 font-semibold"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -363,20 +536,20 @@ export default function AdminAlumniPage() {
         <button
           onClick={() => setActiveTab("statistik")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer",
             activeTab === "statistik"
               ? "border-emerald-600 text-emerald-700 font-semibold"
               : "border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
-          <PieChart className="h-4 w-4" />
-          Analisis Daya Serap & Tracer
+          <Compass className="h-4 w-4" />
+          Statistik Sebaran Tracer
         </button>
 
         <button
           onClick={() => setActiveTab("mentoring")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer",
             activeTab === "mentoring"
               ? "border-emerald-600 text-emerald-700 font-semibold"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -403,34 +576,22 @@ export default function AdminAlumniPage() {
 
             <div className="flex flex-wrap items-center gap-2">
               <select
-                aria-label="Filter Tahun Lulus"
-                value={tahunFilter}
-                onChange={(e) => setTahunFilter(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs focus:ring-1 focus:ring-ring"
-              >
-                <option value="SEMUA">Semua Angkatan</option>
-                <option value="2024">Lulusan 2024</option>
-                <option value="2023">Lulusan 2023</option>
-                <option value="2022">Lulusan 2022</option>
-                <option value="2021">Lulusan 2021</option>
-              </select>
-
-              <select
                 aria-label="Filter Status Tracer"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs focus:ring-1 focus:ring-ring"
               >
-                <option value="SEMUA">Semua Status Karir</option>
+                <option value="SEMUA">Semua Status Tracer</option>
                 <option value="KULIAH_PTN">Kuliah PTN</option>
                 <option value="KULIAH_PTS">Kuliah PTS</option>
                 <option value="STUDI_LUAR_NEGERI">Studi Luar Negeri</option>
                 <option value="BEKERJA">Bekerja di Industri</option>
                 <option value="WIRAUSAHA">Wirausaha / Bisnis</option>
+                <option value="MENCARI_KERJA">Mencari Kerja / Gap Year</option>
               </select>
 
               <select
-                aria-label="Filter Jurusan"
+                aria-label="Filter Jurusan Alumni"
                 value={jurusanFilter}
                 onChange={(e) => setJurusanFilter(e.target.value)}
                 className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs focus:ring-1 focus:ring-ring"
@@ -439,6 +600,7 @@ export default function AdminAlumniPage() {
                 <option value="MIPA">MIPA</option>
                 <option value="IPS">IPS</option>
                 <option value="BAHASA">Bahasa</option>
+                <option value="KEJURUAN">Kejuruan</option>
               </select>
             </div>
           </div>
@@ -448,16 +610,27 @@ export default function AdminAlumniPage() {
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/50 text-xs font-semibold uppercase text-muted-foreground border-b border-border">
                   <tr>
-                    <th className="px-4 py-3">Alumni & Angkatan</th>
-                    <th className="px-4 py-3">Status Karir / Studi</th>
-                    <th className="px-4 py-3">Kampus / Instansi & Posisi</th>
-                    <th className="px-4 py-3">Kontak & Domisili</th>
-                    <th className="px-4 py-3">Mentoring</th>
+                    <th className="px-4 py-3">Nama Alumni &amp; Lulusan</th>
+                    <th className="px-4 py-3">Status Tracer</th>
+                    <th className="px-4 py-3">Kampus / Instansi &amp; Posisi</th>
+                    <th className="px-4 py-3">Domisili</th>
+                    <th className="px-4 py-3">Kontak</th>
                     <th className="px-4 py-3 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {alumniFiltered.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, idx) => (
+                      <tr key={idx} className="animate-pulse">
+                        <td className="px-4 py-3"><div className="h-4 w-36 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-5 w-24 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-4 w-40 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3"><div className="h-4 w-28 bg-slate-200 rounded" /></td>
+                        <td className="px-4 py-3 text-right"><div className="h-7 w-16 bg-slate-200 rounded ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : alumniFiltered.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
                         Tidak ada data alumni yang cocok dengan pencarian.
@@ -465,82 +638,47 @@ export default function AdminAlumniPage() {
                     </tr>
                   ) : (
                     alumniFiltered.map((a) => {
-                      const TracerConf = TRACER_CONFIG[a.statusTracer];
+                      const TracerConf = TRACER_CONFIG[a.statusTracer] || {
+                        label: a.statusTracer,
+                        badgeClass: "bg-slate-100 text-slate-800 border-slate-200",
+                      };
 
                       return (
                         <tr key={a.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-4 py-3">
                             <div className="font-semibold text-foreground">{a.nama}</div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span>Lulus {a.tahunLulus}</span>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                              <span className="font-mono">{a.nisn}</span>
                               <span>•</span>
-                              <Badge variant="outline" className="text-[10px] py-0 px-1">
-                                {a.jurusan}
-                              </Badge>
-                              <span>•</span>
-                              <span className="font-mono text-[11px]">{a.nisn}</span>
+                              <span>Lulus {a.tahunLulus} ({a.jurusan})</span>
                             </div>
-                            {a.kesanPesan && (
-                              <p className="text-[11px] text-muted-foreground line-clamp-1 italic mt-0.5">
-                                "{a.kesanPesan}"
-                              </p>
-                            )}
                           </td>
 
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <Badge
-                              variant="outline"
-                              className={cn("text-xs font-semibold", TracerConf?.badgeClass)}
-                            >
-                              {TracerConf?.label || a.statusTracer}
+                            <Badge variant="outline" className={cn("text-[11px] font-medium", TracerConf.badgeClass)}>
+                              {TracerConf.label}
                             </Badge>
                           </td>
 
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-foreground flex items-center gap-1.5">
-                              <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              {a.instansiAtauKampus}
-                            </div>
-                            <div className="text-xs text-muted-foreground ml-5">
-                              {a.posisiAtauJurusan}
-                            </div>
+                            <div className="font-medium text-foreground">{a.instansiAtauKampus}</div>
+                            <div className="text-xs text-muted-foreground">{a.posisiAtauJurusan}</div>
                           </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-xs">
-                            <div className="flex items-center gap-1.5 text-foreground">
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-foreground">
+                            <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-muted-foreground" />
-                              {a.kotaDomisili}
-                            </div>
-                            <div className="text-muted-foreground text-[11px] mt-0.5">
-                              {a.telepon} • {a.email}
+                              <span>{a.kotaDomisili}</span>
                             </div>
                           </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {a.bersediaMentoring ? (
-                              <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                                Mentor Aktif
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
+                            <div>{a.telepon || "-"}</div>
+                            <div className="text-[11px] truncate max-w-[150px]">{a.email}</div>
                           </td>
 
                           <td className="px-4 py-3 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {a.telepon && (
-                                <a
-                                  href={`https://wa.me/${a.telepon.replace(/[^0-9]/g, "")}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="h-7 px-2 inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 rounded-md"
-                                  title="Hubungi WhatsApp"
-                                >
-                                  <Phone className="h-3 w-3" />
-                                  WA
-                                </a>
-                              )}
-
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -548,22 +686,15 @@ export default function AdminAlumniPage() {
                                   setSelectedAlumni(a);
                                   setEditOpen(true);
                                 }}
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                                title="Edit Alumni"
+                                className="h-7 w-7 p-0 text-slate-500 hover:text-navy-950 cursor-pointer"
                               >
                                 <Edit className="h-3.5 w-3.5" />
                               </Button>
-
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => {
-                                  if (confirm(`Hapus data alumni ${a.nama}?`)) {
-                                    hapusAlumni(a.id);
-                                  }
-                                }}
-                                className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
-                                title="Hapus Alumni"
+                                onClick={() => handleHapusAlumni(a.id, a.nama)}
+                                className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
@@ -580,128 +711,96 @@ export default function AdminAlumniPage() {
         </div>
       )}
 
-      {/* TAB 2: ANALISIS DAYA SERAP */}
+      {/* TAB 2: STATISTIK SEBARAN TRACER */}
       {activeTab === "statistik" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="border border-border/70 shadow-xs">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                  <PieChart className="h-5 w-5 text-emerald-600" />
-                  Distribusi Outcome Kelulusan
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { label: "Kuliah Perguruan Tinggi Negeri (PTN)", count: daftarAlumni.filter((a) => a.statusTracer === "KULIAH_PTN").length, color: "bg-blue-600" },
-                  { label: "Kuliah Perguruan Tinggi Swasta (PTS)", count: daftarAlumni.filter((a) => a.statusTracer === "KULIAH_PTS").length, color: "bg-teal-600" },
-                  { label: "Studi Luar Negeri (International)", count: daftarAlumni.filter((a) => a.statusTracer === "STUDI_LUAR_NEGERI").length, color: "bg-purple-600" },
-                  { label: "Bekerja di Industri & Perusahaan", count: daftarAlumni.filter((a) => a.statusTracer === "BEKERJA").length, color: "bg-emerald-600" },
-                  { label: "Wirausaha / Rintis Bisnis", count: daftarAlumni.filter((a) => a.statusTracer === "WIRAUSAHA").length, color: "bg-amber-600" },
-                  { label: "Mencari Kerja / Gap Year", count: daftarAlumni.filter((a) => a.statusTracer === "MENCARI_KERJA").length, color: "bg-slate-400" },
-                ].map((item) => {
-                  const pct = Math.round((item.count / (totalAlumni || 1)) * 100);
-                  return (
-                    <div key={item.label} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-foreground font-medium">{item.label}</span>
-                        <span className="text-muted-foreground">{item.count} alumni ({pct}%)</span>
-                      </div>
-                      <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full transition-all", item.color)}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="border border-border/70 shadow-xs">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-bold text-foreground">Sebaran Tracer Study</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Object.entries(TRACER_CONFIG).map(([key, cfg]) => {
+                const count = daftarAlumni.filter((a) => a.statusTracer === key).length;
+                const percent = Math.round((count / (totalAlumni || 1)) * 100);
 
-            <Card className="border border-border/70 shadow-xs">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-emerald-600" />
-                  Top Kampus & Instansi Alumni
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5">
-                {daftarAlumni.map((a) => (
-                  <div
-                    key={a.id}
-                    className="p-2.5 rounded-lg border border-border/80 bg-muted/20 flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <div className="font-semibold text-foreground">{a.instansiAtauKampus}</div>
-                      <div className="text-muted-foreground text-[11px]">{a.posisiAtauJurusan}</div>
+                return (
+                  <div key={key} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-medium text-foreground">{cfg.label}</span>
+                      <span className="font-mono text-muted-foreground">{count} orang ({percent}%)</span>
                     </div>
-                    <Badge variant="outline" className="text-[10px]">
-                      {a.nama} ({a.tahunLulus})
-                    </Badge>
+                    <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                      <div className="bg-emerald-600 h-full rounded-full transition-all" style={{ width: `${percent}%` }} />
+                    </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card className="border border-border/70 shadow-xs">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-bold text-foreground">Sebaran Angkatan Kelulusan</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[2024, 2023, 2022, 2021, 2020].map((th) => {
+                const count = daftarAlumni.filter((a) => a.tahunLulus === th).length;
+                const percent = Math.round((count / (totalAlumni || 1)) * 100);
+
+                return (
+                  <div key={th} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-medium text-foreground">Angkatan {th}</span>
+                      <span className="font-mono text-muted-foreground">{count} orang ({percent}%)</span>
+                    </div>
+                    <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                      <div className="bg-sky-600 h-full rounded-full transition-all" style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {/* TAB 3: JARINGAN MENTORING */}
       {activeTab === "mentoring" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {daftarAlumni
-              .filter((a) => a.bersediaMentoring)
-              .map((mentor) => (
-                <Card key={mentor.id} className="border border-border/70 shadow-xs hover:border-purple-300 transition-colors">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] mb-1">
-                          Mentor Karir & Studi
-                        </Badge>
-                        <CardTitle className="text-base font-bold text-foreground">
-                          {mentor.nama}
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground">Alumni {mentor.tahunLulus} • {mentor.jurusan}</p>
-                      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {daftarAlumni.filter((a) => a.bersediaMentoring).length === 0 ? (
+            <div className="col-span-3 py-12 text-center text-muted-foreground text-sm">
+              Belum ada alumni yang terdaftar dalam program mentoring.
+            </div>
+          ) : (
+            daftarAlumni.filter((a) => a.bersediaMentoring).map((a) => (
+              <Card key={a.id} className="border border-border/70 shadow-xs">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-bold text-foreground">{a.nama}</CardTitle>
+                      <p className="text-xs text-muted-foreground">Lulusan {a.tahunLulus} ({a.jurusan})</p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-xs">
-                    <div className="p-2.5 bg-muted/40 rounded-lg space-y-1">
-                      <div className="font-semibold text-foreground">{mentor.instansiAtauKampus}</div>
-                      <div className="text-muted-foreground text-[11px]">{mentor.posisiAtauJurusan}</div>
-                      <div className="text-muted-foreground text-[11px] flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {mentor.kotaDomisili}
-                      </div>
-                    </div>
-
-                    {mentor.kesanPesan && (
-                      <p className="text-muted-foreground italic text-[11px] line-clamp-2">
-                        "{mentor.kesanPesan}"
-                      </p>
-                    )}
-
-                    <div className="pt-2 border-t border-border flex items-center justify-between">
-                      <span className="text-[11px] text-emerald-700 font-medium">Siap Berbagi Pengalaman</span>
-                      {mentor.telepon && (
-                        <a
-                          href={`https://wa.me/${mentor.telepon.replace(/[^0-9]/g, "")}?text=Halo%20Kak%20${encodeURIComponent(mentor.nama)},%20kami%20dari%20sekolah%20ingin%20mengundang%20sharing%20session`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-7 px-2.5 inline-flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md"
-                        >
-                          <Phone className="h-3 w-3" />
-                          Hubungi Mentor
-                        </a>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
+                    <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-800 border-purple-200">
+                      Mentor
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2 text-xs">
+                  <div className="p-2 bg-muted/40 rounded-lg space-y-1">
+                    <div className="font-medium text-foreground">{a.instansiAtauKampus}</div>
+                    <div className="text-muted-foreground">{a.posisiAtauJurusan}</div>
+                  </div>
+                  {a.kesanPesan && (
+                    <p className="text-muted-foreground italic line-clamp-2">"{a.kesanPesan}"</p>
+                  )}
+                  <div className="pt-2 border-t border-border flex justify-between items-center text-muted-foreground">
+                    <span>{a.kotaDomisili}</span>
+                    <span className="font-mono">{a.telepon}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       )}
 
@@ -710,65 +809,40 @@ export default function AdminAlumniPage() {
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Briefcase className="h-5 w-5 text-emerald-600" />
+              <GraduationCap className="h-5 w-5 text-emerald-600" />
               Pencatatan Data Alumni Baru
             </DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSimpanAlumni} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-foreground">Nama Lengkap Alumni *</label>
-                <Input
-                  required
-                  placeholder="Nama lengkap..."
-                  value={formAlumni.nama}
-                  onChange={(e) => setFormAlumni({ ...formAlumni, nama: e.target.value })}
-                  className="mt-1 text-sm"
-                />
-              </div>
+            <div>
+              <label className="text-xs font-semibold text-foreground">Nama Lengkap Alumni *</label>
+              <Input
+                required
+                placeholder="Contoh: Muhammad Farhan"
+                value={formAlumni.nama}
+                onChange={(e) => setFormAlumni({ ...formAlumni, nama: e.target.value })}
+                className="mt-1 text-sm"
+              />
+            </div>
 
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-xs font-semibold text-foreground">NISN (Nomor Induk Siswa Nasional)</label>
+                <label className="text-xs font-semibold text-foreground">NISN</label>
                 <Input
-                  placeholder="00xxxxxxx"
+                  placeholder="0012345678"
                   value={formAlumni.nisn}
                   onChange={(e) => setFormAlumni({ ...formAlumni, nisn: e.target.value })}
                   className="mt-1 text-sm font-mono"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-foreground">Gender</label>
-                <select
-                  value={formAlumni.gender}
-                  onChange={(e) =>
-                    setFormAlumni({
-                      ...formAlumni,
-                      gender: e.target.value as AlumniRecord["gender"],
-                    })
-                  }
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="L">Laki-laki</option>
-                  <option value="P">Perempuan</option>
-                </select>
-              </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Tahun Kelulusan</label>
+                <label className="text-xs font-semibold text-foreground">Tahun Lulus</label>
                 <Input
                   type="number"
-                  required
                   value={formAlumni.tahunLulus}
-                  onChange={(e) =>
-                    setFormAlumni({
-                      ...formAlumni,
-                      tahunLulus: Number(e.target.value) || 2024,
-                    })
-                  }
+                  onChange={(e) => setFormAlumni({ ...formAlumni, tahunLulus: Number(e.target.value) || 2024 })}
                   className="mt-1 text-sm"
                 />
               </div>
@@ -777,32 +851,23 @@ export default function AdminAlumniPage() {
                 <label className="text-xs font-semibold text-foreground">Jurusan SMA</label>
                 <select
                   value={formAlumni.jurusan}
-                  onChange={(e) =>
-                    setFormAlumni({
-                      ...formAlumni,
-                      jurusan: e.target.value as AlumniRecord["jurusan"],
-                    })
-                  }
+                  onChange={(e) => setFormAlumni({ ...formAlumni, jurusan: e.target.value })}
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="MIPA">MIPA</option>
                   <option value="IPS">IPS</option>
                   <option value="BAHASA">Bahasa</option>
+                  <option value="KEJURUAN">Kejuruan</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-foreground">Status Tracer Study Terkini</label>
+                <label className="text-xs font-semibold text-foreground">Status Tracer</label>
                 <select
                   value={formAlumni.statusTracer}
-                  onChange={(e) =>
-                    setFormAlumni({
-                      ...formAlumni,
-                      statusTracer: e.target.value as AlumniRecord["statusTracer"],
-                    })
-                  }
+                  onChange={(e) => setFormAlumni({ ...formAlumni, statusTracer: e.target.value })}
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="KULIAH_PTN">Kuliah PTN</option>
@@ -815,14 +880,11 @@ export default function AdminAlumniPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Nama Kampus / Perusahaan *</label>
+                <label className="text-xs font-semibold text-foreground">Kota Domisili</label>
                 <Input
-                  required
-                  placeholder="Contoh: Institut Teknologi Bandung (ITB)"
-                  value={formAlumni.instansiAtauKampus}
-                  onChange={(e) =>
-                    setFormAlumni({ ...formAlumni, instansiAtauKampus: e.target.value })
-                  }
+                  placeholder="Jakarta / Bandung / Surabaya"
+                  value={formAlumni.kotaDomisili}
+                  onChange={(e) => setFormAlumni({ ...formAlumni, kotaDomisili: e.target.value })}
                   className="mt-1 text-sm"
                 />
               </div>
@@ -830,25 +892,22 @@ export default function AdminAlumniPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-foreground">Program Studi / Posisi Jabatan</label>
+                <label className="text-xs font-semibold text-foreground">Nama Kampus / Perusahaan *</label>
                 <Input
-                  placeholder="Contoh: Teknik Informatika / Software Engineer"
-                  value={formAlumni.posisiAtauJurusan}
-                  onChange={(e) =>
-                    setFormAlumni({ ...formAlumni, posisiAtauJurusan: e.target.value })
-                  }
+                  required
+                  placeholder="Universitas Indonesia / PT Telkom..."
+                  value={formAlumni.instansiAtauKampus}
+                  onChange={(e) => setFormAlumni({ ...formAlumni, instansiAtauKampus: e.target.value })}
                   className="mt-1 text-sm"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Kota Domisili</label>
+                <label className="text-xs font-semibold text-foreground">Program Studi / Jabatan Karir</label>
                 <Input
-                  placeholder="Contoh: Bandung / Jakarta Selatan"
-                  value={formAlumni.kotaDomisili}
-                  onChange={(e) =>
-                    setFormAlumni({ ...formAlumni, kotaDomisili: e.target.value })
-                  }
+                  placeholder="Teknik Informatika / Software Engineer..."
+                  value={formAlumni.posisiAtauJurusan}
+                  onChange={(e) => setFormAlumni({ ...formAlumni, posisiAtauJurusan: e.target.value })}
                   className="mt-1 text-sm"
                 />
               </div>
@@ -859,7 +918,7 @@ export default function AdminAlumniPage() {
                 <label className="text-xs font-semibold text-foreground">Email</label>
                 <Input
                   type="email"
-                  placeholder="alumni@email.com"
+                  placeholder="alumni@gmail.com"
                   value={formAlumni.email}
                   onChange={(e) => setFormAlumni({ ...formAlumni, email: e.target.value })}
                   className="mt-1 text-sm"
@@ -869,48 +928,32 @@ export default function AdminAlumniPage() {
               <div>
                 <label className="text-xs font-semibold text-foreground">Nomor Telepon / WhatsApp</label>
                 <Input
-                  placeholder="0812-xxxx-xxxx"
+                  placeholder="0812xxxxxxxx"
                   value={formAlumni.telepon}
                   onChange={(e) => setFormAlumni({ ...formAlumni, telepon: e.target.value })}
-                  className="mt-1 text-sm"
+                  className="mt-1 text-sm font-mono"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-foreground">Kesan & Pesan untuk Sekolah</label>
+              <label className="text-xs font-semibold text-foreground">Kesan &amp; Pesan untuk Almamater</label>
               <textarea
                 rows={2}
-                placeholder="Pesan motivasi atau saran pengembangan fasilitas..."
+                placeholder="Pesan motivasi atau saran pengembangan sekolah..."
                 value={formAlumni.kesanPesan}
-                onChange={(e) =>
-                  setFormAlumni({ ...formAlumni, kesanPesan: e.target.value })
-                }
+                onChange={(e) => setFormAlumni({ ...formAlumni, kesanPesan: e.target.value })}
                 className="mt-1 w-full rounded-md border border-input bg-background p-2 text-sm"
               />
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="checkbox"
-                id="mentoringCheck"
-                checked={formAlumni.bersediaMentoring}
-                onChange={(e) =>
-                  setFormAlumni({ ...formAlumni, bersediaMentoring: e.target.checked })
-                }
-                className="rounded border-input text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-              />
-              <label htmlFor="mentoringCheck" className="text-xs font-medium text-foreground cursor-pointer">
-                Bersedia menjadi mentor / narasumber karir bagi siswa aktif sekolah
-              </label>
-            </div>
-
             <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => setTambahOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setTambahOpen(false)} disabled={isSubmitting}>
                 Batal
               </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                Simpan Data Alumni
+              <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>{isSubmitting ? "Menyimpan..." : "Simpan Data Alumni"}</span>
               </Button>
             </DialogFooter>
           </form>
@@ -919,7 +962,7 @@ export default function AdminAlumniPage() {
 
       {/* MODAL EDIT ALUMNI */}
       <Dialog open={isEditOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
               <Edit className="h-5 w-5 text-emerald-600" />
@@ -928,115 +971,75 @@ export default function AdminAlumniPage() {
           </DialogHeader>
 
           {selectedAlumni && (
-            <div className="space-y-4">
+            <form onSubmit={handleUpdateAlumni} className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-foreground">Nama Alumni</label>
+                <label className="text-xs font-semibold text-foreground">Nama Lengkap</label>
                 <Input
+                  required
                   value={selectedAlumni.nama}
                   onChange={(e) => setSelectedAlumni({ ...selectedAlumni, nama: e.target.value })}
                   className="mt-1 text-sm"
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-foreground">Status Tracer Study</label>
-                <select
-                  value={selectedAlumni.statusTracer}
-                  onChange={(e) =>
-                    setSelectedAlumni({
-                      ...selectedAlumni,
-                      statusTracer: e.target.value as AlumniRecord["statusTracer"],
-                    })
-                  }
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="KULIAH_PTN">Kuliah PTN</option>
-                  <option value="KULIAH_PTS">Kuliah PTS</option>
-                  <option value="STUDI_LUAR_NEGERI">Studi Luar Negeri</option>
-                  <option value="BEKERJA">Bekerja di Industri</option>
-                  <option value="WIRAUSAHA">Wirausaha / Bisnis</option>
-                  <option value="MENCARI_KERJA">Mencari Kerja / Gap Year</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-foreground">Kampus / Perusahaan</label>
-                <Input
-                  value={selectedAlumni.instansiAtauKampus}
-                  onChange={(e) =>
-                    setSelectedAlumni({ ...selectedAlumni, instansiAtauKampus: e.target.value })
-                  }
-                  className="mt-1 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-foreground">Posisi / Jurusan</label>
-                <Input
-                  value={selectedAlumni.posisiAtauJurusan}
-                  onChange={(e) =>
-                    setSelectedAlumni({ ...selectedAlumni, posisiAtauJurusan: e.target.value })
-                  }
-                  className="mt-1 text-sm"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Status Tracer</label>
+                  <select
+                    value={selectedAlumni.statusTracer}
+                    onChange={(e) => setSelectedAlumni({ ...selectedAlumni, statusTracer: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="KULIAH_PTN">Kuliah PTN</option>
+                    <option value="KULIAH_PTS">Kuliah PTS</option>
+                    <option value="STUDI_LUAR_NEGERI">Studi Luar Negeri</option>
+                    <option value="BEKERJA">Bekerja di Industri</option>
+                    <option value="WIRAUSAHA">Wirausaha / Bisnis</option>
+                    <option value="MENCARI_KERJA">Mencari Kerja / Gap Year</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="text-xs font-semibold text-foreground">Kota Domisili</label>
                   <Input
                     value={selectedAlumni.kotaDomisili}
-                    onChange={(e) =>
-                      setSelectedAlumni({ ...selectedAlumni, kotaDomisili: e.target.value })
-                    }
+                    onChange={(e) => setSelectedAlumni({ ...selectedAlumni, kotaDomisili: e.target.value })}
+                    className="mt-1 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Kampus / Perusahaan</label>
+                  <Input
+                    required
+                    value={selectedAlumni.instansiAtauKampus}
+                    onChange={(e) => setSelectedAlumni({ ...selectedAlumni, instansiAtauKampus: e.target.value })}
                     className="mt-1 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Nomor Telepon</label>
+                  <label className="text-xs font-semibold text-foreground">Jurusan / Posisi</label>
                   <Input
-                    value={selectedAlumni.telepon}
-                    onChange={(e) =>
-                      setSelectedAlumni({ ...selectedAlumni, telepon: e.target.value })
-                    }
+                    value={selectedAlumni.posisiAtauJurusan}
+                    onChange={(e) => setSelectedAlumni({ ...selectedAlumni, posisiAtauJurusan: e.target.value })}
                     className="mt-1 text-sm"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="editMentorCheck"
-                  checked={selectedAlumni.bersediaMentoring}
-                  onChange={(e) =>
-                    setSelectedAlumni({ ...selectedAlumni, bersediaMentoring: e.target.checked })
-                  }
-                  className="rounded border-input text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-                />
-                <label htmlFor="editMentorCheck" className="text-xs font-medium text-foreground cursor-pointer">
-                  Bersedia menjadi mentor karir
-                </label>
-              </div>
-
               <DialogFooter className="mt-4">
-                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={isSubmitting}>
                   Batal
                 </Button>
-                <Button
-                  onClick={() => {
-                    if (selectedAlumni) {
-                      updateAlumni(selectedAlumni.id, selectedAlumni);
-                      setEditOpen(false);
-                    }
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  Simpan Perubahan
+                <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  <span>{isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}</span>
                 </Button>
               </DialogFooter>
-            </div>
+            </form>
           )}
         </DialogContent>
       </Dialog>
