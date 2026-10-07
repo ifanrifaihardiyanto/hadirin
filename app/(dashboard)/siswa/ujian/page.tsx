@@ -20,11 +20,13 @@ import {
   Lock,
   RotateCcw,
   BookOpen,
+  RefreshCw,
 } from "lucide-react";
 import { useStore, UjianCBT } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api-client";
 
 interface SoalItem {
   id: number;
@@ -161,6 +163,50 @@ export default function SiswaUjianPage() {
   const nisnSiswa = "0071239821";
   const kelasSiswa = currentUser?.jabatan || "Kelas X IPA 1";
 
+  const [loadingCBT, setLoadingCBT] = useState(true);
+  const [refreshingCBT, setRefreshingCBT] = useState(false);
+  const [liveUjianList, setLiveUjianList] = useState<UjianCBT[]>([]);
+
+  // Load CBT data from API
+  const loadCBTData = async (isSilent = false) => {
+    if (!isSilent) setLoadingCBT(true);
+    else setRefreshingCBT(true);
+
+    try {
+      const res = await api.getCBTUjianList();
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      if (raw.length > 0) {
+        setLiveUjianList(raw.map((item: any) => ({
+          id: String(item.id),
+          judul: item.judul || "Ujian CBT",
+          mapel: item.mapel?.nama || item.mata_pelajaran?.nama || item.mapel || "Mata Pelajaran",
+          tingkatKelas: item.tingkat_kelas || item.kelas?.nama || "Kelas X",
+          jenisUjian: item.jenis_ujian || "PTS",
+          durasiMenit: Number(item.durasi_menit) || 60,
+          jumlahSoal: Number(item.jumlah_soal) || 20,
+          kkm: Number(item.kkm) || 75,
+          tanggalPelaksanaan: item.tanggal_pelaksanaan || "2026-07-24",
+          jamMulai: item.jam_mulai || "08:00",
+          jamSelesai: item.jam_selesai || "09:00",
+          tokenUjian: item.token_ujian || "CBT2026",
+          status: item.status || "AKTIF",
+        })));
+      } else {
+        setLiveUjianList(daftarUjianCBT);
+      }
+    } catch (err) {
+      console.error("Gagal memuat ujian CBT:", err);
+      setLiveUjianList(daftarUjianCBT);
+    } finally {
+      setLoadingCBT(false);
+      setRefreshingCBT(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCBTData();
+  }, []);
+
   // State navigasi alur ujian: "LIST" | "EXAM" | "RESULT"
   const [examStep, setExamStep] = useState<"LIST" | "EXAM" | "RESULT">("LIST");
   const [selectedUjian, setSelectedUjian] = useState<UjianCBT | null>(null);
@@ -289,6 +335,17 @@ export default function SiswaUjianPage() {
 
     setSkorAkhir(resultData);
 
+    // Kirim ke backend database
+    api.submitCBTHasil({
+      ujian_id: selectedUjian.id,
+      siswa_id: currentUser?.id || 1,
+      jawaban_benar: benar,
+      jawaban_salah: salah,
+      total_soal: totalSoal,
+    }).catch((err) => {
+      console.warn("Gagal submit hasil CBT ke server (offline fallback active):", err);
+    });
+
     // Save to global store
     submitHasilCBT({
       ujianId: selectedUjian.id,
@@ -361,8 +418,19 @@ export default function SiswaUjianPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadCBTData(true)}
+              disabled={refreshingCBT || loadingCBT}
+              className="text-xs h-9 gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
+              <RefreshCw size={14} className={refreshingCBT ? "animate-spin text-navy-600" : ""} />
+              <span>Muat Ulang</span>
+            </Button>
+
             <Link href="/siswa">
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 h-9 text-xs">
                 <ChevronLeft size={16} />
                 Kembali ke Portal
               </Button>
@@ -406,7 +474,29 @@ export default function SiswaUjianPage() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {daftarUjianCBT.map((ujian) => {
+            {loadingCBT ? (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <Card key={`skel-cbt-${idx}`} className="border-border bg-white shadow-xs p-5 animate-pulse space-y-4">
+                  <div className="flex justify-between">
+                    <div className="h-5 w-16 bg-slate-200 rounded"></div>
+                    <div className="h-5 w-24 bg-slate-200 rounded"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-5 w-3/4 bg-slate-200 rounded"></div>
+                    <div className="h-3.5 w-1/2 bg-slate-100 rounded"></div>
+                  </div>
+                  <div className="h-24 w-full bg-slate-100 rounded-xl"></div>
+                  <div className="h-9 w-full bg-slate-200 rounded-xl"></div>
+                </Card>
+              ))
+            ) : liveUjianList.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-slate-500 bg-white border border-dashed rounded-2xl">
+                <Laptop className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                <p className="font-semibold text-slate-700">Tidak ada jadwal ujian aktif saat ini</p>
+                <p className="text-xs text-slate-400">Silakan hubungi proktor atau wali kelas Anda.</p>
+              </div>
+            ) : (
+              liveUjianList.map((ujian) => {
               const hasilSiswa = hasilSiswaMap[ujian.id];
               const isSelesai = !!hasilSiswa && hasilSiswa.statusPengerjaan === "SELESAI";
 
@@ -518,7 +608,8 @@ export default function SiswaUjianPage() {
                   </CardContent>
                 </Card>
               );
-            })}
+            })
+          )}
           </div>
         </div>
 
