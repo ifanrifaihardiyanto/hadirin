@@ -1,18 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   CalendarDays,
   Plus,
   Search,
-  Filter,
   Download,
   Printer,
   ChevronRight,
   ChevronLeft,
   Calendar,
   Clock,
-  Users,
   Award,
   BookOpen,
   Coffee,
@@ -22,18 +20,29 @@ import {
   Trash2,
   CheckCircle2,
   X,
-  AlertCircle,
-  Flag,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useStore, type AgendaAkademik } from "@/lib/store";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
+export interface AgendaAkademikLive {
+  id: string | number;
+  judul: string;
+  kategori: "UJIAN" | "LIBUR" | "KBM" | "RAPOR" | "KEGIATAN_SEKOLAH" | "RAPAT_GURU" | string;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  sasaran: "SEMUA" | "GURU" | "SISWA" | "ORANG_TUA" | string;
+  keterangan?: string;
+  warna?: string;
+}
+
 const KATEGORI_CONFIG: Record<
-  AgendaAkademik["kategori"],
+  string,
   { label: string; badgeClass: string; icon: any; dotColor: string }
 > = {
   UJIAN: {
@@ -75,29 +84,24 @@ const KATEGORI_CONFIG: Record<
 };
 
 export default function KalenderAkademikPage() {
-  const {
-    daftarAgendaAkademik,
-    tambahAgendaAkademik,
-    hapusAgendaAkademik,
-    updateAgendaAkademik,
-    tahunAjaranAktif,
-    semesterAktif,
-    setTahunAjaran,
-  } = useStore();
+  const [daftarAgendaAkademik, setDaftarAgendaAkademik] = useState<AgendaAkademikLive[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [kategoriFilter, setKategoriFilter] = useState<string>("SEMUA");
   const [sasaranFilter, setSasaranFilter] = useState<string>("SEMUA");
   const [viewMode, setViewMode] = useState<"timeline" | "calendar">("timeline");
 
-  // Selected Month for Calendar Grid View (0-indexed: 6 = July 2024, 11 = Dec 2024)
-  const [currentYear, setCurrentYear] = useState(2024);
-  const [currentMonth, setCurrentMonth] = useState(6); // Juli
+  // Selected Month for Calendar Grid View
+  const today = new Date();
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingAgenda, setEditingAgenda] = useState<AgendaAkademik | null>(null);
-  const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
+  const [editingAgenda, setEditingAgenda] = useState<AgendaAkademikLive | null>(null);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -108,32 +112,61 @@ export default function KalenderAkademikPage() {
 
   // Form State
   const [formJudul, setFormJudul] = useState("");
-  const [formKategori, setFormKategori] = useState<AgendaAkademik["kategori"]>("UJIAN");
+  const [formKategori, setFormKategori] = useState<string>("UJIAN");
   const [formTglMulai, setFormTglMulai] = useState("");
   const [formTglSelesai, setFormTglSelesai] = useState("");
-  const [formSasaran, setFormSasaran] = useState<AgendaAkademik["sasaran"]>("SEMUA");
+  const [formSasaran, setFormSasaran] = useState<string>("SEMUA");
   const [formKeterangan, setFormKeterangan] = useState("");
-  const [formWarna, setFormWarna] = useState<AgendaAkademik["warna"]>("sky");
+  const [formWarna, setFormWarna] = useState<string>("amber");
 
-  // Semester Config State (Mock parameters for effective periods)
-  const [semesterMulai, setSemesterMulai] = useState("2024-07-15");
-  const [semesterSelesai, setSemesterSelesai] = useState("2024-12-20");
-  const [pekanEfektif, setPekanEfektif] = useState(19);
-  const [hariEfektif, setHariEfektif] = useState(108);
+  const fetchData = useCallback(async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const res = await api.getAgendaAkademikList();
+      const raw = (res as any)?.data || (res as any) || [];
+      const normalized: AgendaAkademikLive[] = Array.isArray(raw)
+        ? raw.map((item: any) => ({
+            id: item.id,
+            judul: item.judul || "Agenda",
+            kategori: item.kategori || "KEGIATAN_SEKOLAH",
+            tanggalMulai: item.tanggal_mulai || item.tanggalMulai || new Date().toISOString().split("T")[0],
+            tanggalSelesai: item.tanggal_selesai || item.tanggalSelesai || item.tanggal_mulai || item.tanggalMulai || new Date().toISOString().split("T")[0],
+            sasaran: item.sasaran || "SEMUA",
+            keterangan: item.keterangan || "",
+            warna: item.warna || "sky",
+          }))
+        : [];
+      setDaftarAgendaAkademik(normalized);
+      if (isManual) showToast("Agenda akademik berhasil diperbarui.");
+    } catch (err: any) {
+      console.error("Gagal memuat agenda akademik:", err);
+      showToast("Gagal memuat agenda akademik dari server.");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const openAddModal = () => {
+    const todayStr = new Date().toISOString().split("T")[0];
     setEditingAgenda(null);
     setFormJudul("");
     setFormKategori("UJIAN");
-    setFormTglMulai("2024-09-16");
-    setFormTglSelesai("2024-09-20");
+    setFormTglMulai(todayStr);
+    setFormTglSelesai(todayStr);
     setFormSasaran("SISWA");
     setFormKeterangan("");
     setFormWarna("amber");
     setIsAddModalOpen(true);
   };
 
-  const openEditModal = (agenda: AgendaAkademik) => {
+  const openEditModal = (agenda: AgendaAkademikLive) => {
     setEditingAgenda(agenda);
     setFormJudul(agenda.judul);
     setFormKategori(agenda.kategori);
@@ -145,40 +178,49 @@ export default function KalenderAkademikPage() {
     setIsAddModalOpen(true);
   };
 
-  const handleSaveAgenda = (e: React.FormEvent) => {
+  const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formJudul.trim() || !formTglMulai) return;
 
-    if (editingAgenda) {
-      updateAgendaAkademik(editingAgenda.id, {
-        judul: formJudul.trim(),
-        kategori: formKategori,
-        tanggalMulai: formTglMulai,
-        tanggalSelesai: formTglSelesai || formTglMulai,
-        sasaran: formSasaran,
-        keterangan: formKeterangan,
-        warna: formWarna,
-      });
-      showToast(`Agenda "${formJudul}" berhasil diperbarui.`);
-    } else {
-      tambahAgendaAkademik({
-        judul: formJudul.trim(),
-        kategori: formKategori,
-        tanggalMulai: formTglMulai,
-        tanggalSelesai: formTglSelesai || formTglMulai,
-        sasaran: formSasaran,
-        keterangan: formKeterangan,
-        warna: formWarna,
-      });
-      showToast(`Agenda "${formJudul}" berhasil ditambahkan.`);
+    setIsSubmitting(true);
+    const payload = {
+      judul: formJudul.trim(),
+      kategori: formKategori,
+      tanggal_mulai: formTglMulai,
+      tanggal_selesai: formTglSelesai || formTglMulai,
+      sasaran: formSasaran,
+      keterangan: formKeterangan,
+      warna: formWarna,
+    };
+
+    try {
+      if (editingAgenda) {
+        await api.updateAgendaAkademik(editingAgenda.id, payload);
+        showToast(`Agenda "${formJudul}" berhasil diperbarui.`);
+      } else {
+        await api.createAgendaAkademik(payload);
+        showToast(`Agenda "${formJudul}" berhasil ditambahkan.`);
+      }
+      setIsAddModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Gagal simpan agenda:", err);
+      showToast("Gagal menyimpan agenda akademik.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsAddModalOpen(false);
   };
 
-  const handleDeleteAgenda = (id: string, judul: string) => {
+  const handleDeleteAgenda = async (id: string | number, judul: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus agenda "${judul}"?`)) {
-      hapusAgendaAkademik(id);
-      showToast(`Agenda "${judul}" telah dihapus.`);
+      try {
+        await api.deleteAgendaAkademik(id);
+        showToast(`Agenda "${judul}" telah dihapus.`);
+        fetchData();
+      } catch (err: any) {
+        console.error("Gagal hapus agenda:", err);
+        showToast("Gagal menghapus agenda.");
+      }
     }
   };
 
@@ -203,8 +245,7 @@ export default function KalenderAkademikPage() {
   ];
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 is Sunday
-  // Convert to Monday = 0, ..., Sunday = 6
+  const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();
   const startDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
   const nextMonth = () => {
@@ -225,7 +266,6 @@ export default function KalenderAkademikPage() {
     }
   };
 
-  // Helper date format
   const formatTanggalRange = (mulai: string, selesai: string) => {
     const d1 = new Date(mulai);
     const d2 = new Date(selesai);
@@ -239,7 +279,7 @@ export default function KalenderAkademikPage() {
 
   // CSV Export
   const handleExportCSV = () => {
-    const headers = ["ID", "Judul Agenda", "Kategori", "Tanggal Mulai", "Tanggal Selesai", "Sasaran Audiens", "Keterangan"];
+    const headers = ["ID", "Judul Agenda", "Kategori", "Tanggal Mulai", "Tanggal Selesai", "Sasaran", "Keterangan"];
     const rows = daftarAgendaAkademik.map((a) => [
       a.id,
       `"${a.judul}"`,
@@ -254,7 +294,7 @@ export default function KalenderAkademikPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Kalender_Akademik_Hadirin_${tahunAjaranAktif.replace("/", "-")}.csv`);
+    link.setAttribute("download", `Kalender_Akademik_${currentYear}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -263,7 +303,7 @@ export default function KalenderAkademikPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
+      {/* Toast */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-2xl bg-navy-950 px-4 py-3 text-sm font-medium text-white shadow-2xl animate-in fade-in slide-in-from-top-4 border border-navy-800">
           <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
@@ -271,20 +311,20 @@ export default function KalenderAkademikPage() {
         </div>
       )}
 
-      {/* Header & Page Title */}
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            <span>Akademik &amp; Kurikulum</span>
+            <span>Tata Usaha &amp; Kurikulum</span>
             <ChevronRight size={13} />
-            <span className="text-navy-900">Kalender Pendidikan</span>
+            <span className="text-navy-900">Kalender Akademik</span>
           </div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 sm:text-3xl flex items-center gap-2.5">
             <CalendarDays className="text-navy-900 h-7 w-7" />
-            Kalender Akademik &amp; Tahun Ajaran
+            Kalender Pendidikan &amp; Agenda Sekolah
           </h1>
           <p className="text-xs text-muted-foreground sm:text-sm mt-0.5">
-            Jadwal kegiatan akademik, pekan ujian, hari libur nasional, rapat PTK, dan target hari efektif KBM ({tahunAjaranAktif} - {semesterAktif}).
+            Jadwal kegiatan KBM, pekan ujian, libur nasional, dan agenda dinas live dari database Supabase.
           </p>
         </div>
 
@@ -292,17 +332,19 @@ export default function KalenderAkademikPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsSemesterModalOpen(true)}
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing || isLoading}
             className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
           >
-            <Clock size={14} className="text-navy-700" />
-            <span>Atur Semester</span>
+            <RefreshCw size={14} className={cn("text-slate-600", (isRefreshing || isLoading) && "animate-spin")} />
+            <span>{isRefreshing ? "Memuat..." : "Refresh"}</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
+            disabled={daftarAgendaAkademik.length === 0}
             className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
           >
             <Download size={14} className="text-slate-600" />
@@ -316,102 +358,103 @@ export default function KalenderAkademikPage() {
             className="gap-1.5 text-xs font-semibold border-slate-200 bg-white hover:bg-slate-50 text-navy-950 shadow-2xs cursor-pointer"
           >
             <Printer size={14} className="text-slate-600" />
-            <span>Cetak Kalender</span>
+            <span>Cetak PDF</span>
           </Button>
 
           <Button
             size="sm"
             onClick={openAddModal}
-            className="gap-1.5 text-xs font-bold bg-navy-900 text-white hover:bg-navy-800 shadow-sm cursor-pointer"
+            className="gap-1.5 text-xs font-semibold bg-navy-900 hover:bg-navy-800 text-white shadow-2xs cursor-pointer"
           >
             <Plus size={15} />
-            <span>Tambah Agenda</span>
+            <span>Tambah Agenda Baru</span>
           </Button>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
-              <Calendar size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Semester Aktif</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-lg font-bold text-navy-950 sm:text-xl">
-                  {semesterAktif}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-600 uppercase font-mono">
-                  {tahunAjaranAktif}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border border-border shadow-xs bg-white animate-pulse">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="h-11 w-11 rounded-2xl bg-slate-200 shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-3 w-20 bg-slate-200 rounded" />
+                  <div className="h-5 w-14 bg-slate-200 rounded" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-50 text-navy-900 shrink-0">
+                  <Calendar size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Total Agenda Tercatat</p>
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    {daftarAgendaAkademik.length}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-900 shrink-0">
-              <BookOpen size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Hari Efektif KBM</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {hariEfektif}
-                </span>
-                <span className="text-[10px] text-emerald-700 font-semibold">Hari Kerja</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-900 shrink-0">
+                  <Award size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Pekan Ujian &amp; Asesmen</p>
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    {daftarAgendaAkademik.filter((a) => a.kategori === "UJIAN").length}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-50 text-sky-900 shrink-0">
-              <Clock size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Pekan Efektif</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {pekanEfektif}
-                </span>
-                <span className="text-[10px] text-sky-700 font-semibold">Minggu Belajar</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-rose-50 text-rose-900 shrink-0">
+                  <Coffee size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Hari Libur &amp; Cuti</p>
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    {daftarAgendaAkademik.filter((a) => a.kategori === "LIBUR").length}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border border-border shadow-xs bg-white">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-50 text-purple-900 shrink-0">
-              <Award size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Total Agenda</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
-                  {daftarAgendaAkademik.length}
-                </span>
-                <span className="text-[10px] text-purple-700 font-medium">Kegiatan Terjadwal</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border border-border shadow-xs bg-white">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-50 text-purple-900 shrink-0">
+                  <Sparkles size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Event &amp; Kegiatan</p>
+                  <span className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
+                    {daftarAgendaAkademik.filter((a) => a.kategori === "KEGIATAN_SEKOLAH").length}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
-      {/* Filter & View Mode Switcher */}
+      {/* Filter & View Mode Bar */}
       <Card className="border border-border shadow-xs bg-white">
         <CardContent className="p-4 space-y-3.5">
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            {/* Search Input */}
             <div className="relative flex-1 max-w-md">
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <Input
-                placeholder="Cari judul agenda kegiatan atau keterangan..."
+                placeholder="Cari nama agenda, pekan asesmen, kegiatan..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-9 text-xs bg-slate-50/70 border-slate-200 focus-visible:ring-navy-900"
@@ -427,36 +470,34 @@ export default function KalenderAkademikPage() {
               )}
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1.5 self-end sm:self-auto bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setViewMode("timeline")}
-                className={cn(
-                  "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
-                  viewMode === "timeline" ? "bg-white text-navy-950 shadow-xs" : "text-slate-600 hover:text-navy-950"
-                )}
-              >
-                Linimasa Agenda
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("calendar")}
-                className={cn(
-                  "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
-                  viewMode === "calendar" ? "bg-white text-navy-950 shadow-xs" : "text-slate-600 hover:text-navy-950"
-                )}
-              >
-                Grid Kalender
-              </button>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("timeline")}
+                  className={cn(
+                    "rounded-lg px-3 py-1 transition-all cursor-pointer",
+                    viewMode === "timeline" ? "bg-white text-navy-950 shadow-2xs font-bold" : "text-slate-600"
+                  )}
+                >
+                  Daftar Timeline
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("calendar")}
+                  className={cn(
+                    "rounded-lg px-3 py-1 transition-all cursor-pointer",
+                    viewMode === "calendar" ? "bg-white text-navy-950 shadow-2xs font-bold" : "text-slate-600"
+                  )}
+                >
+                  Grid Kalender
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
-              <Filter size={12} /> Kategori:
-            </span>
             <button
               type="button"
               onClick={() => setKategoriFilter("SEMUA")}
@@ -467,295 +508,193 @@ export default function KalenderAkademikPage() {
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
               )}
             >
-              Semua
+              Semua Kategori
             </button>
-            {(Object.keys(KATEGORI_CONFIG) as AgendaAkademik["kategori"][]).map((kat) => (
+            {Object.entries(KATEGORI_CONFIG).map(([key, cfg]) => (
               <button
-                key={kat}
+                key={key}
                 type="button"
-                onClick={() => setKategoriFilter(kat)}
+                onClick={() => setKategoriFilter(key)}
                 className={cn(
                   "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
-                  kategoriFilter === kat
+                  kategoriFilter === key
                     ? "bg-navy-900 text-white shadow-2xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
                 )}
               >
-                {KATEGORI_CONFIG[kat].label}
-              </button>
-            ))}
-
-            <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
-              Sasaran:
-            </span>
-            {(["SEMUA", "SISWA", "GURU", "ORANG_TUA"] as const).map((sasaran) => (
-              <button
-                key={sasaran}
-                type="button"
-                onClick={() => setSasaranFilter(sasaran)}
-                className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
-                  sasaranFilter === sasaran
-                    ? "bg-navy-900 text-white shadow-2xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
-                )}
-              >
-                {sasaran === "SEMUA" ? "Semua Warga" : sasaran === "SISWA" ? "Siswa" : sasaran === "GURU" ? "Guru & PTK" : "Orang Tua"}
+                {cfg.label}
               </button>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* VIEW 1: Timeline Mode */}
+      {/* VIEW MODE: TIMELINE */}
       {viewMode === "timeline" && (
-        <div className="space-y-3">
-          {filteredAgendas.length === 0 ? (
-            <Card className="border border-border bg-white p-12 text-center text-xs text-slate-500 shadow-xs">
-              Tidak ada agenda akademik yang sesuai dengan filter pencarian.
-            </Card>
-          ) : (
-            filteredAgendas.map((agenda, idx) => {
-              const cfg = KATEGORI_CONFIG[agenda.kategori] || KATEGORI_CONFIG.KBM;
-              const Icon = cfg.icon;
-              const d1 = new Date(agenda.tanggalMulai);
-              const d2 = new Date(agenda.tanggalSelesai);
-              const durasiHari = Math.max(1, Math.round((d2.getTime() - d1.getTime()) / (1000 * 3600 * 24)) + 1);
-
-              return (
-                <Card
-                  key={agenda.id}
-                  className="border border-border/80 bg-white shadow-xs hover:shadow-md transition-all group overflow-hidden"
-                >
-                  <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    {/* Left: Date indicator badge + Details */}
-                    <div className="flex items-start gap-4 flex-1">
-                      {/* Date Block */}
-                      <div className="flex flex-col items-center justify-center h-14 w-16 rounded-2xl bg-slate-50 border border-slate-200 shrink-0 text-center p-1">
-                        <span className="text-[10px] font-bold uppercase text-slate-400 font-mono">
-                          {d1.toLocaleDateString("id-ID", { month: "short" })}
-                        </span>
-                        <span className="font-display text-xl font-bold text-navy-950 leading-none">
-                          {d1.getDate()}
-                        </span>
-                        <span className="text-[9px] text-slate-500 font-mono mt-0.5">
-                          {durasiHari} Hari
-                        </span>
-                      </div>
-
-                      {/* Content Details */}
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={cn("text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 flex items-center gap-1", cfg.badgeClass)}
-                          >
-                            <Icon size={12} />
-                            <span>{cfg.label}</span>
-                          </Badge>
-
-                          <Badge variant="secondary" className="text-[10px] font-semibold text-slate-600 bg-slate-100">
-                            {agenda.sasaran === "SEMUA" ? "Semua Warga Sekolah" : agenda.sasaran === "SISWA" ? "Khusus Siswa" : agenda.sasaran === "GURU" ? "Khusus Pendidik / PTK" : "Orang Tua / Wali"}
-                          </Badge>
-
-                          <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                            &bull; {formatTanggalRange(agenda.tanggalMulai, agenda.tanggalSelesai)}
-                          </span>
-                        </div>
-
-                        <h3 className="font-display text-base font-bold text-navy-950 group-hover:text-navy-800 transition-colors">
-                          {agenda.judul}
-                        </h3>
-
-                        {agenda.keterangan && (
-                          <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                            {agenda.keterangan}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-1.5 self-end sm:self-center border-t sm:border-t-0 pt-2 sm:pt-0 w-full sm:w-auto justify-end border-slate-100">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditModal(agenda)}
-                        className="h-8 text-xs text-slate-600 hover:text-navy-950 hover:bg-slate-100 gap-1 cursor-pointer"
-                      >
-                        <Edit3 size={13} />
-                        <span>Edit</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteAgenda(agenda.id, agenda.judul)}
-                        className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 gap-1 cursor-pointer"
-                      >
-                        <Trash2 size={13} />
-                        <span>Hapus</span>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* VIEW 2: Monthly Calendar Grid Mode */}
-      {viewMode === "calendar" && (
         <Card className="border border-border shadow-xs bg-white overflow-hidden">
-          <CardContent className="p-4 sm:p-6 space-y-4">
-            {/* Month Navigation */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-xl font-bold text-navy-950">
-                  {namaBulanIndo[currentMonth]} {currentYear}
-                </h3>
-                <span className="text-xs text-slate-500 font-mono">
-                  ({tahunAjaranAktif} - {semesterAktif})
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={prevMonth}
-                  className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                  aria-label="Bulan Sebelumnya"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={nextMonth}
-                  className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                  aria-label="Bulan Berikutnya"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Calendar Days Table */}
-            <div className="grid grid-cols-7 gap-px bg-slate-200 rounded-xl overflow-hidden border border-slate-200 text-xs">
-              {/* Day Headers (Senin - Minggu) */}
-              {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((hari, i) => (
-                <div
-                  key={hari}
-                  className={cn(
-                    "bg-slate-50 py-2.5 text-center font-bold text-[11px] uppercase tracking-wider",
-                    i === 6 ? "text-rose-600" : "text-slate-500"
-                  )}
-                >
-                  {hari}
+          <div className="p-4 sm:p-6 space-y-4">
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="p-4 rounded-xl border border-slate-100 animate-pulse space-y-2">
+                  <div className="h-4 w-48 bg-slate-200 rounded" />
+                  <div className="h-3 w-32 bg-slate-100 rounded" />
                 </div>
-              ))}
+              ))
+            ) : filteredAgendas.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <Calendar className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                <p className="font-semibold text-sm">Tidak ada agenda akademik ditemukan</p>
+                <p className="text-xs text-slate-400">Silakan tambahkan agenda baru atau ganti filter pencarian.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {filteredAgendas.map((item) => {
+                  const cfg = KATEGORI_CONFIG[item.kategori] || {
+                    label: item.kategori,
+                    badgeClass: "bg-slate-100 text-slate-800",
+                    dotColor: "bg-slate-400",
+                    icon: Calendar,
+                  };
+                  const Icon = cfg.icon;
 
-              {/* Empty leading cells */}
-              {Array.from({ length: startDay }).map((_, i) => (
-                <div key={`empty-${i}`} className="bg-white/50 min-h-[90px] p-1.5" />
-              ))}
-
-              {/* Days in Month */}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                
-                // Find all agendas that cover this date
-                const agendasToday = daftarAgendaAkademik.filter((a) => {
-                  return dateStr >= a.tanggalMulai && dateStr <= a.tanggalSelesai;
-                });
-
-                const isSunday = (startDay + i) % 7 === 6;
-
-                return (
-                  <div
-                    key={dayNum}
-                    className={cn(
-                      "bg-white min-h-[90px] p-2 flex flex-col justify-between hover:bg-slate-50/80 transition-colors",
-                      agendasToday.length > 0 && "bg-slate-50/40"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={cn(
-                          "font-mono font-bold text-xs",
-                          isSunday ? "text-rose-600" : "text-navy-950"
-                        )}
-                      >
-                        {dayNum}
-                      </span>
-                      {agendasToday.length > 0 && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-navy-600" />
-                      )}
-                    </div>
-
-                    <div className="space-y-1 mt-1 flex-1 overflow-hidden">
-                      {agendasToday.slice(0, 2).map((agenda) => {
-                        const cfg = KATEGORI_CONFIG[agenda.kategori];
-                        return (
-                          <div
-                            key={agenda.id}
-                            onClick={() => openEditModal(agenda)}
-                            title={`${agenda.judul} (${cfg.label})`}
-                            className={cn(
-                              "truncate px-1.5 py-0.5 rounded text-[9px] font-semibold border cursor-pointer transition-transform hover:scale-[1.02]",
-                              cfg.badgeClass
-                            )}
-                          >
-                            {agenda.judul}
+                  return (
+                    <div key={item.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/60 transition-colors rounded-xl px-3">
+                      <div className="flex items-start gap-3">
+                        <div className={cn("mt-1 grid h-8 w-8 place-items-center rounded-xl shrink-0 text-white", cfg.dotColor)}>
+                          <Icon size={16} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-navy-950 text-sm">{item.judul}</h3>
+                            <Badge variant="outline" className={cn("text-[10px] font-bold px-1.5 py-0.5", cfg.badgeClass)}>
+                              {cfg.label}
+                            </Badge>
                           </div>
-                        );
-                      })}
-                      {agendasToday.length > 2 && (
-                        <span className="text-[9px] text-slate-500 font-semibold block px-1">
-                          +{agendasToday.length - 2} agenda lainnya
-                        </span>
-                      )}
+                          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 font-medium">
+                            <Clock size={12} className="text-slate-400" />
+                            <span>{formatTanggalRange(item.tanggalMulai, item.tanggalSelesai)}</span>
+                            {item.sasaran && (
+                              <>
+                                <span>•</span>
+                                <span>Sasaran: {item.sasaran}</span>
+                              </>
+                            )}
+                          </p>
+                          {item.keterangan && (
+                            <p className="text-xs text-slate-600 mt-1 italic">{item.keterangan}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 self-end sm:self-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditModal(item)}
+                          className="h-7 w-7 p-0 text-slate-500 hover:text-navy-950 cursor-pointer"
+                        >
+                          <Edit3 size={14} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteAgenda(item.id, item.judul)}
+                          className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
-      {/* MODAL 1: Tambah / Edit Agenda */}
+      {/* VIEW MODE: CALENDAR GRID */}
+      {viewMode === "calendar" && (
+        <Card className="border border-border shadow-xs bg-white overflow-hidden p-4 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h2 className="font-display text-lg font-bold text-navy-950">
+              {namaBulanIndo[currentMonth]} {currentYear}
+            </h2>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" onClick={prevMonth} className="h-8 w-8 p-0 cursor-pointer">
+                <ChevronLeft size={16} />
+              </Button>
+              <Button variant="outline" size="sm" onClick={nextMonth} className="h-8 w-8 p-0 cursor-pointer">
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((d, i) => (
+              <div key={d} className={cn("py-2 font-bold text-slate-500 uppercase text-[11px]", i === 6 && "text-rose-500")}>
+                {d}
+              </div>
+            ))}
+
+            {Array.from({ length: startDay }).map((_, i) => (
+              <div key={`empty-${i}`} className="min-h-[80px] p-1 bg-slate-50/40 rounded-lg" />
+            ))}
+
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const dayNum = i + 1;
+              const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+              const dayAgendas = daftarAgendaAkademik.filter(
+                (a) => dateStr >= a.tanggalMulai && dateStr <= a.tanggalSelesai
+              );
+
+              return (
+                <div key={dayNum} className="min-h-[80px] p-1.5 border border-slate-100 rounded-lg flex flex-col justify-between hover:bg-slate-50/60 transition-colors">
+                  <span className="font-mono text-xs font-bold text-slate-700 text-left">{dayNum}</span>
+                  <div className="space-y-1 mt-1">
+                    {dayAgendas.slice(0, 2).map((ag) => (
+                      <div
+                        key={ag.id}
+                        onClick={() => openEditModal(ag)}
+                        className="text-[10px] font-semibold truncate rounded px-1 py-0.5 bg-navy-50 text-navy-900 border border-navy-200 cursor-pointer"
+                        title={ag.judul}
+                      >
+                        {ag.judul}
+                      </div>
+                    ))}
+                    {dayAgendas.length > 2 && (
+                      <span className="text-[9px] text-slate-400 font-bold block text-left">
+                        +{dayAgendas.length - 2} lagi
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* MODAL TAMBAH / EDIT AGENDA */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border border-slate-200">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 border border-slate-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-navy-900 text-white">
-                  <CalendarDays size={18} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-navy-950">
-                    {editingAgenda ? "Edit Agenda Kalender" : "Tambah Agenda Kalender Baru"}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Jadwalkan kegiatan akademik, pekan ujian, atau hari libur sekolah.
-                  </p>
-                </div>
-              </div>
+              <h3 className="font-display text-lg font-bold text-navy-950">
+                {editingAgenda ? "Edit Agenda Akademik" : "Tambah Agenda Akademik Baru"}
+              </h3>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveAgenda} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Judul Agenda Kegiatan *</label>
+            <form onSubmit={handleSaveAgenda} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Judul Agenda *</label>
                 <Input
                   required
                   placeholder="Contoh: Penilaian Tengah Semester (PTS) Ganjil"
@@ -766,11 +705,11 @@ export default function KalenderAkademikPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Kategori Agenda *</label>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Kategori Agenda</label>
                   <select
                     value={formKategori}
-                    onChange={(e) => setFormKategori(e.target.value as any)}
+                    onChange={(e) => setFormKategori(e.target.value)}
                     className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-navy-900"
                   >
                     <option value="UJIAN">Pekan Ujian &amp; Asesmen</option>
@@ -782,48 +721,49 @@ export default function KalenderAkademikPage() {
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Sasaran Peserta *</label>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Sasaran Audiens</label>
                   <select
                     value={formSasaran}
-                    onChange={(e) => setFormSasaran(e.target.value as any)}
+                    onChange={(e) => setFormSasaran(e.target.value)}
                     className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-navy-900"
                   >
                     <option value="SEMUA">Semua Warga Sekolah</option>
                     <option value="SISWA">Khusus Siswa</option>
-                    <option value="GURU">Khusus Guru &amp; PTK</option>
+                    <option value="GURU">Khusus Guru / Pendidik</option>
                     <option value="ORANG_TUA">Khusus Orang Tua / Wali</option>
                   </select>
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
                   <label className="font-bold text-slate-700">Tanggal Mulai *</label>
                   <Input
                     type="date"
                     required
                     value={formTglMulai}
                     onChange={(e) => setFormTglMulai(e.target.value)}
-                    className="h-9 text-xs font-mono"
+                    className="h-9 text-xs"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Tanggal Selesai *</label>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Tanggal Selesai</label>
                   <Input
                     type="date"
-                    required
                     value={formTglSelesai}
                     onChange={(e) => setFormTglSelesai(e.target.value)}
-                    className="h-9 text-xs font-mono"
+                    className="h-9 text-xs"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Keterangan &amp; Catatan Teknis</label>
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Keterangan Tambahan</label>
                 <textarea
-                  rows={3}
-                  placeholder="Tambahkan keterangan petunjuk teknis pelaksanaan, ruangan, atau perlengkapan yang diperlukan..."
+                  rows={2}
+                  placeholder="Catatan pelaksanaan, seragam, atau arahan khusus..."
                   value={formKeterangan}
                   onChange={(e) => setFormKeterangan(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs outline-none focus:ring-2 focus:ring-navy-900 resize-none"
@@ -835,123 +775,23 @@ export default function KalenderAkademikPage() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  disabled={isSubmitting}
                   onClick={() => setIsAddModalOpen(false)}
-                  className="text-xs cursor-pointer"
+                  className="cursor-pointer"
                 >
                   Batal
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
-                  className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer"
+                  disabled={isSubmitting}
+                  className="bg-navy-900 hover:bg-navy-800 text-white font-semibold cursor-pointer gap-1.5"
                 >
-                  {editingAgenda ? "Simpan Perubahan" : "Tambahkan Agenda"}
+                  {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+                  <span>{isSubmitting ? "Menyimpan..." : "Simpan Agenda"}</span>
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: Pengaturan Periode Semester */}
-      {isSemesterModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-sky-100 text-sky-900">
-                  <Clock size={18} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-navy-950">
-                    Pengaturan Periode Semester
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Konfigurasi rentang hari belajar efektif dan pekan KBM.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSemesterModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Tahun Ajaran &amp; Semester Aktif</label>
-                <div className="flex items-center gap-2">
-                  <Input disabled value={tahunAjaranAktif} className="h-9 text-xs bg-slate-50 font-bold" />
-                  <Input disabled value={semesterAktif} className="h-9 text-xs bg-slate-50 font-bold w-28 text-center" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Awal Semester</label>
-                  <Input
-                    type="date"
-                    value={semesterMulai}
-                    onChange={(e) => setSemesterMulai(e.target.value)}
-                    className="h-9 text-xs font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Akhir Semester</label>
-                  <Input
-                    type="date"
-                    value={semesterSelesai}
-                    onChange={(e) => setSemesterSelesai(e.target.value)}
-                    className="h-9 text-xs font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Target Pekan Efektif</label>
-                  <Input
-                    type="number"
-                    value={pekanEfektif}
-                    onChange={(e) => setPekanEfektif(Number(e.target.value))}
-                    className="h-9 text-xs font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Target Hari Efektif Belajar</label>
-                  <Input
-                    type="number"
-                    value={hariEfektif}
-                    onChange={(e) => setHariEfektif(Number(e.target.value))}
-                    className="h-9 text-xs font-mono"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsSemesterModalOpen(false)}
-                className="text-xs cursor-pointer"
-              >
-                Batal
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  showToast("Konfigurasi periode semester berhasil disimpan.");
-                  setIsSemesterModalOpen(false);
-                }}
-                className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer"
-              >
-                Simpan Konfigurasi
-              </Button>
-            </div>
           </div>
         </div>
       )}
