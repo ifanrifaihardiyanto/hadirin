@@ -825,5 +825,18 @@ export const api = {
       method: "PATCH",
     });
   },
+
+  // Profil & Pengaturan Sekolah (Fase 7)
+  async getProfilSekolah() {
+    return fetchApi("/sekolah/profil");
+  },
+
+  async updateProfilSekolah(payload: any) {
+    return fetchApi("/sekolah/profil", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
 };
+
 

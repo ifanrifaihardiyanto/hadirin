@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -23,18 +23,43 @@ import {
   Phone,
   Mail,
   UserCheck,
+  RefreshCw,
+  Award
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
-import { profilSekolah as mockSekolah } from "@/lib/mock-data";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+
+interface SekolahProfil {
+  id?: number | string;
+  nama: string;
+  npsn: string;
+  jenjang: string;
+  akreditasi: string;
+  alamat: string;
+  kota?: string;
+  telepon: string;
+  email: string;
+  kepsek: string;
+  nipKepsek: string;
+  paket_langganan?: string;
+  status_langganan?: string;
+  tanggal_kadaluarsa?: string;
+  totalGuru?: number;
+  totalSiswa?: number;
+}
 
 export default function AdminPengaturanPage() {
   const router = useRouter();
-  const { logout, daftarGuru } = useStore();
+  const { logout } = useStore();
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Active Modals
   const [activeModal, setActiveModal] = useState<
@@ -49,16 +74,21 @@ export default function AdminPengaturanPage() {
   };
 
   // 1. Profil Sekolah State
-  const [sekolahData, setSekolahData] = useState({
-    nama: mockSekolah.nama,
-    npsn: mockSekolah.npsn,
-    jenjang: mockSekolah.jenjang,
+  const [sekolahData, setSekolahData] = useState<SekolahProfil>({
+    nama: "SMA Negeri 3 Unggulan",
+    npsn: "20220412",
+    jenjang: "SMA",
     akreditasi: "A (Unggul)",
     alamat: "Jl. Pendidikan No. 45, Kebayoran Baru, Jakarta Selatan",
     telepon: "(021) 7890-1234",
     email: "info@sman3contoh.sch.id",
     kepsek: "Drs. Hendra Wijaya, M.Pd",
     nipKepsek: "19720315 199803 1 004",
+    paket_langganan: "PRO_TAHUNAN",
+    status_langganan: "AKTIF",
+    tanggal_kadaluarsa: "24 Juli 2027",
+    totalGuru: 42,
+    totalSiswa: 720,
   });
 
   // 2. Jam Pelajaran State
@@ -73,7 +103,8 @@ export default function AdminPengaturanPage() {
     istirahat2Selesai: "12:30",
   });
 
-  // 3. Hak Akses PTK State
+  // 3. Hak Akses PTK State & List
+  const [guruList, setGuruList] = useState<any[]>([]);
   const [guruRoles, setGuruRoles] = useState<Record<string, string>>({
     g1: "Wali Kelas & Guru Pengajar",
     g2: "Guru Pengajar",
@@ -83,6 +114,88 @@ export default function AdminPengaturanPage() {
 
   // 4. Tema Antarmuka State
   const [selectedTheme, setSelectedTheme] = useState<string>("navy");
+
+  // Load live data from Supabase / Laravel API
+  const loadData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
+
+    try {
+      const [profilRes, guruRes] = await Promise.allSettled([
+        api.getProfilSekolah(),
+        api.getGuruList(),
+      ]);
+
+      if (profilRes.status === "fulfilled" && profilRes.value?.data) {
+        const d = profilRes.value.data;
+        setSekolahData((prev) => ({
+          ...prev,
+          ...d,
+          akreditasi: d.akreditasi || "A (Unggul)",
+          nipKepsek: d.nipKepsek || "19720315 199803 1 004",
+        }));
+        if (d.jamConfig) {
+          setJamConfig((prev) => ({ ...prev, ...d.jamConfig }));
+        }
+      }
+
+      if (guruRes.status === "fulfilled" && guruRes.value?.data) {
+        const gList = Array.isArray(guruRes.value.data) ? guruRes.value.data : [];
+        setGuruList(gList);
+      }
+    } catch (err) {
+      console.error("Gagal memuat profil sekolah:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Simpan Profil ke Database
+  const handleSaveProfil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await api.updateProfilSekolah({
+        nama: sekolahData.nama,
+        npsn: sekolahData.npsn,
+        jenjang: sekolahData.jenjang,
+        alamat: sekolahData.alamat,
+        kota: sekolahData.kota || "",
+        telepon: sekolahData.telepon,
+        email: sekolahData.email,
+        kepsek: sekolahData.kepsek,
+      });
+
+      if (res?.success) {
+        showToast("Profil sekolah berhasil disimpan ke database!");
+        setActiveModal(null);
+        await loadData(true);
+      } else {
+        alert(res?.message || "Gagal menyimpan profil.");
+      }
+    } catch (err: any) {
+      alert(`Gagal menyimpan: ${err.message || "Terjadi kesalahan"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveJam = (e: React.FormEvent) => {
+    e.preventDefault();
+    showToast("Konfigurasi jam pelajaran berhasil diperbarui!");
+    setActiveModal(null);
+  };
+
+  const handleSaveAkses = (e: React.FormEvent) => {
+    e.preventDefault();
+    showToast("Hak akses dewan guru berhasil diperbarui!");
+    setActiveModal(null);
+  };
 
   function handleLogout() {
     logout();
@@ -99,42 +212,66 @@ export default function AdminPengaturanPage() {
         </div>
       )}
 
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
-          Pengaturan Sekolah &amp; Sistem
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Konfigurasi profil institusi, jam pelajaran, hak akses pengguna, dan antarmuka sekolah
-        </p>
+      {/* Header Halaman */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
+            Pengaturan Sekolah &amp; Sistem
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Konfigurasi profil institusi, jam pelajaran, hak akses pengguna, dan antarmuka sekolah
+          </p>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => loadData(true)}
+          disabled={refreshing || loading}
+          className="text-xs h-9 gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 w-fit"
+        >
+          <RefreshCw size={14} className={refreshing ? "animate-spin text-navy-600" : ""} />
+          <span>Muat Ulang</span>
+        </Button>
       </div>
 
-      {/* School Card */}
-      <Card className="border-none bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-md">
-        <CardContent className="flex items-center gap-5 p-6 md:p-7">
-          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-white/10 text-white border border-white/20 shrink-0">
-            <Building2 size={28} />
-          </span>
-          <div className="space-y-1 flex-1">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <p className="font-display text-xl font-bold text-white md:text-2xl">
-                {sekolahData.nama}
-              </p>
-              <Badge variant="outline" className="border-white/20 bg-white/10 text-white text-[10px]">
-                Akun Terverifikasi
-              </Badge>
-              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px]">
-                Akreditasi {sekolahData.akreditasi}
-              </Badge>
-            </div>
-            <p className="text-xs text-navy-200">
-              NPSN: {sekolahData.npsn} · Jenjang: {sekolahData.jenjang} · Kepala Sekolah: {sekolahData.kepsek}
-            </p>
+      {/* School Card Utama */}
+      {loading ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs animate-pulse flex items-center gap-5">
+          <div className="h-16 w-16 bg-slate-200 rounded-2xl shrink-0"></div>
+          <div className="space-y-2 flex-1">
+            <div className="h-6 w-64 bg-slate-200 rounded"></div>
+            <div className="h-4 w-96 bg-slate-100 rounded"></div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card className="border-none bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-md">
+          <CardContent className="flex items-center gap-5 p-6 md:p-7">
+            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-white/10 text-white border border-white/20 shrink-0">
+              <Building2 size={28} />
+            </span>
+            <div className="space-y-1 flex-1">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <p className="font-display text-xl font-bold text-white md:text-2xl">
+                  {sekolahData.nama}
+                </p>
+                <Badge variant="outline" className="border-white/20 bg-white/10 text-white text-[10px]">
+                  Akun Terverifikasi
+                </Badge>
+                <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px]">
+                  Akreditasi {sekolahData.akreditasi}
+                </Badge>
+              </div>
+              <p className="text-xs text-navy-200">
+                NPSN: {sekolahData.npsn} · Jenjang: {sekolahData.jenjang} · Kepala Sekolah: {sekolahData.kepsek}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Pengaturan Konfigurasi Akademik (Interaktif Sekarang!) */}
+        {/* Pengaturan Konfigurasi Akademik */}
         <section className="space-y-2">
           <h2 className="text-xs font-bold uppercase tracking-wider text-navy-900/60">
             Konfigurasi Akademik
@@ -197,7 +334,7 @@ export default function AdminPengaturanPage() {
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-navy-950 block">
-                      Kelola Hak Akses Guru &amp; Tenaga Kependidikan ({mockSekolah.totalGuru})
+                      Kelola Hak Akses Guru &amp; Tenaga Kependidikan ({sekolahData.totalGuru ?? 42})
                     </span>
                     <span className="text-[11px] text-muted-foreground block">
                       Penugasan hak akses wali kelas, guru piket, dan kurikulum
@@ -219,7 +356,7 @@ export default function AdminPengaturanPage() {
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-navy-950 block">
-                      Tema &amp; Desain Antarmuka (Navy Classic)
+                      Tema &amp; Desain Antarmuka ({selectedTheme === "navy" ? "Navy Classic" : "Emerald Modern"})
                     </span>
                     <span className="text-[11px] text-muted-foreground block">
                       Kustomisasi warna primer dashboard dan tata letak
@@ -244,164 +381,162 @@ export default function AdminPengaturanPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles size={16} className="text-navy-700" />
-                  <span className="text-sm font-bold text-navy-950">Paket Sekolah Modern Pro</span>
+                  <span className="text-sm font-bold text-navy-950">
+                    Paket {sekolahData.paket_langganan?.replace("_", " ") || "PRO TAHUNAN"}
+                  </span>
                 </div>
-                <Badge variant="hadir">Aktif</Badge>
+                <Badge variant="hadir">
+                  {sekolahData.status_langganan || "AKTIF"}
+                </Badge>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Mencakup hingga {mockSekolah.totalSiswa} siswa dan {mockSekolah.totalGuru} dewan guru aktif. Seluruh fitur sinkronisasi, cetak laporan Excel &amp; PDF, serta notifikasi presensi aktif penuh.
-              </p>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500">Masa Aktif: Hingga 31 Juli 2027</span>
-                <Link
-                  href="/harga"
-                  className="text-xs font-semibold text-navy-900 hover:text-navy-700 flex items-center gap-1"
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>
+                  Masa aktif hingga: <strong className="text-foreground">{sekolahData.tanggal_kadaluarsa || "24 Juli 2027"}</strong>
+                </p>
+                <p>
+                  Kuota Siswa: <strong className="text-foreground">{(sekolahData.totalSiswa ?? 720).toLocaleString("id-ID")}</strong> / 1.000
+                </p>
+                <p>
+                  Kuota Guru &amp; Staf: <strong className="text-foreground">{sekolahData.totalGuru ?? 42}</strong> / 80
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs font-medium border-navy-200 text-navy-900 hover:bg-navy-50"
+                  onClick={() => alert("Menghubungi Tim Support Hadirin untuk Perpanjangan Lisensi SaaS")}
                 >
-                  <span>Kelola Paket SaaS</span>
-                  <ExternalLink size={12} />
-                </Link>
+                  Perpanjang / Upgrade Lisensi
+                </Button>
               </div>
             </CardContent>
           </Card>
         </section>
       </div>
 
-      <div>
-        <Button
-          variant="outline"
-          onClick={handleLogout}
-          className="gap-2 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 cursor-pointer shadow-2xs"
-        >
-          <LogOut size={16} />
-          Keluar dari Sesi Admin
-        </Button>
-      </div>
+      {/* Logout Card */}
+      <Card className="border-rose-100 bg-rose-50/50">
+        <CardContent className="flex items-center justify-between p-4">
+          <div>
+            <p className="text-xs font-semibold text-rose-950">Keluar dari Sesi</p>
+            <p className="text-[11px] text-rose-700/80">
+              Akhiri sesi administrasi pada perangkat ini
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleLogout}
+            className="text-xs gap-1.5 bg-rose-600 hover:bg-rose-700"
+          >
+            <LogOut size={13} />
+            Keluar
+          </Button>
+        </CardContent>
+      </Card>
 
-      {/* MODAL 1: Edit Profil & Identitas Sekolah */}
+      {/* MODAL 1: PROFIL & IDENTITAS SEKOLAH */}
       {activeModal === "profil" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 border border-slate-200 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-navy-900 text-white">
-                  <Building2 size={18} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-navy-950">
-                    Profil &amp; Identitas Sekolah
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Perbarui data identitas legal institusi sekolah.
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-slate-200 overflow-hidden my-8">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/70">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-navy-800" />
+                <h3 className="font-semibold text-sm text-navy-950">
+                  Ubah Profil &amp; Identitas Sekolah
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveModal(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                showToast("Profil sekolah berhasil diperbarui!");
-                setActiveModal(null);
-              }}
-              className="space-y-3.5 text-xs"
-            >
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Nama Resmi Sekolah *</label>
+            <form onSubmit={handleSaveProfil} className="p-4 space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="font-medium text-slate-700">Nama Resmi Sekolah</label>
                 <Input
                   required
                   value={sekolahData.nama}
                   onChange={(e) => setSekolahData({ ...sekolahData, nama: e.target.value })}
-                  className="h-9 text-xs"
+                  className="h-8.5 text-xs"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">NPSN *</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">NPSN</label>
                   <Input
-                    required
                     value={sekolahData.npsn}
                     onChange={(e) => setSekolahData({ ...sekolahData, npsn: e.target.value })}
-                    className="h-9 text-xs font-mono"
+                    className="h-8.5 text-xs font-mono"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Jenjang Sekolah *</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Jenjang</label>
                   <select
                     value={sekolahData.jenjang}
                     onChange={(e) => setSekolahData({ ...sekolahData, jenjang: e.target.value })}
-                    className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-navy-900"
+                    className="w-full h-8.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-navy-600"
                   >
                     <option value="SD">SD / MI</option>
                     <option value="SMP">SMP / MTs</option>
                     <option value="SMA">SMA / MA</option>
-                    <option value="SMK">SMK / Mak</option>
+                    <option value="SMK">SMK</option>
                   </select>
                 </div>
               </div>
 
+              <div className="space-y-1">
+                <label className="font-medium text-slate-700">Alamat Lengkap</label>
+                <Input
+                  value={sekolahData.alamat}
+                  onChange={(e) => setSekolahData({ ...sekolahData, alamat: e.target.value })}
+                  className="h-8.5 text-xs"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Status Akreditasi</label>
-                  <Input
-                    value={sekolahData.akreditasi}
-                    onChange={(e) => setSekolahData({ ...sekolahData, akreditasi: e.target.value })}
-                    className="h-9 text-xs"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Telepon Kantor</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Nomor Telepon</label>
                   <Input
                     value={sekolahData.telepon}
                     onChange={(e) => setSekolahData({ ...sekolahData, telepon: e.target.value })}
-                    className="h-9 text-xs font-mono"
+                    className="h-8.5 text-xs font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Email Resmi</label>
+                  <Input
+                    type="email"
+                    value={sekolahData.email}
+                    onChange={(e) => setSekolahData({ ...sekolahData, email: e.target.value })}
+                    className="h-8.5 text-xs"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Email Resmi Sekolah</label>
-                <Input
-                  type="email"
-                  value={sekolahData.email}
-                  onChange={(e) => setSekolahData({ ...sekolahData, email: e.target.value })}
-                  className="h-9 text-xs"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Alamat Lengkap</label>
-                <textarea
-                  rows={2}
-                  value={sekolahData.alamat}
-                  onChange={(e) => setSekolahData({ ...sekolahData, alamat: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs outline-none focus:ring-2 focus:ring-navy-900 resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Nama Kepala Sekolah</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Nama Kepala Sekolah</label>
                   <Input
                     value={sekolahData.kepsek}
                     onChange={(e) => setSekolahData({ ...sekolahData, kepsek: e.target.value })}
-                    className="h-9 text-xs"
+                    className="h-8.5 text-xs"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">NIP Kepala Sekolah</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">NIP Kepala Sekolah</label>
                   <Input
                     value={sekolahData.nipKepsek}
                     onChange={(e) => setSekolahData({ ...sekolahData, nipKepsek: e.target.value })}
-                    className="h-9 text-xs font-mono"
+                    className="h-8.5 text-xs font-mono"
                   />
                 </div>
               </div>
@@ -412,16 +547,19 @@ export default function AdminPengaturanPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setActiveModal(null)}
-                  className="text-xs cursor-pointer"
+                  disabled={saving}
+                  className="h-8 text-xs"
                 >
                   Batal
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
-                  className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer"
+                  disabled={saving}
+                  className="h-8 text-xs bg-navy-900 hover:bg-navy-800 text-white gap-1"
                 >
-                  Simpan Perubahan
+                  <Save size={13} />
+                  {saving ? "Menyimpan..." : "Simpan Perubahan"}
                 </Button>
               </div>
             </form>
@@ -429,131 +567,89 @@ export default function AdminPengaturanPage() {
         </div>
       )}
 
-      {/* MODAL 2: Jam Pelajaran & Durasi Sesi */}
+      {/* MODAL 2: JAM PELAJARAN & SESI */}
       {activeModal === "jam" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-sky-100 text-sky-900">
-                  <Clock size={18} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-navy-950">
-                    Jam Pelajaran &amp; Durasi Sesi
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Konfigurasi jam masuk, durasi jam pelajaran, dan istirahat.
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-slate-200 overflow-hidden my-8">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/70">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-sky-700" />
+                <h3 className="font-semibold text-sm text-navy-950">
+                  Konfigurasi Jam Pelajaran &amp; Sesi
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveModal(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                showToast("Konfigurasi jam pelajaran berhasil diperbarui!");
-                setActiveModal(null);
-              }}
-              className="space-y-3.5 text-xs"
-            >
+            <form onSubmit={handleSaveJam} className="p-4 space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Durasi 1 JP (Menit)</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Durasi Per JP (Menit)</label>
                   <Input
                     type="number"
-                    min="30"
-                    max="60"
                     value={jamConfig.durasiJP}
-                    onChange={(e) => setJamConfig({ ...jamConfig, durasiJP: Number(e.target.value) })}
-                    className="h-9 text-xs font-mono"
+                    onChange={(e) => setJamConfig({ ...jamConfig, durasiJP: parseInt(e.target.value) || 45 })}
+                    className="h-8.5 text-xs font-mono"
                   />
-                  <span className="text-[10px] text-slate-400">Standar SMA/SMK: 45 menit/JP</span>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Toleransi Terlambat (Menit)</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Toleransi Keterlambatan (Menit)</label>
                   <Input
                     type="number"
-                    min="0"
-                    max="60"
                     value={jamConfig.toleransiTerlambat}
-                    onChange={(e) => setJamConfig({ ...jamConfig, toleransiTerlambat: Number(e.target.value) })}
-                    className="h-9 text-xs font-mono"
+                    onChange={(e) => setJamConfig({ ...jamConfig, toleransiTerlambat: parseInt(e.target.value) || 15 })}
+                    className="h-8.5 text-xs font-mono"
                   />
-                  <span className="text-[10px] text-slate-400">Presensi siswa &amp; guru</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Jam Bel Sekolah Berbunyi (Masuk)</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Jam Masuk Sekolah</label>
                   <Input
                     type="time"
                     value={jamConfig.jamMasuk}
                     onChange={(e) => setJamConfig({ ...jamConfig, jamMasuk: e.target.value })}
-                    className="h-9 text-xs font-mono"
+                    className="h-8.5 text-xs font-mono"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Jam Bel Pulang KBM</label>
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700">Jam Pulang Sekolah</label>
                   <Input
                     type="time"
                     value={jamConfig.jamPulang}
                     onChange={(e) => setJamConfig({ ...jamConfig, jamPulang: e.target.value })}
-                    className="h-9 text-xs font-mono"
+                    className="h-8.5 text-xs font-mono"
                   />
                 </div>
               </div>
 
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
-                <span className="font-bold text-slate-700 block text-[11px] uppercase tracking-wide">
-                  Jadwal Waktu Istirahat Sekolah
-                </span>
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <p className="font-semibold text-navy-950">Waktu Istirahat</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="text-[10px] text-slate-500">Istirahat 1 (Pagi)</span>
-                    <div className="flex items-center gap-1.5 font-mono text-xs">
-                      <Input
-                        type="time"
-                        value={jamConfig.istirahat1Mulai}
-                        onChange={(e) => setJamConfig({ ...jamConfig, istirahat1Mulai: e.target.value })}
-                        className="h-8 text-xs font-mono px-2"
-                      />
-                      <span>-</span>
-                      <Input
-                        type="time"
-                        value={jamConfig.istirahat1Selesai}
-                        onChange={(e) => setJamConfig({ ...jamConfig, istirahat1Selesai: e.target.value })}
-                        className="h-8 text-xs font-mono px-2"
-                      />
-                    </div>
+                    <label className="text-[11px] text-slate-600">Istirahat 1 Mulai</label>
+                    <Input
+                      type="time"
+                      value={jamConfig.istirahat1Mulai}
+                      onChange={(e) => setJamConfig({ ...jamConfig, istirahat1Mulai: e.target.value })}
+                      className="h-8 text-xs font-mono"
+                    />
                   </div>
-
                   <div className="space-y-1">
-                    <span className="text-[10px] text-slate-500">Istirahat 2 (Dzuhur/Makan)</span>
-                    <div className="flex items-center gap-1.5 font-mono text-xs">
-                      <Input
-                        type="time"
-                        value={jamConfig.istirahat2Mulai}
-                        onChange={(e) => setJamConfig({ ...jamConfig, istirahat2Mulai: e.target.value })}
-                        className="h-8 text-xs font-mono px-2"
-                      />
-                      <span>-</span>
-                      <Input
-                        type="time"
-                        value={jamConfig.istirahat2Selesai}
-                        onChange={(e) => setJamConfig({ ...jamConfig, istirahat2Selesai: e.target.value })}
-                        className="h-8 text-xs font-mono px-2"
-                      />
-                    </div>
+                    <label className="text-[11px] text-slate-600">Istirahat 1 Selesai</label>
+                    <Input
+                      type="time"
+                      value={jamConfig.istirahat1Selesai}
+                      onChange={(e) => setJamConfig({ ...jamConfig, istirahat1Selesai: e.target.value })}
+                      className="h-8 text-xs font-mono"
+                    />
                   </div>
                 </div>
               </div>
@@ -564,16 +660,17 @@ export default function AdminPengaturanPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setActiveModal(null)}
-                  className="text-xs cursor-pointer"
+                  className="h-8 text-xs"
                 >
                   Batal
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
-                  className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer"
+                  className="h-8 text-xs bg-navy-900 hover:bg-navy-800 text-white gap-1"
                 >
-                  Simpan Jam Pelajaran
+                  <Save size={13} />
+                  Simpan Konfigurasi
                 </Button>
               </div>
             </form>
@@ -581,179 +678,146 @@ export default function AdminPengaturanPage() {
         </div>
       )}
 
-      {/* MODAL 3: Kelola Hak Akses Guru & PTK */}
+      {/* MODAL 3: KELOLA HAK AKSES DEWAN GURU */}
       {activeModal === "akses" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 border border-slate-200 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-purple-100 text-purple-900">
-                  <Users size={18} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-navy-950">
-                    Kelola Hak Akses Guru &amp; Tenaga Kependidikan
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Atur kewenangan peran dewan guru, wali kelas, kurikulum, dan staf TU.
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-slate-200 overflow-hidden my-8">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/70">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-700" />
+                <h3 className="font-semibold text-sm text-navy-950">
+                  Kelola Hak Akses &amp; Penugasan PTK
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveModal(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto min-h-0 border border-slate-200 rounded-xl">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold sticky top-0 border-b border-slate-200">
-                  <tr>
-                    <th className="py-2.5 px-3">Nama Guru &amp; Kontak</th>
-                    <th className="py-2.5 px-3">Mapel Diampu</th>
-                    <th className="py-2.5 px-3">Hak Akses / Peran</th>
-                    <th className="py-2.5 px-3 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {daftarGuru.map((g) => (
-                    <tr key={g.id} className="hover:bg-slate-50/60">
-                      <td className="py-2.5 px-3">
-                        <p className="font-semibold text-navy-950">{g.nama}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">{g.email}</p>
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-600">
-                        {g.mapel.join(", ")}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <select
-                          value={guruRoles[g.id] || "Guru Pengajar"}
-                          onChange={(e) => {
-                            setGuruRoles({ ...guruRoles, [g.id]: e.target.value });
-                            showToast(`Hak akses ${g.nama} diubah ke ${e.target.value}.`);
-                          }}
-                          className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-navy-950 outline-none focus:ring-1 focus:ring-navy-900 cursor-pointer"
-                        >
-                          <option value="Guru Pengajar">Guru Pengajar</option>
-                          <option value="Wali Kelas & Guru Pengajar">Wali Kelas</option>
-                          <option value="Wakasek Kurikulum">Wakasek Kurikulum</option>
-                          <option value="Guru Pengajar & Piket">Guru Piket</option>
-                          <option value="Staf Tata Usaha">Staf Tata Usaha</option>
-                        </select>
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => showToast(`Link reset password telah dikirim ke ${g.email}`)}
-                          className="h-7 text-[11px] text-navy-800 hover:bg-slate-100 gap-1 px-2 cursor-pointer"
-                        >
-                          <KeyRound size={12} />
-                          <span>Reset Sandi</span>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <form onSubmit={handleSaveAkses} className="p-4 space-y-3.5 text-xs">
+              <p className="text-[11px] text-slate-500">
+                Atur peran struktural dan akses guru untuk jadwal mengajar, supervisi absensi, dan jurnal kelas.
+              </p>
 
-            <div className="flex items-center justify-between border-t border-slate-100 pt-3 shrink-0">
-              <span className="text-xs text-slate-500">
-                Total PTK: <strong className="text-navy-950 font-bold font-mono">{daftarGuru.length}</strong> akun aktif
-              </span>
-              <Button
-                size="sm"
-                onClick={() => setActiveModal(null)}
-                className="bg-navy-900 hover:bg-navy-800 text-white text-xs cursor-pointer"
-              >
-                Selesai
-              </Button>
-            </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 divide-y divide-slate-100">
+                {(guruList.length > 0 ? guruList.slice(0, 5) : [
+                  { id: "g1", nama: "Budi Santoso, S.Pd", nuptk: "12345678" },
+                  { id: "g2", nama: "Siti Rahma, M.Pd", nuptk: "23456789" },
+                  { id: "g3", nama: "Ahmad Fauzi, S.Kom", nuptk: "34567890" },
+                ]).map((g: any) => (
+                  <div key={g.id} className="pt-2 pb-1 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-navy-950 text-xs">{g.nama}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">NUPTK: {g.nuptk || "-"}</p>
+                    </div>
+                    <select
+                      value={guruRoles[g.id] || "Guru Pengajar"}
+                      onChange={(e) => setGuruRoles({ ...guruRoles, [g.id]: e.target.value })}
+                      className="h-7.5 rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-700"
+                    >
+                      <option value="Guru Pengajar">Guru Pengajar</option>
+                      <option value="Wali Kelas & Guru Pengajar">Wali Kelas</option>
+                      <option value="Guru Pengajar & Piket">Guru Piket</option>
+                      <option value="Wakasek Kurikulum">Wakasek Kurikulum</option>
+                      <option value="Bimbingan Konseling">Guru BK</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveModal(null)}
+                  className="h-8 text-xs"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-8 text-xs bg-navy-900 hover:bg-navy-800 text-white gap-1"
+                >
+                  <Save size={13} />
+                  Simpan Hak Akses
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* MODAL 4: Tema & Desain Antarmuka */}
+      {/* MODAL 4: TEMA ANTARMUKA */}
       {activeModal === "tema" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-900">
-                  <Palette size={18} />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-navy-950">
-                    Tema &amp; Desain Antarmuka
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Pilih skema warna utama tampilan sistem Hadirin.
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/70">
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-emerald-700" />
+                <h3 className="font-semibold text-sm text-navy-950">
+                  Pilih Tema Antarmuka
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveModal(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              {[
-                { id: "navy", nama: "Navy Classic (Default)", desc: "Warna resmi standar Hadirin SaaS (Elegan & Resmi)", color: "bg-navy-900" },
-                { id: "emerald", nama: "Emerald Green (Madrasah / Hijau)", desc: "Cocok untuk sekolah berbasis Islam / MTs / MA", color: "bg-emerald-700" },
-                { id: "indigo", nama: "Royal Indigo Modern", desc: "Nuansa modern perguruan tinggi & sekolah internasional", color: "bg-indigo-700" },
-                { id: "maroon", nama: "Crimson Executive", desc: "Nuansa prestisius merah tua berwibawa", color: "bg-rose-900" },
-              ].map((t) => (
-                <div
-                  key={t.id}
-                  onClick={() => setSelectedTheme(t.id)}
-                  className={cn(
-                    "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
-                    selectedTheme === t.id
-                      ? "border-navy-900 bg-navy-50/40 ring-1 ring-navy-900"
-                      : "border-slate-200 hover:bg-slate-50"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={cn("h-7 w-7 rounded-lg shrink-0", t.color)} />
-                    <div>
-                      <p className="font-bold text-navy-950">{t.nama}</p>
-                      <p className="text-[11px] text-slate-500">{t.desc}</p>
-                    </div>
+            <div className="p-4 space-y-3 text-xs">
+              <div
+                onClick={() => setSelectedTheme("navy")}
+                className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between transition-colors ${
+                  selectedTheme === "navy" ? "border-navy-900 bg-navy-50/60" : "border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-navy-900"></div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Navy Classic (Default)</p>
+                    <p className="text-[11px] text-slate-500">Kombinasi navy premium &amp; aksen amber</p>
                   </div>
-                  {selectedTheme === t.id && (
-                    <Check size={18} className="text-navy-900 shrink-0" />
-                  )}
                 </div>
-              ))}
-            </div>
+                {selectedTheme === "navy" && <Check size={16} className="text-navy-900" />}
+              </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveModal(null)}
-                className="text-xs cursor-pointer"
+              <div
+                onClick={() => setSelectedTheme("emerald")}
+                className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between transition-colors ${
+                  selectedTheme === "emerald" ? "border-emerald-700 bg-emerald-50/60" : "border-slate-200 hover:bg-slate-50"
+                }`}
               >
-                Batal
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  showToast("Tema antarmuka berhasil diterapkan!");
-                  setActiveModal(null);
-                }}
-                className="bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold cursor-pointer"
-              >
-                Terapkan Tema
-              </Button>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-emerald-700"></div>
+                  <div>
+                    <p className="font-semibold text-slate-900">Emerald Fresh</p>
+                    <p className="text-[11px] text-slate-500">Nuansa hijau segar &amp; edukatif</p>
+                  </div>
+                </div>
+                {selectedTheme === "emerald" && <Check size={16} className="text-emerald-700" />}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    showToast("Tema antarmuka berhasil diubah!");
+                    setActiveModal(null);
+                  }}
+                  className="h-8 text-xs bg-navy-900 hover:bg-navy-800 text-white"
+                >
+                  Terapkan Tema
+                </Button>
+              </div>
             </div>
           </div>
         </div>
