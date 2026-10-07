@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Heart,
   CheckCircle2,
@@ -14,23 +14,72 @@ import {
   FileCheck,
   Award,
   Megaphone,
+  RefreshCw,
+  Sparkles,
+  School
 } from "lucide-react";
 import { useStore, HARI_INI } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api-client";
 
 export default function PortalOrangTuaPage() {
-  const { currentUser, daftarPengumuman } = useStore();
+  const { currentUser } = useStore();
 
-  const pengumumanOrtu = daftarPengumuman.filter(
-    (p) => p.status === "DITERBITKAN" && (p.sasaran === "SEMUA" || p.sasaran === "ORANG_TUA")
-  );
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pengumumanOrtu, setPengumumanOrtu] = useState<any[]>([]);
+  const [agendaList, setAgendaList] = useState<any[]>([]);
+  const [catatanPrestasi, setCatatanPrestasi] = useState<any[]>([]);
+
+  const loadData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
+
+    try {
+      const [pengumumanRes, agendaRes, bkRes] = await Promise.allSettled([
+        api.getPengumumanList(),
+        api.getAgendaAkademikList(),
+        api.getKasusBKList(),
+      ]);
+
+      if (pengumumanRes.status === "fulfilled" && pengumumanRes.value?.data) {
+        const raw = Array.isArray(pengumumanRes.value.data) ? pengumumanRes.value.data : [];
+        setPengumumanOrtu(
+          raw.filter(
+            (p: any) =>
+              p.status === "DITERBITKAN" &&
+              (!p.sasaran || p.sasaran === "SEMUA" || p.sasaran === "ORANG_TUA")
+          )
+        );
+      }
+
+      if (agendaRes.status === "fulfilled" && agendaRes.value?.data) {
+        const raw = Array.isArray(agendaRes.value.data) ? agendaRes.value.data : [];
+        setAgendaList(raw.slice(0, 3));
+      }
+
+      if (bkRes.status === "fulfilled" && bkRes.value?.data) {
+        const raw = Array.isArray(bkRes.value.data) ? bkRes.value.data : [];
+        setCatatanPrestasi(raw.slice(0, 2));
+      }
+    } catch (err) {
+      console.error("Gagal memuat portal orang tua:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-1">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950 md:text-3xl">
@@ -46,14 +95,31 @@ export default function PortalOrangTuaPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="navy" className="px-3 py-1 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadData(true)}
+            disabled={refreshing || loading}
+            className="text-xs h-9 gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin text-navy-600" : ""} />
+            <span>Muat Ulang</span>
+          </Button>
+
+          <Badge variant="navy" className="px-3 py-1.5 text-xs h-9 flex items-center">
             Semester Ganjil 2026/2027
           </Badge>
         </div>
       </div>
 
       {/* Announcement Banner for Parents */}
-      {pengumumanOrtu.length > 0 && (
+      {loading ? (
+        <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4 animate-pulse space-y-2">
+          <div className="h-4 w-40 bg-purple-200 rounded"></div>
+          <div className="h-5 w-72 bg-purple-200 rounded"></div>
+          <div className="h-3 w-full bg-purple-100 rounded"></div>
+        </div>
+      ) : pengumumanOrtu.length > 0 ? (
         <div className="rounded-2xl border border-purple-200 bg-purple-50/90 p-4 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -63,7 +129,7 @@ export default function PortalOrangTuaPage() {
               </span>
             </div>
             <span className="text-[10px] font-mono font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
-              {pengumumanOrtu[0].kategori}
+              {pengumumanOrtu[0].kategori || "INFORMASI"}
             </span>
           </div>
           <div className="space-y-1 text-xs text-purple-950">
@@ -71,44 +137,56 @@ export default function PortalOrangTuaPage() {
             <p className="text-slate-700 leading-relaxed line-clamp-2">{pengumumanOrtu[0].konten}</p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Profil Ananda Card */}
-      <Card className="border border-slate-200 bg-white shadow-xs">
-        <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-navy-900 text-white flex items-center justify-center font-display font-bold text-xl shadow-xs">
-              AF
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-navy-950">Ahmad Fadillah</h3>
-                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold">
-                  Siswa Aktif
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                NIS: 24001 · Kelas X IPA 1 · SMA Negeri 3 Contoh Kota Bogor
-              </p>
-              <p className="text-xs text-slate-600 mt-1 font-medium">
-                Wali Kelas: <strong>Sari Wulandari, S.Pd</strong>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
-              onClick={() => alert("Menghubungi Ruang Konsultasi Wali Kelas: (0251) 8321000 ext. 104")}
-            >
-              <Phone size={13} className="text-primary" />
-              Kontak Wali Kelas
-            </Button>
+      {loading ? (
+        <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs animate-pulse flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-slate-200"></div>
+          <div className="space-y-2 flex-1">
+            <div className="h-5 w-44 bg-slate-200 rounded"></div>
+            <div className="h-3.5 w-72 bg-slate-100 rounded"></div>
           </div>
         </div>
-      </Card>
+      ) : (
+        <Card className="border border-slate-200 bg-white shadow-xs">
+          <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-navy-900 text-white flex items-center justify-center font-display font-bold text-xl shadow-xs">
+                AF
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-navy-950">
+                    {currentUser?.nama || "Ahmad Fadillah"}
+                  </h3>
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold">
+                    Siswa Aktif
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  NIS: 24001 · Kelas X IPA 1 · SMA Negeri 3 Unggulan
+                </p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">
+                  Wali Kelas: <strong>Sari Wulandari, S.Pd</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                onClick={() => alert("Menghubungi Ruang Konsultasi Wali Kelas: (0251) 8321000 ext. 104")}
+              >
+                <Phone size={13} className="text-primary" />
+                Kontak Wali Kelas
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Status Kehadiran Hari Ini (Live Notification Box) */}
       <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50/90 to-teal-50/60 shadow-xs">
@@ -117,7 +195,7 @@ export default function PortalOrangTuaPage() {
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                Pemberitahuan Kehadiran Hari Ini ({HARI_INI}, 24 Juli 2026)
+                Pemberitahuan Kehadiran Hari Ini ({HARI_INI})
               </span>
             </div>
             <h3 className="font-display text-xl font-bold text-emerald-950">
@@ -138,37 +216,49 @@ export default function PortalOrangTuaPage() {
 
       {/* Rekapitulasi Presensi Semester Ini */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Total Hadir</span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-700 mt-1">38 Hari</p>
-            <p className="text-[11px] text-emerald-800 mt-1 font-semibold">95.2% Disiplin</p>
-          </div>
-        </Card>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <div key={`skel-kpi-ortu-${idx}`} className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs animate-pulse space-y-2">
+              <div className="h-3 w-20 bg-slate-200 rounded"></div>
+              <div className="h-7 w-16 bg-slate-200 rounded"></div>
+              <div className="h-2.5 w-24 bg-slate-100 rounded"></div>
+            </div>
+          ))
+        ) : (
+          <>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Total Hadir</span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-700 mt-1">38 Hari</p>
+                <p className="text-[11px] text-emerald-800 mt-1 font-semibold">95.2% Disiplin</p>
+              </div>
+            </Card>
 
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Sakit (Dokter)</span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-amber-700 mt-1">1 Hari</p>
-            <p className="text-[11px] text-slate-500 mt-1">Surat Dokter Diterima</p>
-          </div>
-        </Card>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Sakit (Dokter)</span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-amber-700 mt-1">1 Hari</p>
+                <p className="text-[11px] text-slate-500 mt-1">Surat Dokter Diterima</p>
+              </div>
+            </Card>
 
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Izin Resmi</span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-sky-700 mt-1">1 Hari</p>
-            <p className="text-[11px] text-slate-500 mt-1">Dispensasi Lomba</p>
-          </div>
-        </Card>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Izin Resmi</span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-sky-700 mt-1">1 Hari</p>
+                <p className="text-[11px] text-slate-500 mt-1">Dispensasi Kegiatan</p>
+              </div>
+            </Card>
 
-        <Card className="border border-border bg-white shadow-xs">
-          <div className="p-4 md:p-5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Alpha (Tanpa Ket.)</span>
-            <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-800 mt-1">0 Hari</p>
-            <p className="text-[11px] text-emerald-700 mt-1 font-semibold">Bebas Pelanggaran</p>
-          </div>
-        </Card>
+            <Card className="border border-border bg-white shadow-xs">
+              <div className="p-4 md:p-5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Alpha (Tanpa Ket.)</span>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-800 mt-1">0 Hari</p>
+                <p className="text-[11px] text-emerald-700 mt-1 font-semibold">Bebas Pelanggaran</p>
+              </div>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Perkembangan Karakter & Catatan Prestasi */}
@@ -184,16 +274,29 @@ export default function PortalOrangTuaPage() {
             </CardDescription>
           </CardHeader>
           <div className="p-5 space-y-3">
-            <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start gap-3">
-              <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <h4 className="font-bold text-xs text-emerald-950">Apresiasi Prestasi Akademik (+25 Poin)</h4>
-                <p className="text-xs text-emerald-800">
-                  Meraih Juara 2 Olimpiade Sains Nasional (OSN) Tingkat Kota Bogor bidang Fisika.
-                </p>
-                <span className="text-[10px] text-emerald-700/80 block pt-1 font-mono">18 Juli 2026</span>
+            {catatanPrestasi.length > 0 ? (
+              catatanPrestasi.map((item, idx) => (
+                <div key={idx} className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start gap-3">
+                  <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <h4 className="font-bold text-xs text-emerald-950">{item.judul || "Apresiasi Prestasi"} (+{item.poin || 25} Poin)</h4>
+                    <p className="text-xs text-emerald-800">{item.deskripsi || "Meraih prestasi membanggakan pada ajang kompetisi sekolah."}</p>
+                    <span className="text-[10px] text-emerald-700/80 block pt-1 font-mono">{item.tanggal || "Terbaru"}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <h4 className="font-bold text-xs text-emerald-950">Apresiasi Prestasi Akademik (+25 Poin)</h4>
+                  <p className="text-xs text-emerald-800">
+                    Meraih Juara 2 Olimpiade Sains Nasional (OSN) Tingkat Kota Bogor bidang Fisika.
+                  </p>
+                  <span className="text-[10px] text-emerald-700/80 block pt-1 font-mono">18 Juli 2026</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600">
               <p className="font-semibold text-navy-950 mb-1">Catatan Sikap Wali Kelas:</p>
@@ -215,35 +318,41 @@ export default function PortalOrangTuaPage() {
             </CardDescription>
           </CardHeader>
           <div className="p-5 space-y-3 text-xs">
-            <div className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
-              <div>
-                <p className="font-bold text-navy-950">Pertemuan Wali Murid &amp; Komite Sekolah</p>
-                <p className="text-[11px] text-slate-500">Sosialisasi Kurikulum Merdeka Fase E</p>
-              </div>
-              <Badge variant="outline" className="text-[11px] font-mono shrink-0">
-                1 Agustus 2026
-              </Badge>
-            </div>
+            {agendaList.length > 0 ? (
+              agendaList.map((item, idx) => (
+                <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-navy-950">{item.namaKegiatan || item.nama || item.judul}</p>
+                    <p className="text-[11px] text-slate-500">{item.deskripsi || item.lokasi || "Kegiatan Akademik"}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[11px] font-mono shrink-0">
+                    {item.tanggalMulai || item.tanggal || "Agustus 2026"}
+                  </Badge>
+                </div>
+              ))
+            ) : (
+              <>
+                <div className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-navy-950">Pertemuan Wali Murid &amp; Komite Sekolah</p>
+                    <p className="text-[11px] text-slate-500">Sosialisasi Kurikulum Merdeka Fase E</p>
+                  </div>
+                  <Badge variant="outline" className="text-[11px] font-mono shrink-0">
+                    1 Agustus 2026
+                  </Badge>
+                </div>
 
-            <div className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
-              <div>
-                <p className="font-bold text-navy-950">Penilaian Tengah Semester (PTS) Ganjil</p>
-                <p className="text-[11px] text-slate-500">Evaluasi Capaian Pembelajaran</p>
-              </div>
-              <Badge variant="outline" className="text-[11px] font-mono shrink-0">
-                15 - 22 Sept 2026
-              </Badge>
-            </div>
-
-            <div className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
-              <div>
-                <p className="font-bold text-navy-950">Pentas Seni &amp; Projek Penguatan Profil Pelajar Pancasila (P5)</p>
-                <p className="text-[11px] text-slate-500">Gelar Karya Siswa Kelas X &amp; XI</p>
-              </div>
-              <Badge variant="outline" className="text-[11px] font-mono shrink-0">
-                10 Oktober 2026
-              </Badge>
-            </div>
+                <div className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-navy-950">Penilaian Tengah Semester (PTS) Ganjil</p>
+                    <p className="text-[11px] text-slate-500">Evaluasi Capaian Pembelajaran</p>
+                  </div>
+                  <Badge variant="outline" className="text-[11px] font-mono shrink-0">
+                    15 - 22 Sept 2026
+                  </Badge>
+                </div>
+              </>
+            )}
           </div>
         </Card>
       </div>
