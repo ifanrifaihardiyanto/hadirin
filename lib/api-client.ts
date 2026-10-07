@@ -469,6 +469,13 @@ export const api = {
     });
   },
 
+  async kembalikanSarpras(id: string | number, payload?: { kondisi_kembali?: string }) {
+    return fetchApi(`/sarpras/pinjam/${id}/kembali`, {
+      method: "PATCH",
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
   // Perpustakaan (Fase 4)
   async getPerpusBukuList(params?: { kategori?: string; search?: string }) {
     const query = new URLSearchParams();
