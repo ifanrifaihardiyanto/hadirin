@@ -1,4 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#2F6F62"/>
-  <path d="M150 268 L226 344 L370 176" fill="none" stroke="#F7F5EF" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#091E3A" />
+      <stop offset="100%" stop-color="#1E3A8A" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Rounded Squircle -->
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" />
+
+  <!-- Outer Subtle Ring -->
+  <rect x="24" y="24" width="464" height="464" rx="96" stroke="rgba(255, 255, 255, 0.12)" stroke-width="8" />
+
+  <!-- Graduation Cap / Book Silhouette Base -->
+  <path d="M256 120 L390 190 L256 260 L122 190 Z" fill="url(#goldGrad)" opacity="0.95" />
+  <path d="M360 220 V300 C360 330 310 360 256 360 C202 360 152 330 152 300 V220" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" fill="none" opacity="0.3" />
+
+  <!-- Large Checkmark for Presence / "Hadirin" -->
+  <path d="M170 290 L235 355 L345 225" stroke="#FFFFFF" stroke-width="44" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
