@@ -263,6 +263,11 @@ export const api = {
     return fetchApi("/presensi-guru/today");
   },
 
+  async getPresensiGuruHistory(bulan?: string) {
+    const qs = bulan ? `?bulan=${bulan}` : "";
+    return fetchApi(`/presensi-guru/history${qs}`);
+  },
+
   async clockInGuru(payload?: { lokasi?: string; keterangan?: string; latitude?: number; longitude?: number }) {
     return fetchApi("/presensi-guru/clock-in", {
       method: "POST",

@@ -2466,6 +2466,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       refreshPresensiGuruToday: async () => {
         try {
+          const histRes = await api.getPresensiGuruHistory();
+          if (histRes?.data && Array.isArray(histRes.data)) {
+            const list: PresensiGuruRecord[] = histRes.data.map((p: any) => ({
+              id: String(p.id),
+              guruId: String(p.guru_id || "g1"),
+              nama: p.guru?.nama || currentUser.nama || "Sari Wulandari, S.Pd",
+              nip: p.guru?.nip || "198503152010012015",
+              jabatan: p.guru?.jabatan || "Wali Kelas & Guru Matematika",
+              tanggal: p.tanggal || getTanggalHariIniFormatted(),
+              jamMasuk: p.jam_masuk ? `${p.jam_masuk.substring(0, 5)} WIB` : "-",
+              jamPulang: p.jam_pulang ? `${p.jam_pulang.substring(0, 5)} WIB` : undefined,
+              status: p.status || "TEPAT_WAKTU",
+              keterangan: p.keterangan || "Presensi Hadir",
+              lokasi: p.lokasi || "SMAN 3 Contoh",
+            }));
+            setPresensiGuruList(list);
+            return;
+          }
+
           const res = await api.getPresensiGuruToday();
           if (res?.data) {
             const p = res.data;

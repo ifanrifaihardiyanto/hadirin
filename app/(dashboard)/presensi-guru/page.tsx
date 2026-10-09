@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Loader2,
   Clock,
@@ -94,6 +94,41 @@ export default function PresensiGuruMandiriPage() {
   const myRecord = presensiGuruList.find(
     (p) => String(p.guruId) === String(guruId) || String(p.guruId) === "1" || String(p.guruId) === "g1"
   ) || presensiGuruList[0];
+
+  // Statistik Kedisiplinan Bulan Ini (Dihitung Dinamis dari Database Presensi Riil)
+  const statsBulanIni = useMemo(() => {
+    const currentMonthPrefix = new Date().toISOString().slice(0, 7); // contoh: "2026-10"
+    const myMonthlyRecords = presensiGuruList.filter((p) => {
+      const matchGuru =
+        !p.guruId ||
+        String(p.guruId) === String(guruId) ||
+        String(p.guruId) === "1" ||
+        String(p.guruId) === "g1";
+      const matchMonth = p.tanggal ? p.tanggal.startsWith(currentMonthPrefix) : true;
+      return matchGuru && matchMonth;
+    });
+
+    const listToCalc = myMonthlyRecords.length > 0 ? myMonthlyRecords : presensiGuruList;
+
+    const totalHadir = listToCalc.filter(
+      (r) => r.status === "TEPAT_WAKTU" || r.status === "TERLAMBAT"
+    ).length;
+
+    const totalTerlambat = listToCalc.filter((r) => r.status === "TERLAMBAT").length;
+    const totalDinas = listToCalc.filter((r) => r.status === "IZIN_DINAS").length;
+    const totalTepatWaktu = listToCalc.filter((r) => r.status === "TEPAT_WAKTU").length;
+
+    const totalPresensi = totalHadir + totalDinas;
+    const persentase =
+      totalPresensi > 0 ? Math.round((totalTepatWaktu / totalPresensi) * 100) : 100;
+
+    return {
+      hadir: totalHadir,
+      terlambat: totalTerlambat,
+      dinasLuar: totalDinas,
+      persentase,
+    };
+  }, [presensiGuruList, guruId]);
 
   // Deteksi GPS Asli dari Browser Device
   const mintaLokasiGPS = () => {
@@ -473,20 +508,36 @@ export default function PresensiGuruMandiriPage() {
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-600">Disiplin Bulan Ini:</span>
-                <span className="font-mono font-bold text-emerald-700">96% Tepat Waktu</span>
+                <span
+                  className={`font-mono font-bold ${
+                    statsBulanIni.persentase >= 80
+                      ? "text-emerald-700"
+                      : statsBulanIni.persentase >= 50
+                      ? "text-amber-700"
+                      : "text-rose-600"
+                  }`}
+                >
+                  {statsBulanIni.persentase}% Tepat Waktu
+                </span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center pt-1">
                 <div className="bg-emerald-50/70 border border-emerald-200 p-2.5 rounded-lg">
                   <span className="text-[10px] text-emerald-700 block font-medium">Hadir</span>
-                  <span className="text-sm font-bold font-mono text-emerald-900">22 Hari</span>
+                  <span className="text-sm font-bold font-mono text-emerald-900">
+                    {statsBulanIni.hadir} Hari
+                  </span>
                 </div>
                 <div className="bg-amber-50/70 border border-amber-200 p-2.5 rounded-lg">
                   <span className="text-[10px] text-amber-700 block font-medium">Terlambat</span>
-                  <span className="text-sm font-bold font-mono text-amber-900">1 Hari</span>
+                  <span className="text-sm font-bold font-mono text-amber-900">
+                    {statsBulanIni.terlambat} Hari
+                  </span>
                 </div>
                 <div className="bg-sky-50/70 border border-sky-200 p-2.5 rounded-lg">
                   <span className="text-[10px] text-sky-700 block font-medium">Dinas Luar</span>
-                  <span className="text-sm font-bold font-mono text-sky-900">2 Hari</span>
+                  <span className="text-sm font-bold font-mono text-sky-900">
+                    {statsBulanIni.dinasLuar} Hari
+                  </span>
                 </div>
               </div>
             </div>
