@@ -73,6 +73,8 @@ export default function PresensiGuruMandiriPage() {
   const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
   const [isSubmittingCheckOut, setIsSubmittingCheckOut] = useState(false);
   const [isSubmittingDinas, setIsSubmittingDinas] = useState(false);
+  const [isLoadingPresensi, setIsLoadingPresensi] = useState(true); // true sampai data API tiba
+
 
   // GPS State
   const [gpsLoading, setGpsLoading] = useState(true);
@@ -178,7 +180,8 @@ export default function PresensiGuruMandiriPage() {
   useEffect(() => {
     mintaLokasiGPS();
     // ON-DEMAND FETCH: Hanya panggil 1 API presensi hari ini untuk halaman ini saja!
-    refreshPresensiGuruToday();
+    setIsLoadingPresensi(true);
+    refreshPresensiGuruToday().finally(() => setIsLoadingPresensi(false));
   }, []);
 
   useEffect(() => {
@@ -400,10 +403,15 @@ export default function PresensiGuruMandiriPage() {
               <Button
                 type="button"
                 onClick={handleCheckIn}
-                disabled={isSubmittingCheckIn || Boolean(myRecord?.jamMasuk && myRecord.jamMasuk !== "-")}
+                disabled={isLoadingPresensi || isSubmittingCheckIn || Boolean(myRecord?.jamMasuk && myRecord.jamMasuk !== "-")}
                 className="h-14 bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/40 text-white font-bold text-sm rounded-xl gap-2 shadow-sm transition-all cursor-pointer"
               >
-                {isSubmittingCheckIn ? (
+                {isLoadingPresensi ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-white/60" />
+                    Memuat data presensi...
+                  </>
+                ) : isSubmittingCheckIn ? (
                   <>
                     <Loader2 size={18} className="animate-spin text-white" />
                     Menyimpan Presensi ke Database...
@@ -424,7 +432,7 @@ export default function PresensiGuruMandiriPage() {
               <Button
                 type="button"
                 onClick={handleCheckOut}
-                disabled={isSubmittingCheckOut || !myRecord?.jamMasuk || myRecord.jamMasuk === "-" || Boolean(myRecord?.jamPulang)}
+                disabled={isLoadingPresensi || isSubmittingCheckOut || !myRecord?.jamMasuk || myRecord.jamMasuk === "-" || Boolean(myRecord?.jamPulang)}
                 variant="outline"
                 className="h-14 border-white/20 bg-white/5 hover:bg-white/15 text-white disabled:bg-white/5 disabled:text-white/30 font-bold text-sm rounded-xl gap-2 backdrop-blur-xs transition-all cursor-pointer"
               >
@@ -578,7 +586,19 @@ export default function PresensiGuruMandiriPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {presensiGuruList.length === 0 ? (
+                {isLoadingPresensi ? (
+                  // Skeleton rows saat data sedang dimuat dari API
+                  [1, 2, 3].map((n) => (
+                    <tr key={n} className="animate-pulse">
+                      <td className="py-3 px-5"><div className="h-3.5 bg-slate-200 rounded w-28" /></td>
+                      <td className="py-3 px-4"><div className="h-3.5 bg-slate-200 rounded w-16" /></td>
+                      <td className="py-3 px-4"><div className="h-3.5 bg-slate-200 rounded w-16" /></td>
+                      <td className="py-3 px-4"><div className="h-5 bg-slate-200 rounded-full w-20" /></td>
+                      <td className="py-3 px-4"><div className="h-3.5 bg-slate-200 rounded w-24" /></td>
+                      <td className="py-3 px-5"><div className="h-3.5 bg-slate-200 rounded w-32" /></td>
+                    </tr>
+                  ))
+                ) : presensiGuruList.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-6 text-center text-slate-500 italic">
                       Belum ada data riwayat presensi yang tercatat. Silakan lakukan Check-In.
