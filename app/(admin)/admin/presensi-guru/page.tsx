@@ -57,16 +57,43 @@ export default function AdminPresensiGuruPage() {
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
+  // Profil sekolah untuk kop surat cetak
+  const [profilSekolah, setProfilSekolah] = useState<{
+    nama: string;
+    alamat: string;
+    kota: string;
+    telepon: string;
+    email: string;
+    kepsek: string;
+    nipKepsek: string;
+    jenjang: string;
+  } | null>(null);
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [rekapRes, guruRes] = await Promise.allSettled([
+      const [rekapRes, guruRes, profilRes] = await Promise.allSettled([
         api.getPresensiGuruRekap(selectedTanggal),
         api.getGuruList(),
+        api.getProfilSekolah(),
       ]);
 
       if (guruRes.status === "fulfilled" && guruRes.value?.data) {
         setTotalPTK(guruRes.value.data.length);
+      }
+
+      if (profilRes.status === "fulfilled" && profilRes.value?.data) {
+        const p = profilRes.value.data;
+        setProfilSekolah({
+          nama: p.nama || "SMA Negeri Contoh",
+          alamat: p.alamat || "Jl. Pendidikan No. 45",
+          kota: p.kota || "",
+          telepon: p.telepon || "-",
+          email: p.email || "-",
+          kepsek: p.kepsek || "Kepala Sekolah",
+          nipKepsek: p.nipKepsek || "-",
+          jenjang: p.jenjang || "SMA",
+        });
       }
 
       if (rekapRes.status === "fulfilled" && rekapRes.value?.data) {
@@ -119,7 +146,10 @@ export default function AdminPresensiGuruPage() {
   const terlambatCount = presensiGuruList.filter((p) => p.status === "TERLAMBAT").length;
   const dinasCount = presensiGuruList.filter((p) => p.status === "IZIN_DINAS").length;
   const sakitCutiCount = presensiGuruList.filter((p) => p.status === "SAKIT" || p.status === "CUTI").length;
-  const hadirPersen = totalTercatat > 0 ? Math.round((tepatWaktuCount / totalTercatat) * 100) : 0;
+  // Fix #1: pembagi harus totalPTK (semua guru), bukan totalTercatat (hanya yang sudah absen)
+  const hadirPersen = totalPTK > 0 ? Math.round((tepatWaktuCount / totalPTK) * 100) : 0;
+  // Fix #2: hitung guru yang belum tercatat hadir sama sekali hari ini
+  const belumHadirCount = Math.max(0, totalPTK - totalTercatat);
 
   // Export to Excel function
   const handleExportExcel = () => {
@@ -256,8 +286,8 @@ export default function AdminPresensiGuruPage() {
 
       {/* KPI Metric Cards */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {[...Array(5)].map((_, i) => (
             <Card key={i} className="border-border bg-white p-5 animate-pulse">
               <div className="h-3.5 w-24 rounded bg-slate-200" />
               <div className="mt-4 h-8 w-16 rounded bg-slate-200" />
@@ -266,7 +296,7 @@ export default function AdminPresensiGuruPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {/* Card 1: Total PTK */}
           <Card className="border border-border bg-white shadow-xs">
             <div className="p-5 md:p-6">
@@ -300,7 +330,7 @@ export default function AdminPresensiGuruPage() {
                   <span className="text-sm font-normal text-emerald-700 ml-1">guru</span>
                 </p>
                 <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-semibold">
-                  {hadirPersen}% Disiplin
+                  {hadirPersen}% dari PTK
                 </Badge>
               </div>
               <p className="mt-2 text-[11px] text-emerald-700">
@@ -350,8 +380,30 @@ export default function AdminPresensiGuruPage() {
               </p>
             </div>
           </Card>
+
+          {/* Card 5: Belum Hadir (Fix #2) */}
+          <Card className={`border shadow-xs ${belumHadirCount > 0 ? "border-rose-200 bg-rose-50/50" : "border-slate-200 bg-slate-50/50"}`}>
+            <div className="p-5 md:p-6">
+              <p className={`text-xs font-semibold uppercase tracking-wider ${belumHadirCount > 0 ? "text-rose-800" : "text-slate-500"}`}>
+                Belum Hadir
+              </p>
+              <div className="mt-2 flex items-baseline justify-between">
+                <p className={`font-mono text-3xl font-bold ${belumHadirCount > 0 ? "text-rose-900" : "text-slate-400"}`}>
+                  {belumHadirCount}
+                  <span className="text-sm font-normal ml-1" style={{ color: "inherit", opacity: 0.7 }}>orang</span>
+                </p>
+                <Badge className={belumHadirCount > 0 ? "bg-rose-100 text-rose-800 border-rose-300 text-[11px] font-semibold" : "bg-slate-100 text-slate-500 border-slate-200 text-[11px]"}>
+                  {belumHadirCount > 0 ? "Perlu Dicek" : "Semua Hadir"}
+                </Badge>
+              </div>
+              <p className={`mt-2 text-[11px] ${belumHadirCount > 0 ? "text-rose-700" : "text-slate-400"}`}>
+                Belum ada catatan presensi hari ini
+              </p>
+            </div>
+          </Card>
         </div>
       )}
+
 
       {/* Filter and View Controls */}
       <Card className="border border-border bg-white shadow-xs">
@@ -620,20 +672,20 @@ export default function AdminPresensiGuruPage() {
               </div>
             </div>
 
-            {/* KOP SURAT RESMI */}
+            {/* KOP SURAT RESMI — data dari profil sekolah database */}
             <div className="border border-slate-300 p-8 rounded-lg bg-white text-slate-900 space-y-6">
               <div className="text-center border-b-2 border-double border-slate-900 pb-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  PEMERINTAH DAERAH PROVINSI JAWA BARAT
+                  PEMERINTAH DAERAH
                 </h4>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  DINAS PENDIDIKAN CABANG DINAS WILAYAH I
+                  DINAS PENDIDIKAN
                 </h4>
                 <h2 className="text-lg font-black tracking-wide text-slate-950 uppercase mt-1">
-                  SMA NEGERI CONTOH
+                  {profilSekolah?.jenjang || "SMA"} {profilSekolah?.nama || "SMA NEGERI CONTOH"}
                 </h2>
                 <p className="text-[11px] text-slate-600 mt-0.5">
-                  Jl. Pendidikan No. 45 Telp. (0251) 8321000 Fax. 8321001 Email: info@sekolah.sch.id
+                  {profilSekolah?.alamat || "Jl. Pendidikan No. 45"}{profilSekolah?.kota ? `, ${profilSekolah.kota}` : ""} · Telp. {profilSekolah?.telepon || "-"} · Email: {profilSekolah?.email || "-"}
                 </p>
               </div>
 
@@ -647,7 +699,7 @@ export default function AdminPresensiGuruPage() {
               </div>
 
               {/* Ringkasan Angka Rekap */}
-              <div className="grid grid-cols-4 gap-2 text-center text-xs bg-slate-50 p-3 rounded border border-slate-200">
+              <div className="grid grid-cols-5 gap-2 text-center text-xs bg-slate-50 p-3 rounded border border-slate-200">
                 <div>
                   <span className="text-slate-500 block">Total PTK:</span>
                   <span className="font-bold text-slate-900">{totalPTK} Orang</span>
@@ -663,6 +715,10 @@ export default function AdminPresensiGuruPage() {
                 <div>
                   <span className="text-slate-500 block">Izin Dinas / Cuti:</span>
                   <span className="font-bold text-sky-700">{dinasCount + sakitCutiCount} Orang</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Belum Hadir:</span>
+                  <span className="font-bold text-rose-700">{belumHadirCount} Orang</span>
                 </div>
               </div>
 
@@ -712,7 +768,7 @@ export default function AdminPresensiGuruPage() {
                 </table>
               </div>
 
-              {/* Tanda Tangan Resmi */}
+              {/* Tanda Tangan Resmi — nama & NIP dari database profil sekolah */}
               <div className="grid grid-cols-2 pt-8 text-xs text-center">
                 <div>
                   <p>Petugas Piket Harian Guru,</p>
@@ -728,8 +784,12 @@ export default function AdminPresensiGuruPage() {
                   <div className="h-14 flex items-center justify-center">
                     <span className="text-[10px] text-slate-400 italic">( Tanda Tangan &amp; Stempel Resmi )</span>
                   </div>
-                  <p className="font-bold underline text-slate-950">Pimpinan Lembaga</p>
-                  <p className="text-[10px] text-slate-500 font-mono">NIP. -</p>
+                  <p className="font-bold underline text-slate-950">
+                    {profilSekolah?.kepsek || "Pimpinan Lembaga"}
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-mono">
+                    NIP. {profilSekolah?.nipKepsek || "-"}
+                  </p>
                 </div>
               </div>
             </div>
