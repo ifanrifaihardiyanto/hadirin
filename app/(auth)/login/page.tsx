@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -45,14 +45,33 @@ const akunDemoList = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginAs } = useStore();
+  const { loginAs, currentUser } = useStore();
 
-  const [identifier, setIdentifier] = useState("sari.wulandari@sman3contoh.sch.id");
-  const [password, setPassword] = useState("hadirin123");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDemoTools, setShowDemoTools] = useState(true);
+
+  // Jika sudah ada sesi aktif di browser, langsung arahkan ke dashboard
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const sessionUserStr = localStorage.getItem("hadirin_session_user");
+      if (token || sessionUserStr) {
+        if (sessionUserStr) {
+          const u = JSON.parse(sessionUserStr);
+          const { path } = detectRoleAndPath(u.email || "");
+          router.replace(path);
+        } else {
+          router.replace("/");
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [router]);
 
   // Otomatis mendeteksi role dan tujuan rute berdasarkan email / NIP / NISN (Standar SaaS)
   function detectRoleAndPath(input: string): { role: UserRole; path: string } {

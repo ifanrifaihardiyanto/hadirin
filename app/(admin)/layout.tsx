@@ -1,5 +1,6 @@
 import AdminNavShell from "@/components/AdminNavShell";
 import DashboardHeader from "@/components/DashboardHeader";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function AdminLayout({
   children,
@@ -7,16 +8,16 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    
-    <div className="flex min-h-screen w-full bg-slate-50/60">
-      <AdminNavShell />
-      <div className="flex flex-1 flex-col min-w-0">
-        <DashboardHeader role="admin" />
-        <main className="flex-1 w-full p-6 md:p-8 pb-24 md:pb-12">
-          {children}
-        </main>
+    <AuthGuard allowedRoles={["admin_sekolah", "admin", "tu", "kepsek", "super_admin"]}>
+      <div className="flex min-h-screen w-full bg-slate-50/60">
+        <AdminNavShell />
+        <div className="flex flex-1 flex-col min-w-0">
+          <DashboardHeader role="admin" />
+          <main className="flex-1 w-full p-6 md:p-8 pb-24 md:pb-12">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
-    
+    </AuthGuard>
   );
 }

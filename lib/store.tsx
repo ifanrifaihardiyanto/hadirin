@@ -3304,20 +3304,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem("hadirin_session_user", JSON.stringify(user));
+            if (!localStorage.getItem("auth_token")) {
+              localStorage.setItem("auth_token", "demo_token_" + role);
+            }
+            document.cookie = `auth_token=${localStorage.getItem("auth_token") || "demo_token"}; path=/; max-age=604800`;
           } catch {
             // ignore localStorage error
           }
         }
       },
       logout: () => {
-        setCurrentUser(USER_GURU_DEFAULT);
         if (typeof window !== "undefined") {
           try {
             localStorage.removeItem("hadirin_session_user");
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("auth_user");
+            document.cookie = "auth_token=; path=/; max-age=0";
           } catch {
             // ignore
           }
         }
+        setCurrentUser(USER_GURU_DEFAULT);
       },
       isMobileMenuOpen,
       setMobileMenuOpen,

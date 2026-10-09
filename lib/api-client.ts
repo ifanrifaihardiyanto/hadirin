@@ -8,12 +8,14 @@ export function getToken(): string | null {
 export function setToken(token: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem("auth_token", token);
+  document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax`;
 }
 
 export function clearToken() {
   if (typeof window === "undefined") return;
   localStorage.removeItem("auth_token");
   localStorage.removeItem("auth_user");
+  document.cookie = "auth_token=; path=/; max-age=0";
 }
 
 async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
