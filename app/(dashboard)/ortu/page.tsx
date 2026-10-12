@@ -32,17 +32,69 @@ export default function PortalOrangTuaPage() {
   const [pengumumanOrtu, setPengumumanOrtu] = useState<any[]>([]);
   const [agendaList, setAgendaList] = useState<any[]>([]);
   const [catatanPrestasi, setCatatanPrestasi] = useState<any[]>([]);
+  const [dataAnak, setDataAnak] = useState<any>(null);
+  const [rekapAbsensiAnak, setRekapAbsensiAnak] = useState<{
+    hadir: number;
+    sakit: number;
+    izin: number;
+    alpha: number;
+    total_sesi: number;
+    persentase_hadir: number;
+  }>({
+    hadir: 0,
+    sakit: 0,
+    izin: 0,
+    alpha: 0,
+    total_sesi: 0,
+    persentase_hadir: 100,
+  });
 
   const loadData = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
 
     try {
-      const [pengumumanRes, agendaRes, bkRes] = await Promise.allSettled([
+      const [pengumumanRes, agendaRes, bkRes, siswaRes, rekapRes] = await Promise.allSettled([
         api.getPengumumanList(),
         api.getAgendaAkademikList(),
         api.getKasusBKList(),
+        api.getSiswaList(),
+        api.getRekapAbsensi("all"),
       ]);
+
+      let selectedAnak: any = null;
+      if (siswaRes.status === "fulfilled" && siswaRes.value?.data) {
+        const rawSiswa = Array.isArray(siswaRes.value.data) ? siswaRes.value.data : [];
+        // Cocokkan anak berdasarkan nama akun orang tua, nama siswa, atau default ke anak pertama
+        selectedAnak =
+          rawSiswa.find(
+            (s: any) =>
+              s.nama_wali?.toLowerCase().includes(currentUser?.nama?.toLowerCase() || "") ||
+              s.telepon_wali === currentUser?.email ||
+              s.nama?.toLowerCase().includes(currentUser?.nama?.toLowerCase() || "")
+          ) || rawSiswa[0] || null;
+        setDataAnak(selectedAnak);
+      }
+
+      if (rekapRes.status === "fulfilled" && rekapRes.value?.data && selectedAnak) {
+        const rawRekap = Array.isArray(rekapRes.value.data) ? rekapRes.value.data : [];
+        const found = rawRekap.find(
+          (r: any) =>
+            Number(r.siswa_id) === Number(selectedAnak.id) ||
+            r.nama?.toLowerCase() === selectedAnak.nama?.toLowerCase() ||
+            r.nis === selectedAnak.nis
+        );
+        if (found) {
+          setRekapAbsensiAnak({
+            hadir: Number(found.hadir || 0),
+            sakit: Number(found.sakit || 0),
+            izin: Number(found.izin || 0),
+            alpha: Number(found.alpha || 0),
+            total_sesi: Number(found.total_sesi || 0),
+            persentase_hadir: Number(found.persentase_hadir ?? (found.total_sesi > 0 ? Math.round((found.hadir / found.total_sesi) * 100) : 100)),
+          });
+        }
+      }
 
       if (pengumumanRes.status === "fulfilled" && pengumumanRes.value?.data) {
         const raw = Array.isArray(pengumumanRes.value.data) ? pengumumanRes.value.data : [];
@@ -70,7 +122,7 @@ export default function PortalOrangTuaPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     loadData();
@@ -153,22 +205,27 @@ export default function PortalOrangTuaPage() {
           <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="h-14 w-14 rounded-2xl bg-navy-900 text-white flex items-center justify-center font-display font-bold text-xl shadow-xs">
-                AF
+                {(dataAnak?.nama || currentUser?.nama || "AF")
+                  .split(" ")
+                  .map((w: string) => w[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-bold text-navy-950">
-                    {currentUser?.nama || "Ahmad Fadillah"}
+                    {dataAnak?.nama || currentUser?.nama || "Ahmad Fadillah"}
                   </h3>
                   <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold">
-                    Siswa Aktif
+                    {dataAnak?.status === "AKTIF" || !dataAnak ? "Siswa Aktif" : dataAnak.status}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  NIS: 24001 · Kelas X IPA 1 · SMA Negeri 3 Unggulan
+                  NIS: {dataAnak?.nis || "24001"} · Kelas {dataAnak?.kelas?.nama || dataAnak?.kelas || "X IPA 1"} · SMA Negeri 3 Unggulan
                 </p>
                 <p className="text-xs text-slate-600 mt-1 font-medium">
-                  Wali Kelas: <strong>Sari Wulandari, S.Pd</strong>
+                  Wali Kelas: <strong>{dataAnak?.kelas?.wali_kelas || "Sari Wulandari, S.Pd"}</strong>
                 </p>
               </div>
             </div>
@@ -214,7 +271,7 @@ export default function PortalOrangTuaPage() {
         </div>
       </Card>
 
-      {/* Rekapitulasi Presensi Semester Ini */}
+      {/* Rekapitulasi Presensi Semester Ini (Dinamis dari Database) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
@@ -229,32 +286,36 @@ export default function PortalOrangTuaPage() {
             <Card className="border border-border bg-white shadow-xs">
               <div className="p-4 md:p-5">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Total Hadir</span>
-                <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-700 mt-1">38 Hari</p>
-                <p className="text-[11px] text-emerald-800 mt-1 font-semibold">95.2% Disiplin</p>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-700 mt-1">{rekapAbsensiAnak.hadir} Sesi</p>
+                <p className="text-[11px] text-emerald-800 mt-1 font-semibold">{rekapAbsensiAnak.persentase_hadir}% Disiplin</p>
               </div>
             </Card>
 
             <Card className="border border-border bg-white shadow-xs">
               <div className="p-4 md:p-5">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Sakit (Dokter)</span>
-                <p className="font-mono text-2xl md:text-3xl font-bold text-amber-700 mt-1">1 Hari</p>
-                <p className="text-[11px] text-slate-500 mt-1">Surat Dokter Diterima</p>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-amber-700 mt-1">{rekapAbsensiAnak.sakit} Sesi</p>
+                <p className="text-[11px] text-slate-500 mt-1">{rekapAbsensiAnak.sakit > 0 ? "Surat Dokter Diterima" : "Kondisi Sehat"}</p>
               </div>
             </Card>
 
             <Card className="border border-border bg-white shadow-xs">
               <div className="p-4 md:p-5">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Izin Resmi</span>
-                <p className="font-mono text-2xl md:text-3xl font-bold text-sky-700 mt-1">1 Hari</p>
-                <p className="text-[11px] text-slate-500 mt-1">Dispensasi Kegiatan</p>
+                <p className="font-mono text-2xl md:text-3xl font-bold text-sky-700 mt-1">{rekapAbsensiAnak.izin} Sesi</p>
+                <p className="text-[11px] text-slate-500 mt-1">{rekapAbsensiAnak.izin > 0 ? "Dispensasi Kegiatan" : "Tidak Ada Izin"}</p>
               </div>
             </Card>
 
             <Card className="border border-border bg-white shadow-xs">
               <div className="p-4 md:p-5">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Alpha (Tanpa Ket.)</span>
-                <p className="font-mono text-2xl md:text-3xl font-bold text-emerald-800 mt-1">0 Hari</p>
-                <p className="text-[11px] text-emerald-700 mt-1 font-semibold">Bebas Pelanggaran</p>
+                <p className={`font-mono text-2xl md:text-3xl font-bold mt-1 ${rekapAbsensiAnak.alpha > 0 ? "text-rose-700" : "text-emerald-800"}`}>
+                  {rekapAbsensiAnak.alpha} Sesi
+                </p>
+                <p className={`text-[11px] mt-1 font-semibold ${rekapAbsensiAnak.alpha > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                  {rekapAbsensiAnak.alpha > 0 ? "Perlu Pembinaan" : "Bebas Pelanggaran"}
+                </p>
               </div>
             </Card>
           </>

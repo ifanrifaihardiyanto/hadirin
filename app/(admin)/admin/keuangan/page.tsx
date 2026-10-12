@@ -99,23 +99,62 @@ export default function AdminKeuanganPage() {
     else setIsLoading(true);
 
     try {
-      const res = await api.getGuruList();
-      const raw = (res as any)?.data || (res as any) || [];
+      const [resGuru, resJadwal, resPresensi] = await Promise.allSettled([
+        api.getGuruList(),
+        api.getJadwalList(),
+        api.getPresensiGuruRekap(),
+      ]);
+
+      const raw =
+        resGuru.status === "fulfilled" && (resGuru.value as any)?.data
+          ? (resGuru.value as any).data
+          : [];
+      const jadwalData =
+        resJadwal.status === "fulfilled" && (resJadwal.value as any)?.data
+          ? (resJadwal.value as any).data
+          : [];
+      const presensiData =
+        resPresensi.status === "fulfilled" && (resPresensi.value as any)?.data
+          ? (resPresensi.value as any).data
+          : [];
+
       const normalized: GuruPayrollItem[] = Array.isArray(raw)
         ? raw.map((g: any, index: number) => {
             const isPNS = Boolean(g.nip && String(g.nip).length > 10);
+
+            // Hitung JP riil dari jadwal mengajar guru
+            const guruJadwal = Array.isArray(jadwalData)
+              ? jadwalData.filter((j: any) => String(j.guru_id) === String(g.id))
+              : [];
+            const jpDariJadwal = guruJadwal.length > 0 ? guruJadwal.length * 2 : 0;
+            const totalJP = Number(g.total_jp || jpDariJadwal || 18);
+
+            // Hitung kehadiran riil dari database presensi
+            const guruPresensi = Array.isArray(presensiData)
+              ? presensiData.filter((p: any) => String(p.guru_id) === String(g.id))
+              : [];
+            const hadirRiil = guruPresensi.filter(
+              (p: any) => p.status === "TEPAT_WAKTU" || p.status === "TERLAMBAT"
+            ).length;
+            const telatRiil = guruPresensi.filter(
+              (p: any) => p.status === "TERLAMBAT"
+            ).length;
+
+            const hariHadir = guruPresensi.length > 0 ? hadirRiil : Number(g.hari_hadir || 0);
+            const kaliTerlambat = guruPresensi.length > 0 ? telatRiil : Number(g.kali_terlambat || 0);
+
             return {
               id: String(g.id),
               nama: g.nama || "Guru Pendidik",
-              nip: g.nip || g.nuptk || `198${index}0101 201${index}01 1 00${index + 1}`,
+              nip: g.nip || g.nuptk || "-",
               jabatan: g.jabatan || g.mata_pelajaran || "Guru Mata Pelajaran",
               statusPegawai: g.status_pegawai || (isPNS ? "PNS / PPPK" : "GTT (Honorer)"),
               rekeningBank: g.no_rekening || `132-00-${String(g.id || index + 1).padStart(5, "0")}-9`,
               namaBank: g.nama_bank || "Bank BJB Cab. Sekolah",
-              totalJP: Number(g.total_jp || 20 + (index % 5) * 2),
-              hariHadir: Number(g.hari_hadir || 20 + (index % 3)),
-              kaliTerlambat: Number(g.kali_terlambat || (index % 4 === 0 ? 1 : 0)),
-              tugasTambahan: g.tugas_tambahan || (index % 2 === 0 ? `Wali Kelas X-${index + 1}` : "Pembina Ekskul"),
+              totalJP,
+              hariHadir,
+              kaliTerlambat,
+              tugasTambahan: g.tugas_tambahan || (index % 2 === 0 ? "Wali Kelas" : "Pembina Ekskul"),
               tunjanganTambahan: Number(g.tunjangan_tambahan || (index % 2 === 0 ? 350000 : 250000)),
               statusBayar: "SIAP_CAIR" as const,
             };

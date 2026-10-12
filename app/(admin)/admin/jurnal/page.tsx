@@ -124,6 +124,14 @@ export default function AdminJurnalSupervisiPage() {
   const tercapaiCount = filtered.filter((j) => j.ketercapaian === "TERCAPAI").length;
   const penguatanCount = filtered.filter((j) => j.ketercapaian === "PENGUATAN").length;
 
+  const guruAktifJurnalCount = new Set(jurnalList.map((j) => j.guruId)).size;
+  const kepatuhanPct =
+    guruList.length > 0
+      ? Math.round((guruAktifJurnalCount / guruList.length) * 100)
+      : totalSesi > 0
+      ? 100
+      : 0;
+
   return (
     <div className="w-full space-y-6">
       {/* Header */}
@@ -210,9 +218,13 @@ export default function AdminJurnalSupervisiPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="font-display text-3xl font-bold tracking-tight text-emerald-700">
-                  98.2%
+                  {kepatuhanPct}%
                 </div>
-                <p className="mt-1 text-xs text-slate-500">Guru rutin mengisi agenda KBM</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {guruList.length > 0
+                    ? `${guruAktifJurnalCount} dari ${guruList.length} guru aktif mengisi jurnal`
+                    : "Guru rutin mengisi agenda KBM"}
+                </p>
               </CardContent>
             </Card>
 

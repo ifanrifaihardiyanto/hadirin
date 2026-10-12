@@ -131,9 +131,15 @@ export default function AdminRaporPage() {
   }, [nilaiList]);
 
   const rataRataKeseluruhan = useMemo(() => {
-    if (nilaiList.length === 0) return 85;
+    if (nilaiList.length === 0) return 0;
     const total = nilaiList.reduce((acc, curr) => acc + (Number(curr.nilai_akhir) || 0), 0);
     return Math.round(total / nilaiList.length);
+  }, [nilaiList]);
+
+  const ketuntasanPct = useMemo(() => {
+    if (nilaiList.length === 0) return 0;
+    const tuntas = nilaiList.filter((n) => Number(n.nilai_akhir || 0) >= 75).length;
+    return Math.round((tuntas / nilaiList.length) * 100);
   }, [nilaiList]);
 
   return (
@@ -213,7 +219,7 @@ export default function AdminRaporPage() {
               </div>
               <div className="mt-2 text-2xl font-bold font-mono text-navy-950">{rataRataKeseluruhan}</div>
               <div className="mt-1 text-[11px] text-slate-500">
-                {rataRataKeseluruhan >= 85 ? "Predikat Sangat Baik (A)" : "Predikat Baik (B)"}
+                {rataRataKeseluruhan >= 85 ? "Predikat Sangat Baik (A)" : rataRataKeseluruhan >= 75 ? "Predikat Baik (B)" : "Perlu Peningkatan"}
               </div>
             </CardContent>
           </Card>
@@ -226,8 +232,16 @@ export default function AdminRaporPage() {
                   <CheckCircle2 size={16} />
                 </span>
               </div>
-              <div className="mt-2 text-2xl font-bold font-mono text-emerald-600">100%</div>
-              <div className="mt-1 text-[11px] text-slate-500">Seluruh siswa tercatat KKM</div>
+              <div className={`mt-2 text-2xl font-bold font-mono ${ketuntasanPct >= 75 ? "text-emerald-600" : "text-amber-600"}`}>
+                {ketuntasanPct}%
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                {ketuntasanPct >= 85
+                  ? "Mayoritas tuntas KKM (>= 75)"
+                  : ketuntasanPct > 0
+                  ? "Sebagian perlu remedial"
+                  : "Belum ada nilai terdata"}
+              </div>
             </CardContent>
           </Card>
 

@@ -92,6 +92,10 @@ export default function SiswaNilaiPage() {
     ? Math.round(nilaiList.reduce((acc, curr) => acc + curr.akhir, 0) / nilaiList.length)
     : 0;
 
+  const ketuntasanPct = nilaiList.length > 0
+    ? Math.round((nilaiList.filter((n) => n.akhir >= 75).length / nilaiList.length) * 100)
+    : 0;
+
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -167,8 +171,16 @@ export default function SiswaNilaiPage() {
                     <CheckCircle2 size={16} />
                   </span>
                 </div>
-                <div className="mt-2 text-2xl font-bold font-mono text-emerald-600">100%</div>
-                <div className="mt-1 text-[11px] text-slate-500">Seluruh mapel tuntas KKM</div>
+                <div className={`mt-2 text-2xl font-bold font-mono ${ketuntasanPct >= 75 ? "text-emerald-600" : "text-amber-600"}`}>
+                  {ketuntasanPct}%
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  {ketuntasanPct === 100
+                    ? "Seluruh mapel tuntas KKM"
+                    : ketuntasanPct >= 75
+                    ? "Mayoritas tuntas KKM"
+                    : "Perlu bimbingan remedial"}
+                </div>
               </CardContent>
             </Card>
 
